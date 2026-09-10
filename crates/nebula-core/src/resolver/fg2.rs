@@ -1,16 +1,27 @@
 //! ForgeGradle 2 adapter: Minecraft 1.7 - 1.12 (Forge <= 14.23.5.2847).
 //!
 //! The universal jar carries `version.json`; every library in it is fetched
-//! from the Forge maven (or Mojang's for entries without a `url`), and the
-//! `.pack.xz` ones are unpacked once to hash their real contents.
+//! from the Forge maven (or Mojang's for entries without a `url`).
+//!
+//! **Divergence from upstream:** `ForgeGradle2.resolver.ts` shipped the packed
+//! file itself, with the id `group:artifact:version[:classifier]@jar.pack.xz`
+//! and the *unpacked* jar's digests, because Helios unpacks a `.pack.xz`
+//! download before checking its MD5. The Hambugui runtime never unpacks
+//! anything: it verifies the SHA-256 and the length of the bytes it downloaded,
+//! so a module describing the jar while serving the packed file cannot be
+//! satisfied, and one describing the packed bytes would leave the launcher with
+//! a `.pack.xz` on the classpath. Nebula therefore ships **plain jars only**:
+//! `determine_extension` still probes for `.pack.xz` remotely, because that is
+//! what Forge's maven serves for these old libraries, but the packed file is an
+//! intermediate in `temp/` and the module always carries the `@jar` id, the
+//! jar's size, digests and url. `validate` rejects any `@jar.pack.xz` id.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
 use crate::error::{Error, Result, io};
-use crate::hash;
 use crate::java::Java;
 use crate::layout::Root;
 use crate::maven::MavenId;
@@ -19,7 +30,12 @@ use crate::spec::{Module, ModuleType};
 use crate::version::{self, MinecraftVersion};
 
 use super::forge;
-use super::{Resolver, artifact_for_file, join_maven, plain_module};
+use super::{
+    Resolver, artifact_for_file, artifact_from_digests, join_maven, plain_module, verified_digests,
+};
+
+/// The extension Forge's maven serves for a packed library.
+const PACKED: &str = "jar.pack.xz";
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct VersionManifestFg2 {
@@ -95,8 +111,12 @@ impl ForgeGradle2Adapter {
             artifact_for_file(&universal, self.root.lib_url(&universal_id))?,
         );
 
-        let mut sub_modules = Vec::with_capacity(manifest.libraries.len());
-        let mut post_process = Vec::new();
+        // Pass one, in manifest order: plain jars are finished here, packed ones
+        // are staged in `temp/` so PackXZExtract runs once for all of them.
+        let temp = self.root.temp_dir();
+        let mut prepared = Vec::with_capacity(manifest.libraries.len());
+        let mut staged = Vec::new();
+        let mut intermediates = Vec::new();
 
         for lib in &manifest.libraries {
             if lib.name.starts_with("net.minecraftforge:forge:") {
@@ -105,53 +125,78 @@ impl ForgeGradle2Adapter {
             }
             log::debug!("Processing {}..", lib.name);
 
-            let extension = self.determine_extension(lib)?;
-            let id = with_extension(&lib.name, &extension)?;
-            let local = self.root.lib_path(&id);
-            let packed = extension == "jar.pack.xz";
+            let id = with_extension(&lib.name, "jar")?;
+            let jar = self.root.lib_path(&id);
 
-            let mut download = !local.exists();
-            if download {
-                log::debug!("Not found locally, downloading..");
-            } else if !packed {
-                // Checksums for .pack.xz in the version.json are useless.
-                if let Some([checksum]) = lib.checksums.as_deref()
-                    && &hash::sha1_hex_of_file(&local)? != checksum
-                {
-                    log::debug!("Hashes do not match, redownloading..");
-                    download = true;
-                }
+            if self.determine_extension(lib)? != PACKED {
+                let digests = verified_digests(&jar, single_checksum(lib), || {
+                    let base = lib.url.as_deref().unwrap_or(remote::MOJANG_MAVEN);
+                    remote::download_to(&join_maven(base, &id.path()), &jar)
+                })?;
+                prepared.push(Prepared::Ready(plain_module(
+                    id.id(),
+                    format!("Minecraft Forge ({})", id.artifact),
+                    ModuleType::Library,
+                    artifact_from_digests(&digests, self.root.lib_url(&id)),
+                )));
+                continue;
             }
 
-            if download {
-                let base = lib.url.as_deref().unwrap_or(remote::MOJANG_MAVEN);
-                remote::download_to(&join_maven(base, &id.path()), &local)?;
-            } else {
+            if staged.is_empty() {
+                reset_dir(&temp)?;
+            }
+            let packed_id = with_extension(&lib.name, PACKED)?;
+            let packed = self.root.lib_path(&packed_id);
+            let target = temp.join(file_name(&packed)?);
+            if packed.exists() {
+                // Shipped by an older Nebula; it is only an intermediate now.
                 log::debug!("Using local copy.");
+                super::copy_file(&packed, &target)?;
+                intermediates.push(packed);
+            } else {
+                log::debug!("Not found locally, downloading..");
+                let base = lib.url.as_deref().unwrap_or(remote::MOJANG_MAVEN);
+                remote::download_to(&join_maven(base, &packed_id.path()), &target)?;
             }
-
-            sub_modules.push(plain_module(
-                id.id(),
-                format!("Minecraft Forge ({})", id.artifact),
-                ModuleType::Library,
-                artifact_for_file(&local, self.root.lib_url(&id))?,
-            ));
-
-            if packed {
-                post_process.push((id.id(), local));
-            }
+            staged.push(target);
+            // PackXZExtract drops the `.pack.xz` suffix in place.
+            prepared.push(Prepared::Packed {
+                unpacked: temp.join(file_name(&jar)?),
+                jar,
+                id,
+            });
         }
 
-        for (id, digests) in self.process_pack_xz_files(&post_process)? {
-            match sub_modules.iter_mut().find(|module| module.id == id) {
-                Some(module) => {
-                    // The launcher unpacks the artifact before checking it, so
-                    // the digests describe the jar and the size the download.
-                    module.artifact.md5 = Some(digests.md5);
-                    module.artifact.sha256 = Some(digests.sha256);
+        if !staged.is_empty() {
+            log::debug!("Spawning PackXZExtract.");
+            self.java.packxz_extract_unpack(&staged)?;
+            log::debug!("All files extracted, storing the unpacked jars..");
+        }
+
+        // Pass two, same order: the unpacked jars land in `repo/lib` and every
+        // module is built from the file the launcher will download.
+        let mut sub_modules = Vec::with_capacity(prepared.len());
+        for entry in prepared {
+            sub_modules.push(match entry {
+                Prepared::Ready(module) => module,
+                Prepared::Packed { id, jar, unpacked } => {
+                    super::copy_file(&unpacked, &jar)?;
+                    plain_module(
+                        id.id(),
+                        format!("Minecraft Forge ({})", id.artifact),
+                        ModuleType::Library,
+                        artifact_for_file(&jar, self.root.lib_url(&id))?,
+                    )
                 }
-                None => log::error!("Error during post processing, could not update {id}"),
-            }
+            });
+        }
+
+        if !staged.is_empty() {
+            log::debug!("Complete, removing temp directory..");
+            let _ = fs::remove_dir_all(&temp);
+        }
+        for packed in intermediates {
+            let _ = fs::remove_file(packed);
         }
 
         forge_module.sub_modules = Some(sub_modules);
@@ -161,12 +206,15 @@ impl ForgeGradle2Adapter {
     /// Port of `determineExtension`: a library without a `url` is a Mojang one
     /// and always a plain jar; otherwise prefer whatever already exists
     /// locally, then whatever the Forge maven answers a HEAD for.
+    ///
+    /// A second run finds the jar this resolver unpacked and never asks the
+    /// network again: the packed intermediate is not kept.
     fn determine_extension(&self, lib: &Fg2Library) -> Result<String> {
         if lib.url.is_none() {
             return Ok("jar".to_owned());
         }
         log::debug!("Determining extension..");
-        const POSSIBLE: [&str; 2] = ["jar.pack.xz", "jar"];
+        const POSSIBLE: [&str; 2] = [PACKED, "jar"];
 
         for extension in POSSIBLE {
             let id = with_extension(&lib.name, extension)?;
@@ -182,43 +230,32 @@ impl ForgeGradle2Adapter {
         }
         Ok("jar".to_owned())
     }
+}
 
-    /// `.pack.xz` libraries are unpacked in `temp/` so the module can carry the
-    /// digests of the jar the launcher ends up with.
-    fn process_pack_xz_files(
-        &self,
-        queue: &[(String, PathBuf)],
-    ) -> Result<Vec<(String, hash::Digests)>> {
-        if queue.is_empty() {
-            return Ok(Vec::new());
-        }
+/// One manifest library, waiting for its module.
+enum Prepared {
+    Ready(Module),
+    Packed {
+        id: MavenId,
+        /// Where the jar belongs once it is unpacked.
+        jar: PathBuf,
+        /// What PackXZExtract writes in `temp/`.
+        unpacked: PathBuf,
+    },
+}
 
-        let temp = self.root.temp_dir();
-        let _ = fs::remove_dir_all(&temp);
-        fs::create_dir_all(&temp).map_err(io(format!("creating {}", temp.display())))?;
-
-        let mut packed = Vec::with_capacity(queue.len());
-        for (_, local) in queue {
-            let staged = temp.join(file_name(local)?);
-            super::copy_file(local, &staged)?;
-            packed.push(staged);
-        }
-
-        log::debug!("Spawning PackXZExtract.");
-        self.java.packxz_extract_unpack(&packed)?;
-        log::debug!("All files extracted, calculating hashes..");
-
-        let mut digests = Vec::with_capacity(queue.len());
-        for (id, local) in queue {
-            let name = file_name(local)?;
-            let unpacked = temp.join(name.trim_end_matches(".pack.xz"));
-            digests.push((id.clone(), hash::digests_of_file(&unpacked)?));
-        }
-
-        log::debug!("Complete, removing temp directory..");
-        let _ = fs::remove_dir_all(&temp);
-        Ok(digests)
+/// Upstream only ever compared a single checksum, and the entries Forge serves
+/// packed carry two (the jar's and the packed file's), so they are skipped.
+fn single_checksum(lib: &Fg2Library) -> Option<&str> {
+    match lib.checksums.as_deref() {
+        Some([checksum]) => Some(checksum.as_str()),
+        _ => None,
     }
+}
+
+fn reset_dir(dir: &Path) -> Result<()> {
+    let _ = fs::remove_dir_all(dir);
+    fs::create_dir_all(dir).map_err(io(format!("creating {}", dir.display())))
 }
 
 impl Resolver for ForgeGradle2Adapter {
@@ -258,10 +295,15 @@ mod tests {
         assert!(!is_for_version(&mc("1.6.4"), "9.11.1.1345"));
     }
 
+    /// The packed id only ever names the maven path of the intermediate
+    /// download; every module this resolver emits carries the `@jar` one.
     #[test]
-    fn keeps_the_pack_xz_extension_in_the_module_id() {
-        let id =
-            with_extension("net.minecraftforge:forge:1.7.10:something", "jar.pack.xz").unwrap();
+    fn builds_ids_for_both_extensions() {
+        let id = with_extension("net.minecraftforge:forge:1.7.10:something", PACKED).unwrap();
+        assert_eq!(
+            id.path(),
+            "net/minecraftforge/forge/1.7.10/forge-1.7.10-something.jar.pack.xz"
+        );
         assert_eq!(
             id.id(),
             "net.minecraftforge:forge:1.7.10:something@jar.pack.xz"
@@ -271,6 +313,23 @@ mod tests {
                 .unwrap()
                 .id(),
             "org.ow2.asm:asm-all:5.0.3@jar"
+        );
+    }
+
+    /// Forge serves the packed libraries with two checksums (the jar's and the
+    /// packed file's), and neither describes bytes upstream compared.
+    #[test]
+    fn only_compares_a_single_declared_checksum() {
+        let lib = |checksums: Option<Vec<String>>| Fg2Library {
+            name: "org.ow2.asm:asm-all:5.0.3".to_owned(),
+            url: None,
+            checksums,
+        };
+        assert_eq!(single_checksum(&lib(None)), None);
+        assert_eq!(single_checksum(&lib(Some(vec!["a".into()]))), Some("a"));
+        assert_eq!(
+            single_checksum(&lib(Some(vec!["a".into(), "b".into()]))),
+            None
         );
     }
 

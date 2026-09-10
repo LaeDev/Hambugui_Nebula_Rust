@@ -1,0 +1,51 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// Surface, one hairline, r-lg, 20 padding — no shadow (DESIGN-v2 §2: only
+/// dialogs and toasts float).
+export component Card inherits Rectangle {
+    vertical-stretch: 0;
+    background: Theme.surface;
+    border-radius: Theme.r-lg;
+    border-width: 1px;
+    border-color: Theme.border;
+
+    body := VerticalLayout {
+        padding: Theme.card-pad;
+        spacing: Theme.sp-4;
+        @children
+    }
+}
+
+/// The optional first row of a card: a section title, and whatever actions the
+/// caller hangs on the right.
+export component CardHeader inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+
+    spacing: Theme.sp-3;
+    vertical-stretch: 0;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        horizontal-stretch: 1;
+
+        Text {
+            text: root.title;
+            color: Theme.text;
+            font-size: Type.section;
+            font-weight: Type.semibold;
+            overflow: elide;
+        }
+
+        if root.subtitle != "" : Text {
+            text: root.subtitle;
+            color: Theme.text-2;
+            font-size: Type.secondary;
+            wrap: word-wrap;
+        }
+    }
+
+    @children
+}

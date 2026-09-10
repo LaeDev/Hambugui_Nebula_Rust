@@ -1,0 +1,119 @@
+import { Theme, Tone } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// A soft-filled note in one tone: glyph, title, body, and whatever action the
+/// caller hangs on the right (DESIGN-v2 §3).
+export component Callout inherits Rectangle {
+    in property <Tone> tone: Tone.accent;
+    in property <string> title;
+    in property <string> body;
+
+    vertical-stretch: 0;
+    background: Theme.tone-soft(root.tone);
+    border-radius: Theme.r-lg;
+
+    accessible-role: text;
+    accessible-label: root.title + ". " + root.body;
+
+    layout := HorizontalLayout {
+        padding: Theme.sp-3;
+        spacing: Theme.sp-3;
+
+        // A row of its own to centre in. The `y: 1px` that used to sit here
+        // did nothing: a layout discards an explicit `y` on an axis it pads,
+        // so the glyph stayed pinned to the top of the text block.
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+
+            Image {
+                source: Theme.tone-icon(root.tone);
+                width: 20px;
+                height: 20px;
+                image-fit: contain;
+                colorize: Theme.tone-fg(root.tone);
+                accessible-role: none;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 4px;
+            horizontal-stretch: 1;
+            alignment: center;
+
+            if root.title != "" : Text {
+                text: root.title;
+                color: Theme.tone-fg(root.tone);
+                font-size: Type.body;
+                font-weight: Type.medium;
+                wrap: word-wrap;
+            }
+
+            if root.body != "" : Text {
+                text: root.body;
+                color: Theme.text;
+                font-size: Type.secondary;
+                wrap: word-wrap;
+            }
+        }
+
+        @children
+    }
+}
+
+/// The one place the page speaks (DESIGN-v2 §1): full width, a 24 px glyph,
+/// the verdict, and the file it is about.
+export component VerdictBanner inherits Rectangle {
+    in property <Tone> tone: Tone.success;
+    in property <string> title;
+    in property <string> detail;
+
+    vertical-stretch: 0;
+    background: Theme.tone-soft(root.tone);
+    border-radius: Theme.r-lg;
+    min-height: 72px;
+
+    accessible-role: text;
+    accessible-label: root.title + ". " + root.detail;
+
+    banner := HorizontalLayout {
+        padding: Theme.sp-4;
+        spacing: Theme.sp-3;
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+
+            Image {
+                source: Theme.tone-icon(root.tone);
+                width: 24px;
+                height: 24px;
+                image-fit: contain;
+                colorize: Theme.tone-fg(root.tone);
+                accessible-role: none;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 4px;
+            alignment: center;
+            horizontal-stretch: 1;
+
+            Text {
+                text: root.title;
+                color: Theme.tone-fg(root.tone);
+                font-size: Type.section;
+                font-weight: Type.semibold;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.detail;
+                color: Theme.text;
+                font-family: Theme.mono;
+                font-size: Type.mono;
+                wrap: word-wrap;
+            }
+        }
+    }
+}

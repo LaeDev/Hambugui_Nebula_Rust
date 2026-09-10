@@ -1,0 +1,99 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+import { IconButton } from "icon-button.slint";
+
+/// Scrim plus a centred 560 px card (DESIGN-v2 §3). The caller passes the body
+/// and the footer row as children; the title bar and the close button are here.
+///
+/// Deviation from §3: no 200 ms fade/scale. Slint 1.17's software renderer
+/// animates `opacity` from zero on the frame an element is created, so the
+/// first frame of a dialog that fades in is a blank screen — which is exactly
+/// what a `--screenshot` captures. An instant dialog is honest in both.
+export component Dialog inherits Rectangle {
+    in property <string> title;
+    /// Stable handle for automation, kebab-case. Becomes the UIA AutomationId;
+    /// the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    /// Esc and the scrim are refused while a job is running.
+    in property <bool> closable: true;
+    callback closed();
+
+    // A bare Rectangle fills its parent, so placing this last under the
+    // Window puts it over everything drawn before it.
+    scrim := Rectangle {
+        background: Theme.scrim;
+
+        TouchArea {
+            clicked => {
+                if (root.closable) {
+                    root.closed();
+                }
+            }
+        }
+    }
+
+    // Centring layouts, not an explicit height: a `Rectangle` with no height
+    // fills its parent, and a layout's computed height is not readable as a
+    // property, so the card hugs its content only when a layout sizes it.
+    VerticalLayout {
+        alignment: center;
+
+    HorizontalLayout {
+        alignment: center;
+
+    card := Rectangle {
+        width: min(560px, root.width - 2 * Theme.sp-6);
+        max-height: root.height - 2 * Theme.sp-6;
+        background: Theme.surface;
+        border-radius: Theme.r-xl;
+        border-width: 1px;
+        border-color: Theme.border;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-color: Theme.shadow;
+
+        accessible-role: groupbox;
+        accessible-label: root.title;
+        accessible-id: root.a11y-id;
+
+        // Swallows clicks so the scrim below cannot see them.
+        TouchArea { }
+
+        body := VerticalLayout {
+            padding: Theme.sp-5;
+            spacing: Theme.sp-4;
+
+            HorizontalLayout {
+                spacing: Theme.sp-2;
+                vertical-stretch: 0;
+
+                Text {
+                    text: root.title;
+                    color: Theme.text;
+                    font-size: Type.section;
+                    font-weight: Type.semibold;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+
+                IconButton {
+                    icon: @image-url("../../assets/icons/x.svg");
+                    a11y-label: "닫기";
+                    a11y-id: root.a11y-id == "" ? "" : root.a11y-id + "-close";
+                    enabled: root.closable;
+                    icon-size: 18px;
+                    horizontal-stretch: 0;
+                    activated => {
+                        root.closed();
+                    }
+                }
+            }
+
+            @children
+        }
+    }
+
+    }
+    }
+}

@@ -14,6 +14,7 @@ use crate::error::{Error, Result, io};
 use crate::java::Java;
 use crate::layout::{Root, ServerDir};
 use crate::meta::{self, LoaderMeta, ServerMeta, ServerMetaOptions};
+use crate::paths;
 use crate::resolver::{self, ResolveOptions};
 use crate::scan::{self, ForgeFlavour, HashPolicy, ModLoader, Namespace, ScanContext};
 use crate::spec::Server;
@@ -21,7 +22,10 @@ use crate::version::{self, MinecraftVersion};
 
 /// Minecraft 1.20.3 dropped `--fml.modLists`, which is how Helios hands mods to
 /// Forge. Forge servers on newer Minecraft generate, but will not load mods.
-const FORGE_MOD_LIST_WARNING: &str = "\
+///
+/// Printed here at distro time and by the CLI at `generate server`; both boxes
+/// must look the same, so there is exactly one of them.
+pub const FORGE_MOD_LIST_WARNING: &str = "\
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃                     !!  WARNING !!                      ┃
 ┃                                                         ┃
@@ -95,7 +99,8 @@ impl CreateServerOptions {
         if matches!(chosen, Some((LoaderKind::NeoForge, _))) && !version::is_neoforge_supported(mc)
         {
             return Err(Error::Invalid(format!(
-                "NeoForge does not support Minecraft {mc}! NeoForge requires Minecraft 1.20.2 or newer."
+                "NeoForge는 Minecraft {mc}을(를) 지원하지 않습니다 — Minecraft 1.20.2 이상을 쓰거나 \
+                 로더를 Forge로 바꾸세요"
             )));
         }
         Ok(chosen)
@@ -122,10 +127,20 @@ pub fn create_server(
     mc: &MinecraftVersion,
     opts: &CreateServerOptions,
 ) -> Result<CreatedServer> {
+    // The id becomes a directory name under `<root>/servers` and, later, a path
+    // segment in every URL the server publishes.
+    if !paths::is_single_segment(id) {
+        return Err(Error::Invalid(format!(
+            "invalid server id {id}: ids must be a single path segment (no / \\ : or ..)"
+        )));
+    }
     let loader = opts.loader(mc)?;
     let dir = ServerDir::new(root.clone(), effective_id(id, mc));
     if dir.path.exists() {
-        return Err(Error::Invalid("Server already exists! Aborting.".into()));
+        return Err(Error::Invalid(format!(
+            "서버 폴더 {}이(가) 이미 있습니다 — 다른 서버 ID를 쓰거나 기존 폴더를 지우세요",
+            dir.dir_name
+        )));
     }
 
     std::fs::create_dir_all(&dir.path).map_err(io(format!("creating {}", dir.path.display())))?;
@@ -186,12 +201,24 @@ pub struct ServerSummary {
     pub meta: ServerMeta,
 }
 
-/// Every server directory under `<root>/servers`, in name order.
+/// Every server directory under `<root>/servers`, in name order, with the
+/// counts a listing shows.
 ///
 /// Counts are cheap: nothing is hashed and no jar is opened. Directories whose
 /// name does not end in `-<minecraft version>` are logged and skipped, as
 /// upstream did.
 pub fn list_servers(root: &Root) -> Result<Vec<ServerSummary>> {
+    server_dirs(root)?
+        .into_iter()
+        .map(|(dir_name, id, mc)| summarise(root, dir_name, id, mc))
+        .collect()
+}
+
+/// `(directory name, id, minecraft version)` for every usable server directory.
+///
+/// Split out of [`list_servers`] because a distribution build hashes every mod,
+/// file and library anyway; counting them first is pure duplicate work.
+fn server_dirs(root: &Root) -> Result<Vec<(String, String, MinecraftVersion)>> {
     let container = root.servers_dir();
     let entries = match std::fs::read_dir(&container) {
         Ok(entries) => entries,
@@ -209,7 +236,7 @@ pub fn list_servers(root: &Root) -> Result<Vec<ServerSummary>> {
     }
     names.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let mut summaries = Vec::new();
+    let mut usable = Vec::new();
     for (dir_name, path) in names {
         if !path.is_dir() {
             log::warn!("Path {dir_name} in server directory is not a directory!");
@@ -227,9 +254,9 @@ pub fn list_servers(root: &Root) -> Result<Vec<ServerSummary>> {
                 continue;
             }
         };
-        summaries.push(summarise(root, dir_name.clone(), id.to_owned(), mc)?);
+        usable.push((dir_name.clone(), id.to_owned(), mc));
     }
-    Ok(summaries)
+    Ok(usable)
 }
 
 fn summarise(
@@ -267,7 +294,11 @@ fn summarise(
 pub fn read_server_meta(dir: &ServerDir) -> Result<ServerMeta> {
     let path = dir.server_meta_file();
     let raw = std::fs::read_to_string(&path).map_err(io(format!("reading {}", path.display())))?;
-    serde_json::from_str(&raw).map_err(|error| {
+    // Notepad and PowerShell's `Set-Content -Encoding UTF8` both write a BOM,
+    // and `serde_json` refuses one — a file a person edited by hand would
+    // otherwise fail with `expected value at line 1 column 1`.
+    let raw = raw.strip_prefix('\u{feff}').unwrap_or(&raw);
+    serde_json::from_str(raw).map_err(|error| {
         Error::Invalid(format!(
             "{} is not a valid servermeta.json: {error}",
             path.display()
@@ -339,6 +370,25 @@ fn resolve_icon(dir: &ServerDir, meta: &ServerMeta) -> Option<String> {
     names.last().map(|name| dir.url(name))
 }
 
+/// Every server under `<root>/servers`, resolved into its launcher spec.
+///
+/// The directories are enumerated directly: [`list_servers`] would count mods,
+/// files and libraries first, and this walks all of them anyway.
+pub fn build_all_server_specs(
+    root: &Root,
+    java: Option<&Java>,
+    opts: &ResolveOptions,
+    policy: HashPolicy,
+) -> Result<Vec<Server>> {
+    let mut servers = Vec::new();
+    for (dir_name, _, mc) in server_dirs(root)? {
+        log::info!("Beginning processing of {dir_name}.");
+        let meta = read_server_meta(&ServerDir::new(root.clone(), &dir_name))?;
+        servers.push(build_spec(root, &dir_name, mc, &meta, java, opts, policy)?);
+    }
+    Ok(servers)
+}
+
 /// Assembles one server: loader roots and their mods first, then libraries,
 /// then loose files.
 pub fn build_server_spec(
@@ -348,12 +398,31 @@ pub fn build_server_spec(
     opts: &ResolveOptions,
     policy: HashPolicy,
 ) -> Result<Server> {
-    let dir = ServerDir::new(root.clone(), &summary.dir_name);
-    let meta = &summary.meta;
+    build_spec(
+        root,
+        &summary.dir_name,
+        summary.mc,
+        &summary.meta,
+        java,
+        opts,
+        policy,
+    )
+}
+
+fn build_spec(
+    root: &Root,
+    dir_name: &str,
+    mc: MinecraftVersion,
+    meta: &ServerMeta,
+    java: Option<&Java>,
+    opts: &ResolveOptions,
+    policy: HashPolicy,
+) -> Result<Server> {
+    let dir = ServerDir::new(root.clone(), dir_name);
     let untracked = meta.untracked_files.as_deref().unwrap_or_default();
     let ctx = ScanContext {
         server: &dir,
-        mc: summary.mc,
+        mc,
         java,
         untracked,
         policy,
@@ -362,25 +431,22 @@ pub fn build_server_spec(
     let mut modules = Vec::new();
 
     if let Some(forge) = &meta.forge {
-        if summary.mc >= MinecraftVersion::new(1, 20, Some(3)) {
+        if mc >= MinecraftVersion::new(1, 20, Some(3)) {
             for line in FORGE_MOD_LIST_WARNING.lines() {
                 log::error!(target: "ForgeSupport", "{line}");
             }
         }
         // `forge_resolver` logs the log4j advisory for vulnerable versions.
-        let java = require_java(java, LoaderKind::Forge, &summary.dir_name)?;
-        modules.push(
-            resolver::forge_resolver(root, &summary.mc, &forge.version, java, *opts)?.module()?,
-        );
-        let flavour = scan::forge_flavour_for(&summary.mc)?;
+        let java = require_java(java, LoaderKind::Forge, dir_name)?;
+        modules.push(resolver::forge_resolver(root, &mc, &forge.version, java, *opts)?.module()?);
+        let flavour = scan::forge_flavour_for(&mc)?;
         modules.extend(scan::scan_forge_mods(&ctx, ModLoader::Forge, flavour)?);
     }
 
     if let Some(neoforge) = &meta.neoforge {
-        let java = require_java(java, LoaderKind::NeoForge, &summary.dir_name)?;
+        let java = require_java(java, LoaderKind::NeoForge, dir_name)?;
         modules.push(
-            resolver::neoforge_resolver(root, &summary.mc, &neoforge.version, java, *opts)?
-                .module()?,
+            resolver::neoforge_resolver(root, &mc, &neoforge.version, java, *opts)?.module()?,
         );
         // Never `forge_flavour_for`: NeoForge also runs on year-based Minecraft.
         modules.extend(scan::scan_forge_mods(
@@ -391,7 +457,7 @@ pub fn build_server_spec(
     }
 
     if let Some(fabric) = &meta.fabric {
-        modules.push(resolver::fabric_resolver(root, &summary.mc, &fabric.version)?.module()?);
+        modules.push(resolver::fabric_resolver(root, &mc, &fabric.version)?.module()?);
         modules.extend(scan::scan_fabric_mods(&ctx)?);
     }
 
@@ -400,16 +466,16 @@ pub fn build_server_spec(
 
     let icon = resolve_icon(&dir, meta);
     if icon.is_none() {
-        log::warn!("No icon file found for server {}.", summary.dir_name);
+        log::warn!("No icon file found for server {dir_name}.");
     }
 
     // Upstream emits the raw text after the last `-`, not a reparsed version.
-    let minecraft_version = split_dir_name(&summary.dir_name)
+    let minecraft_version = split_dir_name(dir_name)
         .map(|(_, mc)| mc.to_owned())
-        .unwrap_or_else(|| summary.mc.to_string());
+        .unwrap_or_else(|| mc.to_string());
 
     Ok(Server {
-        id: summary.dir_name.clone(),
+        id: dir_name.to_owned(),
         name: meta.meta.name.clone(),
         description: meta.meta.description.clone(),
         icon,
@@ -427,7 +493,8 @@ pub fn build_server_spec(
 fn require_java<'a>(java: Option<&'a Java>, loader: LoaderKind, server: &str) -> Result<&'a Java> {
     java.ok_or_else(|| {
         Error::Config(format!(
-            "You MUST specify JAVA_EXECUTABLE in your .env to resolve {loader} for server {server}."
+            "JAVA_EXECUTABLE이 설정되지 않았습니다 — 서버 {server}의 {loader}를 처리하려면 \
+             설정 화면에서 Java 실행 파일 경로를 지정하세요"
         ))
     })
 }
@@ -489,6 +556,25 @@ mod tests {
     }
 
     #[test]
+    fn rejects_ids_that_are_not_a_single_path_segment() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = root(dir.path());
+        for id in ["../evil", "C:/tmp/x", "", "a:b", "a\\b", ".."] {
+            let error = create_server(&root, id, &mc("1.20.1"), &CreateServerOptions::default())
+                .unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                format!(
+                    "invalid server id {id}: ids must be a single path segment (no / \\ : or ..)"
+                )
+            );
+        }
+        // Nothing was created on the way to those errors.
+        assert!(!root.servers_dir().exists());
+        assert!(create_server(&root, "Ok", &mc("1.20.1"), &CreateServerOptions::default()).is_ok());
+    }
+
+    #[test]
     fn creates_the_loader_specific_layout() {
         let dir = tempfile::tempdir().unwrap();
         let root = root(dir.path());
@@ -523,7 +609,7 @@ mod tests {
             create_server(&root, "Neo", &mc("1.21.1"), &CreateServerOptions::default())
                 .unwrap_err()
                 .to_string(),
-            "Server already exists! Aborting."
+            "서버 폴더 Neo-1.21.1이(가) 이미 있습니다 — 다른 서버 ID를 쓰거나 기존 폴더를 지우세요"
         );
     }
 
@@ -597,5 +683,26 @@ mod tests {
             resolve_icon(&created.dir, &meta),
             Some("https://host.invalid/icon.png".to_owned())
         );
+    }
+
+    #[test]
+    fn reads_a_servermeta_that_an_editor_saved_with_a_bom() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = root(dir.path());
+        let created =
+            create_server(&root, "Bom", &mc("1.20.1"), &CreateServerOptions::default()).unwrap();
+
+        let path = created.dir.server_meta_file();
+        let body = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(&path, format!("\u{feff}{body}")).unwrap();
+
+        // Byte for byte a BOM is there, and the file still parses.
+        assert_eq!(std::fs::read(&path).unwrap()[..3], [0xEF, 0xBB, 0xBF]);
+        assert_eq!(
+            read_server_meta(&created.dir).unwrap().meta.name,
+            "Bom (Minecraft 1.20.1)"
+        );
+        // …and the listing that reads it still sees the server.
+        assert_eq!(list_servers(&root).unwrap().len(), 1);
     }
 }

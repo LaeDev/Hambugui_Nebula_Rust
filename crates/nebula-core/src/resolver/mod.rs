@@ -26,6 +26,10 @@ pub struct ResolveOptions {
     pub discard_output: bool,
     /// Ignore and remove an existing installer output directory.
     pub invalidate_cache: bool,
+    /// Let a failed headless install re-run the installer with its window open.
+    /// Only a caller knows whether anybody can see it, so it is passed in rather
+    /// than guessed from the environment.
+    pub gui_fallback: bool,
 }
 
 pub trait Resolver {
@@ -37,14 +41,44 @@ pub trait Resolver {
 /// carry a `path`; their module ids are maven coordinates and the launcher
 /// derives the on-disk location from them.
 pub fn artifact_for_file(path: &Path, url: String) -> Result<Artifact> {
-    let digests = hash::digests_of_file(path)?;
-    Ok(Artifact {
+    Ok(artifact_from_digests(&hash::digests_of_file(path)?, url))
+}
+
+/// [`artifact_for_file`] for a file that has already been hashed.
+pub(crate) fn artifact_from_digests(digests: &hash::Digests, url: String) -> Artifact {
+    Artifact {
         size: digests.size,
         url,
-        md5: Some(digests.md5),
-        sha256: Some(digests.sha256),
+        md5: Some(digests.md5.clone()),
+        sha256: Some(digests.sha256.clone()),
         path: None,
-    })
+    }
+}
+
+/// The digests of the copy at `path`, downloading it first when it is missing
+/// or when `expected_sha1` says the local bytes are not the ones the manifest
+/// describes. One hashing pass serves both the check and the module artifact.
+pub(crate) fn verified_digests(
+    path: &Path,
+    expected_sha1: Option<&str>,
+    download: impl FnOnce() -> Result<()>,
+) -> Result<hash::Digests> {
+    if path.exists() {
+        let digests = hash::digests_of_file(path)?;
+        match expected_sha1 {
+            Some(expected) if digests.sha1 != expected => {
+                log::debug!("Hashes do not match, redownloading..");
+            }
+            _ => {
+                log::debug!("Using local copy.");
+                return Ok(digests);
+            }
+        }
+    } else {
+        log::debug!("Not found locally, downloading..");
+    }
+    download()?;
+    hash::digests_of_file(path)
 }
 
 /// FG2 for 1.7-1.12 (Forge <= 14.23.5.2847), FG3 for 1.12 (> 2847) to 1.21.
@@ -54,7 +88,7 @@ pub fn forge_resolver(
     forge_version: &str,
     java: &Java,
     opts: ResolveOptions,
-) -> Result<Box<dyn Resolver>> {
+) -> Result<Box<dyn Resolver + Send>> {
     if let Some(warning) = forge::log4j_warning(mc, forge_version) {
         for line in warning.lines() {
             log::error!(target: "ForgeSecurity", "{line}");
@@ -88,7 +122,7 @@ pub fn fabric_resolver(
     root: &Root,
     mc: &MinecraftVersion,
     loader_version: &str,
-) -> Result<Box<dyn Resolver>> {
+) -> Result<Box<dyn Resolver + Send>> {
     if !fabric::is_for_version(loader_version) {
         return Err(Error::Invalid(format!(
             "Fabric resolver does not support Fabric {loader_version}!"
@@ -108,7 +142,7 @@ pub fn neoforge_resolver(
     version: &str,
     java: &Java,
     opts: ResolveOptions,
-) -> Result<Box<dyn Resolver>> {
+) -> Result<Box<dyn Resolver + Send>> {
     if !version::is_neoforge_supported(mc) {
         return Err(Error::Invalid(format!(
             "NeoForge resolver does not support Minecraft {mc}!"

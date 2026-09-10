@@ -2,12 +2,10 @@
 //! inference adapted from Claritas' `DataUtil`.
 
 use std::collections::BTreeMap;
-use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
 use serde::Deserialize;
-use zip::ZipArchive;
 
 use crate::error::{Result, io};
 use crate::spec::{Module, ModuleType};
@@ -127,6 +125,7 @@ pub fn scan_fabric_mods(ctx: &ScanContext) -> Result<Vec<Module>> {
     if candidates.is_empty() {
         return Ok(Vec::new());
     }
+    let container_real = crate::paths::real_path(&container)?;
     let matcher = UntrackedMatcher::new(STRUCT_ROOT, ctx.untracked)?;
 
     let mut modules = Vec::with_capacity(candidates.len());
@@ -137,7 +136,7 @@ pub fn scan_fabric_mods(ctx: &ScanContext) -> Result<Vec<Module>> {
         let rel = format!("{}/{}", namespace.dir_name(), candidate.file_name);
         let untracked = matcher.is_untracked(&rel);
         let artifact = build_artifact(
-            &container,
+            &container_real,
             &candidate.path,
             candidate.size,
             ctx.server.url(&format!("{STRUCT_ROOT}/{rel}")),
@@ -160,8 +159,7 @@ pub fn scan_fabric_mods(ctx: &ScanContext) -> Result<Vec<Module>> {
 }
 
 fn read_fabric_mod_json(file_name: &str, jar: &Path) -> Result<Option<FabricModJson>> {
-    let file = File::open(jar).map_err(io(format!("opening {}", jar.display())))?;
-    let mut zip = ZipArchive::new(file)?;
+    let mut zip = crate::import::open(jar)?;
     let raw = match zip.by_name("fabric.mod.json") {
         Ok(mut entry) => {
             let mut bytes = Vec::new();

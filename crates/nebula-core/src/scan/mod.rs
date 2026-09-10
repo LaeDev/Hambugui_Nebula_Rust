@@ -16,12 +16,10 @@ pub use fabricmod::{
     parse_fabric_mod_json, scan_fabric_mods,
 };
 pub use files::scan_files;
-pub use forgemod::{
-    ForgeFlavour, ForgeModMeta, McModInfo, ModLoader, ModsToml, ModsTomlEntry, OptifineChangelog,
-    build_forge_module_from_meta, forge_flavour_for, forge_meta_17, forge_meta_113,
-    implementation_version, optifine_from_changelog, optifine_meta, parse_mcmod_info,
-    parse_mods_toml, read_forge_mod_meta, scan_forge_mods,
-};
+// The metadata parsers behind these two are `pub(crate)` and tested inline in
+// `forgemod.rs`: they are one jar's `mcmod.info` / `mods.toml` details, not a
+// surface anything outside this crate should depend on.
+pub use forgemod::{ForgeFlavour, ModLoader, forge_flavour_for, scan_forge_mods};
 pub use library::scan_libraries;
 pub use toggle::{
     NAMESPACES, Namespace, discover_toggleable, finish_modules, init_toggleable, url_file_name,
@@ -207,8 +205,11 @@ impl UntrackedMatcher {
 
 /// Shared tail of upstream `parseModule` plus the hardening fork's containment
 /// check, which the fork applies to mods and libraries too.
+///
+/// `container_real` is the canonicalized container: a scan resolves it once
+/// (`paths::real_path`) instead of once per file.
 pub fn build_artifact(
-    container: &Path,
+    container_real: &Path,
     path: &Path,
     size: u64,
     url: String,
@@ -216,7 +217,7 @@ pub fn build_artifact(
     untracked: bool,
     policy: &HashPolicy,
 ) -> Result<Artifact> {
-    paths::assert_contained(container, path)?;
+    paths::assert_contained_in(container_real, path)?;
     let digests = if untracked && policy.helios_untracked {
         None
     } else {

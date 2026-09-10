@@ -1,0 +1,151 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+import { ProgressBar } from "progress.slint";
+
+export enum ButtonVariant { primary, secondary, ghost }
+export enum ButtonSize { md, lg }
+
+/// DESIGN-v2 §3. The outer rectangle is the focus ring and the 44 px hit
+/// target; the inner rectangle is the 36/44 px visual.
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <string> a11y-label;
+    /// Stable handle for automation, kebab-case (`build-generate`). Becomes the
+    /// UIA AutomationId; the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    /// Optional leading glyph, 18 px, colorized with the label.
+    in property <image> icon;
+    in property <ButtonVariant> variant: ButtonVariant.secondary;
+    in property <ButtonSize> size: ButtonSize.md;
+    in property <bool> enabled: true;
+    /// A job is running: the label stays, the input is refused, and a 2 px
+    /// indeterminate bar runs along the bottom edge. No spinner — the software
+    /// renderer ignores `transform-rotation`.
+    in property <bool> loading: false;
+    callback activated();
+
+    private property <bool> live: root.enabled && !root.loading;
+    private property <bool> primary: root.variant == ButtonVariant.primary;
+    private property <bool> ghost: root.variant == ButtonVariant.ghost;
+    /// What this button is called, wherever it is named: to a screen reader, and
+    /// on the progress bar that says this button is the one that is working.
+    private property <string> label: root.a11y-label == "" ? root.text : root.a11y-label;
+    private property <length> visual-h: root.size == ButtonSize.lg ? 44px : 36px;
+    private property <brush> label-color: root.primary
+        ? Theme.on-accent
+        : (root.ghost && !touch.has-hover) ? Theme.text-2 : Theme.text;
+
+    // The height is stated on the inner fill, not here: a layout gives an
+    // element with children the children's preferred height and overwrites any
+    // `height`, `min-height` or `max-height` on the element itself. Sizing the
+    // fill makes the preferred height 44 px or 52 px, which is what the layout
+    // then honours.
+    min-width: 44px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    // `loading` also clears `enabled`; fading it then reads as unavailable
+    // rather than busy, and the label stops being legible.
+    opacity: (root.enabled || root.loading) ? 1.0 : 0.5;
+
+    border-width: (fs.has-focus || Theme.focus-demo) ? Theme.ring-width : 0px;
+    border-color: Theme.accent;
+    border-radius: Theme.r-md + Theme.ring-gutter;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-id: root.a11y-id;
+    accessible-enabled: root.live;
+    accessible-action-default => {
+        if (root.live) {
+            root.activated();
+        }
+    }
+
+    fs := FocusScope {
+        // `enabled`, not `live`: a button that starts loading under the user's
+        // own keypress must not drop the focus it holds.
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if ((event.text == " " || event.text == "\n") && root.live) {
+                root.activated();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            padding: Theme.ring-gutter;
+
+            fill := Rectangle {
+                height: root.visual-h;
+                border-radius: Theme.r-md;
+                border-width: root.ghost ? 0px : 1px;
+                border-color: root.primary ? Theme.accent : Theme.border;
+                background: root.primary
+                    ? (touch.pressed || touch.has-hover ? Theme.accent-hover : Theme.accent)
+                    : touch.pressed
+                        ? Theme.surface-3
+                        : touch.has-hover
+                            ? Theme.surface-2
+                            : root.ghost ? transparent : Theme.surface-2;
+                clip: true;
+                animate background, border-color { duration: Theme.fast; }
+
+                HorizontalLayout {
+                    padding-left: root.ghost ? 10px : 16px;
+                    padding-right: root.ghost ? 10px : 16px;
+                    spacing: Theme.sp-2;
+                    alignment: center;
+
+                    // A row of its own to centre in: a layout anchors a
+                    // fixed-height child to the top of the row, which left the
+                    // glyph 12 px above the label.
+                    if root.icon.width > 0 : VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 0;
+
+                        Image {
+                            source: root.icon;
+                            width: 18px;
+                            height: 18px;
+                            image-fit: contain;
+                            colorize: root.label-color;
+                            // Decoration inside a control that already says what
+                            // it is; an unnamed graphic node next to it says
+                            // nothing.
+                            accessible-role: none;
+                        }
+                    }
+
+                    Text {
+                        text: root.text;
+                        color: root.label-color;
+                        font-size: Type.button;
+                        font-weight: root.primary ? Type.semibold : Type.medium;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        overflow: elide;
+                    }
+                }
+
+                if root.loading : ProgressBar {
+                    y: parent.height - 2px;
+                    width: parent.width;
+                    track: 2px;
+                    // Which button is working, not just that something is.
+                    a11y-label: root.label;
+                    fill: root.primary ? Theme.on-accent : Theme.accent;
+                }
+            }
+        }
+
+        touch := TouchArea {
+            enabled: root.live;
+            mouse-cursor: root.live ? MouseCursor.pointer : MouseCursor.default;
+            clicked => {
+                root.activated();
+            }
+        }
+    }
+}

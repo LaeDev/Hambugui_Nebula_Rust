@@ -1,0 +1,184 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+import { AppPage } from "data.slint";
+
+component NavItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <string> a11y-id;
+    in property <bool> selected;
+    /// Navigation is never disabled by a running job — this exists so the
+    /// keyboard, the pointer and the accessibility tree all read one flag
+    /// instead of the FocusScope quietly defaulting to a different answer.
+    in property <bool> enabled: true;
+    callback activated();
+
+    height: 60px;
+    vertical-stretch: 0;
+
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-id: root.a11y-id;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        if (root.enabled) {
+            root.activated();
+        }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if ((event.text == " " || event.text == "\n") && root.enabled) {
+                root.activated();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        // Centring layouts, not a bare Rectangle: an element with an explicit
+        // size is not auto-centred the way an implicitly-sized one is.
+        VerticalLayout {
+        alignment: center;
+        HorizontalLayout {
+        alignment: center;
+
+        pill := Rectangle {
+            width: 56px;
+            height: 56px;
+            border-radius: Theme.r-lg;
+            background: root.selected
+                ? Theme.accent-soft
+                : touch.has-hover ? Theme.surface-2 : transparent;
+            border-width: (fs.has-focus || Theme.focus-demo) ? Theme.ring-width : 0px;
+            border-color: Theme.accent;
+            animate background { duration: Theme.fast; }
+
+            VerticalLayout {
+                padding-top: 8px;
+                padding-bottom: Theme.sp-half;
+                spacing: 3px;
+                alignment: center;
+
+                // A row of its own to centre in: a VerticalLayout anchors a
+                // fixed-width child to the left, which left the glyph 17 px
+                // left of its own label.
+                HorizontalLayout {
+                    alignment: center;
+
+                    Image {
+                        source: root.icon;
+                        width: 22px;
+                        height: 22px;
+                        image-fit: contain;
+                        colorize: root.selected ? Theme.accent : Theme.text-2;
+                        accessible-role: none;
+                    }
+                }
+
+                Text {
+                    text: root.text;
+                    color: root.selected ? Theme.accent : Theme.text-2;
+                    font-size: Type.nav;
+                    font-weight: Type.medium;
+                    horizontal-alignment: center;
+                    // The tab above already carries this exact string; a Text
+                    // node here makes a screen reader say `빌드 빌드`.
+                    accessible-role: none;
+                }
+            }
+        }
+
+        }
+        }
+
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.activated();
+            }
+        }
+    }
+}
+
+/// The 72 px left rail (DESIGN-v2 §3). Four pages at the top, 설정 at the
+/// bottom. Ctrl/Cmd+1..5 is handled in `app.slint`, where the keys can be
+/// captured before a text field sees them.
+export component NavRail inherits Rectangle {
+    in property <AppPage> page;
+    callback navigate(AppPage);
+
+    width: 72px;
+    horizontal-stretch: 0;
+    background: Theme.surface-2;
+
+    accessible-role: tab-list;
+    accessible-label: "주요 화면";
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.border;
+    }
+
+    VerticalLayout {
+        padding-top: Theme.sp-3;
+        padding-bottom: Theme.sp-3;
+        spacing: Theme.sp-1;
+
+        NavItem {
+            icon: @image-url("../../assets/icons/layers.svg");
+            text: "빌드";
+            a11y-id: "nav-build";
+            selected: root.page == AppPage.build;
+            activated => {
+                root.navigate(AppPage.build);
+            }
+        }
+
+        NavItem {
+            icon: @image-url("../../assets/icons/server.svg");
+            text: "서버";
+            a11y-id: "nav-servers";
+            selected: root.page == AppPage.servers;
+            activated => {
+                root.navigate(AppPage.servers);
+            }
+        }
+
+        NavItem {
+            icon: @image-url("../../assets/icons/download.svg");
+            text: "가져오기";
+            a11y-id: "nav-import";
+            selected: root.page == AppPage.import;
+            activated => {
+                root.navigate(AppPage.import);
+            }
+        }
+
+        NavItem {
+            icon: @image-url("../../assets/icons/cloud-upload.svg");
+            text: "배포";
+            a11y-id: "nav-publish";
+            selected: root.page == AppPage.publish;
+            activated => {
+                root.navigate(AppPage.publish);
+            }
+        }
+
+        Rectangle { }
+
+        NavItem {
+            icon: @image-url("../../assets/icons/settings.svg");
+            text: "설정";
+            a11y-id: "nav-settings";
+            selected: root.page == AppPage.settings;
+            activated => {
+                root.navigate(AppPage.settings);
+            }
+        }
+    }
+}

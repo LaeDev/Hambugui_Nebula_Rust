@@ -65,6 +65,10 @@ pub struct GenerateOptions {
     /// Emit untracked artifacts without digests, as upstream Nebula did. The
     /// resulting file only loads in Helios.
     pub helios_untracked: bool,
+    /// Let a failed headless Forge/NeoForge install re-run the installer with
+    /// its window open. Only the caller knows whether anybody can see it, so it
+    /// defaults to off.
+    pub gui_fallback: bool,
 }
 
 impl Default for GenerateOptions {
@@ -75,6 +79,7 @@ impl Default for GenerateOptions {
             discard_output: false,
             invalidate_cache: false,
             helios_untracked: false,
+            gui_fallback: false,
         }
     }
 }
@@ -97,7 +102,8 @@ pub fn generate_distribution(cfg: &Config, opts: &GenerateOptions) -> Result<Gen
     let install_dir = match opts.install_local {
         true => Some(cfg.helios_data_folder.clone().ok_or_else(|| {
             Error::Config(
-                "You MUST specify HELIOS_DATA_FOLDER in your .env when using the --install-local option."
+                "Launcher 데이터 폴더가 설정되지 않았습니다 — 설정 화면에서 폴더를 지정하거나 \
+                 '생성 후 Launcher 데이터 폴더에 설치'를 끄세요"
                     .into(),
             )
         })?),
@@ -122,22 +128,13 @@ pub fn generate_distribution(cfg: &Config, opts: &GenerateOptions) -> Result<Gen
     let resolve = ResolveOptions {
         discard_output: opts.discard_output,
         invalidate_cache: opts.invalidate_cache,
+        gui_fallback: opts.gui_fallback,
     };
     let policy = HashPolicy {
         helios_untracked: opts.helios_untracked,
     };
 
-    let mut servers = Vec::new();
-    for summary in server::list_servers(&root)? {
-        log::info!("Beginning processing of {}.", summary.dir_name);
-        servers.push(server::build_server_spec(
-            &root,
-            &summary,
-            java.as_ref(),
-            &resolve,
-            policy,
-        )?);
-    }
+    let servers = server::build_all_server_specs(&root, java.as_ref(), &resolve, policy)?;
 
     let distribution = Distribution {
         version: DISTRIBUTION_VERSION.into(),
@@ -224,7 +221,8 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             error.to_string(),
-            "You MUST specify HELIOS_DATA_FOLDER in your .env when using the --install-local option."
+            "Launcher 데이터 폴더가 설정되지 않았습니다 — 설정 화면에서 폴더를 지정하거나 \
+             '생성 후 Launcher 데이터 폴더에 설치'를 끄세요"
         );
     }
 }

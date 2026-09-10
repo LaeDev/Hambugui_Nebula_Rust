@@ -10,10 +10,15 @@ use crate::error::{Result, io};
 
 const BUFFER: usize = 64 * 1024;
 
+/// Every digest a resolver needs for one file: `md5` and `sha256` go into the
+/// module, `sha1` is what Forge, NeoForge and Fabric manifests publish. They are
+/// computed together because a library jar is otherwise read twice, once to
+/// verify it and once to describe it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Digests {
     pub size: u64,
     pub md5: String,
+    pub sha1: String,
     pub sha256: String,
 }
 
@@ -21,20 +26,24 @@ pub fn digests_of_bytes(bytes: &[u8]) -> Digests {
     Digests {
         size: bytes.len() as u64,
         md5: hex::encode(Md5::digest(bytes)),
+        sha1: hex::encode(Sha1::digest(bytes)),
         sha256: hex::encode(Sha256::digest(bytes)),
     }
 }
 
 pub fn digests_of_file(path: &Path) -> Result<Digests> {
     let mut md5 = Md5::new();
+    let mut sha1 = Sha1::new();
     let mut sha256 = Sha256::new();
     let size = stream(path, |chunk| {
         md5.update(chunk);
+        sha1.update(chunk);
         sha256.update(chunk);
     })?;
     Ok(Digests {
         size,
         md5: hex::encode(md5.finalize()),
+        sha1: hex::encode(sha1.finalize()),
         sha256: hex::encode(sha256.finalize()),
     })
 }
@@ -74,6 +83,7 @@ mod tests {
         let digests = digests_of_bytes(b"abc");
         assert_eq!(digests.size, 3);
         assert_eq!(digests.md5, MD5_ABC);
+        assert_eq!(digests.sha1, SHA1_ABC);
         assert_eq!(digests.sha256, SHA256_ABC);
     }
 

@@ -1,0 +1,315 @@
+import { Theme, Tone } from "../lib/theme.slint";
+import { Type } from "../lib/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "../lib/button.slint";
+import { Card, CardHeader } from "../lib/card.slint";
+import { Chip } from "../lib/chip.slint";
+import { Callout } from "../lib/callout.slint";
+import { EmptyState } from "../lib/empty-state.slint";
+import { IconButton } from "../lib/icon-button.slint";
+import { ListRow } from "../lib/list-row.slint";
+import { SegmentedControl } from "../lib/segmented.slint";
+import { TextField } from "../lib/text-field.slint";
+import { AppData, AppPage, DialogKind, Loader, NewServerData, SheetActions, SheetData } from "../lib/data.slint";
+
+/// 서버 (DESIGN-v2 §4).
+export component ServersScreen inherits VerticalLayout {
+    private property <bool> live: AppData.page-live;
+    /// The empty image, for a row the host has no icon for.
+    private property <image> no-icon;
+
+    spacing: Theme.card-gap;
+
+    Card {
+        CardHeader {
+            title: "서버";
+            // A count is a claim about what was read. While the first scan is
+            // out, and after one that failed, there is no count to make.
+            subtitle: SheetData.loading
+                ? "불러오는 중"
+                : SheetData.servers-error != "" ? "" : SheetData.servers.length + "개";
+
+            Button {
+                text: "새로 고침";
+                variant: ButtonVariant.ghost;
+                a11y-label: "서버 목록 새로 고침";
+                a11y-id: "servers-refresh";
+                enabled: root.live && SheetData.has-root;
+                activated => {
+                    SheetActions.refresh();
+                }
+            }
+
+            if SheetData.servers.length > 0 : Button {
+                text: "모드팩 가져오기";
+                icon: @image-url("../../assets/icons/download.svg");
+                a11y-label: "모드팩 가져오기 화면 열기";
+                a11y-id: "servers-import";
+                enabled: root.live && SheetData.has-root;
+                activated => {
+                    AppData.go(AppPage.import);
+                }
+            }
+
+            if SheetData.servers.length > 0 : Button {
+                text: "새 서버";
+                icon: @image-url("../../assets/icons/plus.svg");
+                variant: ButtonVariant.primary;
+                a11y-label: "새 서버 만들기";
+                a11y-id: "servers-new";
+                enabled: root.live && SheetData.has-root;
+                activated => {
+                    SheetActions.open-dialog(DialogKind.new-server);
+                }
+            }
+        }
+
+        // A failed scan must never read as "there are no servers": the rows
+        // below are whatever the last successful scan found, and this says so.
+        if SheetData.servers-error != "" : Callout {
+            tone: Tone.danger;
+            title: "서버 목록을 읽지 못했습니다";
+            body: SheetData.servers-error;
+        }
+
+        for row[index] in SheetData.servers : ListRow {
+            title: row.id;
+            subtitle: row.counts;
+            avatar: index < SheetData.server-icons.length
+                ? SheetData.server-icons[index]
+                : root.no-icon;
+            initials: row.initials;
+            hue: row.hue;
+            a11y-label: row.id + ", " + row.loader + ", " + row.counts;
+            a11y-id: "server-row-" + row.id;
+
+            Chip { text: row.loader; }
+
+            IconButton {
+                icon: @image-url("../../assets/icons/folder-open.svg");
+                a11y-label: row.id + " 폴더 열기";
+                a11y-id: "server-open-" + row.id;
+                enabled: root.live;
+                activated => {
+                    SheetActions.open-folder(row.path);
+                }
+            }
+        }
+
+        if SheetData.loading : EmptyState {
+            icon: @image-url("../../assets/icons/server.svg");
+            title: "불러오는 중";
+            body: "루트 폴더를 읽고 있습니다.";
+        }
+
+        // Only ever shown for a scan that succeeded and found nothing.
+        if SheetData.servers.length == 0 && SheetData.has-root && !SheetData.loading
+            && SheetData.servers-error == "" : EmptyState {
+            icon: @image-url("../../assets/icons/server.svg");
+            title: "아직 서버가 없습니다";
+            body: "새 서버를 만들거나 모드팩을 가져오세요.";
+
+            Button {
+                text: "모드팩 가져오기";
+                icon: @image-url("../../assets/icons/download.svg");
+                a11y-label: "모드팩 가져오기 화면 열기";
+                a11y-id: "servers-empty-import";
+                enabled: root.live;
+                activated => {
+                    AppData.go(AppPage.import);
+                }
+            }
+
+            Button {
+                text: "새 서버";
+                icon: @image-url("../../assets/icons/plus.svg");
+                variant: ButtonVariant.primary;
+                a11y-label: "새 서버 만들기";
+                a11y-id: "servers-empty-new";
+                enabled: root.live;
+                activated => {
+                    SheetActions.open-dialog(DialogKind.new-server);
+                }
+            }
+        }
+
+        if !SheetData.has-root && !SheetData.loading : EmptyState {
+            icon: @image-url("../../assets/icons/hard-drive.svg");
+            title: "루트 폴더를 먼저 설정하세요";
+            body: "배포본과 서버가 들어갈 폴더를 설정에서 지정합니다.";
+
+            Button {
+                text: "설정 열기";
+                variant: ButtonVariant.primary;
+                a11y-label: "설정 화면 열기";
+                a11y-id: "servers-open-settings";
+                activated => {
+                    AppData.go(AppPage.settings);
+                }
+            }
+        }
+    }
+}
+
+/// The body of the 새 서버 dialog. `app.slint` wraps it in a `Dialog`, which
+/// owns the scrim, the title and the close button.
+export component NewServerForm inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    private property <int> loader-index: NewServerData.loader == Loader.forge
+        ? 1
+        : NewServerData.loader == Loader.neoforge
+            ? 2
+            : NewServerData.loader == Loader.fabric ? 3 : 0;
+
+    /// Enter anywhere in the form submits it, as it does in the settings page.
+    callback submitted();
+
+    // `app.slint` focuses the form when the dialog opens; this is what decides
+    // where that lands.
+    forward-focus: server-id;
+
+    spacing: Theme.sp-4;
+
+    HorizontalLayout {
+        spacing: Theme.sp-3;
+        vertical-stretch: 0;
+
+        server-id := TextField {
+            label: "서버 ID";
+            a11y-label: "서버 ID";
+            a11y-id: "new-server-id";
+            placeholder: "my-server";
+            helper: "폴더 이름은 <ID>-<버전>이 됩니다";
+            error: NewServerData.id-error;
+            enabled: root.live;
+            horizontal-stretch: 1;
+            text <=> NewServerData.id;
+            accepted => {
+                root.submitted();
+            }
+        }
+
+        TextField {
+            label: "Minecraft 버전";
+            a11y-label: "Minecraft 버전";
+            a11y-id: "new-server-mc";
+            placeholder: "1.20.1";
+            error: NewServerData.mc-error;
+            enabled: root.live;
+            horizontal-stretch: 1;
+            text <=> NewServerData.mc-version;
+            accepted => {
+                root.submitted();
+            }
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.sp-half;
+        vertical-stretch: 0;
+
+        Text {
+            text: "로더";
+            color: Theme.text-2;
+            font-size: Type.secondary;
+            font-weight: Type.medium;
+        }
+
+        SegmentedControl {
+            options: ["없음", "Forge", "NeoForge", "Fabric"];
+            a11y-prefix: "로더";
+            a11y-id: "new-server-loader";
+            enabled: root.live;
+            selected: root.loader-index;
+            changed(index) => {
+                NewServerData.loader = index == 1
+                    ? Loader.forge
+                    : index == 2
+                        ? Loader.neoforge
+                        : index == 3 ? Loader.fabric : Loader.none;
+            }
+        }
+    }
+
+    if NewServerData.loader != Loader.none : HorizontalLayout {
+        spacing: Theme.sp-2;
+        vertical-stretch: 0;
+
+        TextField {
+            label: "로더 버전";
+            a11y-label: "로더 버전";
+            a11y-id: "new-server-loader-version";
+            placeholder: "latest";
+            error: NewServerData.loader-version-error;
+            enabled: root.live;
+            horizontal-stretch: 1;
+            text <=> NewServerData.loader-version;
+            accepted => {
+                root.submitted();
+            }
+        }
+
+        // The two lookups sit on the field's input row, not on its label. The
+        // offset is a blank label of the same type and the same gap the
+        // TextField uses, so it stays right if either changes — an off-grid
+        // `padding-top: 21px` was only ever correct for one font size.
+        VerticalLayout {
+            alignment: start;
+            spacing: Theme.sp-half;
+            horizontal-stretch: 0;
+
+            Text {
+                text: " ";
+                font-size: Type.secondary;
+                font-weight: Type.medium;
+                vertical-stretch: 0;
+                accessible-role: none;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.sp-1;
+
+                Button {
+                    text: "최신";
+                    variant: ButtonVariant.ghost;
+                    a11y-label: "최신 로더 버전 찾기";
+                    a11y-id: "new-server-latest";
+                    enabled: root.live;
+                    loading: NewServerData.lookup-busy;
+                    activated => {
+                        SheetActions.lookup-loader-version(NewServerData.loader, "latest");
+                    }
+                }
+
+                Button {
+                    text: "권장";
+                    variant: ButtonVariant.ghost;
+                    a11y-label: "권장 로더 버전 찾기";
+                    a11y-id: "new-server-recommended";
+                    enabled: root.live;
+                    loading: NewServerData.lookup-busy;
+                    activated => {
+                        SheetActions.lookup-loader-version(NewServerData.loader, "recommended");
+                    }
+                }
+            }
+        }
+    }
+
+    if NewServerData.forge-mod-lists-warning : Callout {
+        tone: Tone.warning;
+        title: "Forge 1.20.3 이상";
+        body: "--fml.modLists 인수가 제거되어 Helios가 모드를 불러오지 못합니다.";
+    }
+
+    if NewServerData.loader == Loader.neoforge : Callout {
+        tone: Tone.warning;
+        title: "NeoForge 패치 필요";
+        body: "Hambugui 런처에 NeoForge 패치가 필요합니다. README의 NeoForge 항목을 참고하세요. Minecraft 1.20.2 이상만 지원합니다.";
+    }
+
+    if NewServerData.error-text != "" : Callout {
+        tone: Tone.danger;
+        title: "서버 만들기 실패";
+        body: NewServerData.error-text;
+    }
+}

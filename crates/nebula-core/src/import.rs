@@ -19,7 +19,6 @@ use zip::ZipArchive;
 
 use crate::curseforge;
 use crate::error::{Error, Result, io};
-use crate::java::Java;
 use crate::layout::Root;
 use crate::paths;
 use crate::remote;
@@ -32,7 +31,10 @@ use crate::version::MinecraftVersion;
 
 /// How a mod file is fetched: `(url, destination, expected sha1)`. Production
 /// passes [`default_download`]; tests pass a closure over local files.
-pub type DownloadFn = dyn Fn(&str, &Path, Option<&str>) -> Result<()>;
+///
+/// `Send + Sync` so an import can run on a worker thread, which is where the
+/// GUI puts it.
+pub type DownloadFn = dyn Fn(&str, &Path, Option<&str>) -> Result<()> + Send + Sync;
 
 pub fn default_download(url: &str, dest: &Path, expected_sha1: Option<&str>) -> Result<()> {
     remote::download_to_verified(url, dest, expected_sha1)
@@ -127,18 +129,18 @@ pub fn resolve_input(root: &Root, file: &Path) -> Result<PathBuf> {
         }
     }
     Err(Error::Invalid(format!(
-        "Modpack {} not found; place it under {} or pass an absolute path.",
+        "모드팩 {}을(를) 찾을 수 없습니다 — {} 안에 넣거나 전체 경로를 입력하세요",
         file.display(),
         root.modpacks_dir().display()
     )))
 }
 
+/// No branch of an import runs Java: mod metadata is only read when the server
+/// is scanned, which is `generate distro`'s job.
 pub fn import_modpack(
     root: &Root,
     id: &str,
     file: &Path,
-    // Accepted so callers can pass the configured JDK; no branch runs Java.
-    _java: Option<&Java>,
     download: &DownloadFn,
 ) -> Result<ImportReport> {
     let path = resolve_input(root, file)?;
@@ -153,7 +155,9 @@ pub fn import_modpack(
     };
 
     if !counters.manual.is_empty() {
-        report_manual_downloads(&counters.manual);
+        // The list itself belongs to whoever can show it: the GUI has a box for
+        // it and the CLI prints the banner.
+        log::warn!("{} files require manual download", counters.manual.len());
     }
     log::info!(
         "Imported {}: {} downloaded, {} copied, {} skipped.",
@@ -283,7 +287,9 @@ fn modrinth_loader(
 ) -> Result<Option<(LoaderKind, String)>> {
     if dependencies.contains_key("quilt-loader") {
         return Err(Error::Invalid(
-            "Quilt modpacks are not supported; Helios and Hambugui cannot launch Quilt.".into(),
+            "Quilt 모드팩은 지원하지 않습니다 — Helios도 Hambugui도 Quilt를 실행할 수 없습니다. \
+             Forge, NeoForge 또는 Fabric 모드팩을 쓰세요"
+                .into(),
         ));
     }
     Ok([
@@ -352,7 +358,8 @@ fn import_prism(
             "net.fabricmc.fabric-loader" => LoaderKind::Fabric,
             "org.quiltmc.quilt-loader" => {
                 return Err(Error::Invalid(
-                    "Quilt instances are not supported; Helios and Hambugui cannot launch Quilt."
+                    "Quilt 인스턴스는 지원하지 않습니다 — Helios도 Hambugui도 Quilt를 실행할 수 \
+                     없습니다. Forge, NeoForge 또는 Fabric 인스턴스를 쓰세요"
                         .into(),
                 ));
             }
@@ -411,9 +418,13 @@ fn instance_name(zip: &mut ZipArchive<File>) -> Option<String> {
 // Shared
 // ---------------------------------------------------------------------------
 
+/// Opens `path` as a zip. **The one place a zip is opened in this crate**, so
+/// that `ZipError`'s own message — which never names a file — cannot reach a
+/// user as a bare `invalid Zip archive: Could not find EOCD` about one jar out
+/// of three hundred.
 pub(crate) fn open(path: &Path) -> Result<ZipArchive<File>> {
     let file = File::open(path).map_err(io(format!("opening {}", path.display())))?;
-    Ok(ZipArchive::new(file)?)
+    ZipArchive::new(file).map_err(|error| Error::Invalid(format!("{}: {error}", path.display())))
 }
 
 pub(crate) fn read_json<T: serde::de::DeserializeOwned>(
@@ -535,25 +546,6 @@ pub(crate) fn extract_roots(
     Ok(())
 }
 
-fn report_manual_downloads(manual: &[ManualDownload]) {
-    log::error!("============================================");
-    log::error!("WARNING");
-    log::error!(
-        "{} files declared by this modpack do not permit 3rd-party downloads.",
-        manual.len()
-    );
-    log::error!("They MUST be downloaded manually.");
-    log::error!("The mods and their download urls will be listed below.");
-    log::error!("============================================");
-    for file in manual {
-        log::error!("{} ({}) - {}", file.name, file.file_name, file.url);
-    }
-    log::error!("============================================");
-    log::error!("YOUR MODPACK IS NOT FULLY GENERATED!");
-    log::error!("MANUAL ACTION REQUIRED! SCROLL UP AND READ THE WARNING!");
-    log::error!("============================================");
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -635,6 +627,24 @@ mod tests {
         for rel in ["options.txt", "config/a.cfg", "servers.dat", "mods/jei.jar"] {
             assert!(!prism_excluded(rel), "{rel} should be kept");
         }
+    }
+
+    #[test]
+    fn a_broken_archive_names_the_file_it_came_from() {
+        let dir = tempfile::tempdir().unwrap();
+        let jar = dir.path().join("Broken-Mod-1.0.jar");
+        std::fs::write(&jar, b"PK-not-really-a-jar").unwrap();
+
+        // `ZipError`'s own message names no file, and one bad jar among three
+        // hundred is unfindable without the path.
+        let message = open(&jar).unwrap_err().to_string();
+        assert!(message.contains("Broken-Mod-1.0.jar"), "{message}");
+        assert!(message.contains("Zip"), "{message}");
+
+        let missing = open(&dir.path().join("absent.jar"))
+            .unwrap_err()
+            .to_string();
+        assert!(missing.contains("absent.jar"), "{missing}");
     }
 
     #[test]

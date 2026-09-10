@@ -1,0 +1,344 @@
+{
+  "Theme": {
+    "preference": "light",
+    "screenshot": true,
+    "progress-phase": 0.42
+  },
+  "AppData": {
+    "page": "build",
+    "dialog": "none",
+    "toasts": []
+  },
+  "SheetData": {
+    "has-root": true,
+    "root-initialised": true,
+    "can-generate": false,
+    "install-local-enabled": true,
+    "loading": false,
+    "servers-error": "",
+    "busy": true,
+    "busy-label": "배포본 생성 중 · 1:23",
+    "distro-name": "distribution",
+    "verdict-title": "",
+    "verdict-detail": "",
+    "verdict-tone": "success",
+    "summary": "",
+    "artifacts": 0,
+    "sha256-count": 0,
+    "errors": 0,
+    "warnings": 0,
+    "error-text": "",
+    "error-kind": "",
+    "error-hint": "",
+    "install-local": false,
+    "invalidate-cache": false,
+    "discard-output": false,
+    "findings-expanded": false,
+    "readiness": [
+      {
+        "label": "루트",
+        "value": "D:\\TestRoot",
+        "state": "ok"
+      },
+      {
+        "label": "기본 URL",
+        "value": "https://cdn.example.com/",
+        "state": "ok"
+      },
+      {
+        "label": "Java",
+        "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+        "state": "ok"
+      },
+      {
+        "label": "Launcher 폴더",
+        "value": "미설정",
+        "state": "missing"
+      }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2",
+        "initials": "TE",
+        "hue": 194
+      },
+      {
+        "id": "Sky-1.20.1",
+        "loader": "NeoForge 21.1.77",
+        "counts": "모드 128 · 파일 304 · 라이브러리 12",
+        "path": "D:\\TestRoot\\servers\\Sky-1.20.1",
+        "initials": "SK",
+        "hue": 28
+      },
+      {
+        "id": "Vanilla-1.21",
+        "loader": "없음",
+        "counts": "모드 0 · 파일 62 · 라이브러리 0",
+        "path": "D:\\TestRoot\\servers\\Vanilla-1.21",
+        "initials": "VA",
+        "hue": 268
+      }
+    ],
+    "findings": [],
+    "log": [
+      {
+        "time": "+00:00",
+        "target": "nebula",
+        "message": "루트 D:\\TestRoot · 서버 3개 · 모드팩 2개",
+        "level": "info"
+      },
+      {
+        "time": "+00:04",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-000.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:05",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-001.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:06",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-002.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:07",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-003.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:08",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-004.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:09",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-005.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:10",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-006.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:11",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-007.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:12",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-008.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:13",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-009.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:14",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-010.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:15",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-011.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:16",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-012.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:17",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-013.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:18",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-014.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:19",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-015.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:20",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-016.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:21",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-017.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:22",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-018.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:23",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-019.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:24",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-020.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:25",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-021.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:26",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-022.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:27",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-023.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:28",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-024.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:29",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-025.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:30",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-026.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:31",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-027.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:32",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-028.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:33",
+        "target": "files",
+        "message": "hashing servers/Test-1.12.2/mods/mod-029.jar",
+        "level": "info"
+      },
+      {
+        "time": "+00:41",
+        "target": "files",
+        "message": "484 modules hashed · 마지막 줄",
+        "level": "info"
+      }
+    ]
+  },
+  "PublishData": {
+    "target": "none",
+    "only-changed": true,
+    "can-publish": false,
+    "busy": false,
+    "blocked-reason": "",
+    "result-line": "",
+    "result-error": false,
+    "distribution-url": ""
+  },
+  "NewServerData": {
+    "id": "",
+    "mc-version": "",
+    "loader": "none",
+    "loader-version": "",
+    "id-error": "",
+    "mc-error": "",
+    "loader-version-error": "",
+    "error-text": "",
+    "forge-mod-lists-warning": false,
+    "busy": false,
+    "lookup-busy": false
+  },
+  "ImportData": {
+    "zips": [],
+    "manual-downloads": [],
+    "folder-path": "D:\\TestRoot\\modpacks",
+    "id-error": "",
+    "error-text": "",
+    "busy": false,
+    "result-line": "",
+    "selected-zip": -1,
+    "server-id": ""
+  },
+  "SettingsData": {
+    "root": "D:\\TestRoot",
+    "base-url": "https://cdn.example.com/",
+    "java": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+    "helios": "",
+    "theme": "light",
+    "reduced-motion": false,
+    "webdav-url": "https://dav.example.com/nebula/",
+    "webdav-user": "nebula",
+    "webdav-password": "hunter2hunter2",
+    "webdav-public-url": "",
+    "gdrive-client-id": "",
+    "gdrive-client-secret": "",
+    "gdrive-folder-id": "",
+    "gdrive-connected": false,
+    "gdrive-busy": false,
+    "gdrive-status": "",
+    "gdrive-status-error": false,
+    "root-error": "",
+    "base-url-error": "",
+    "java-error": "",
+    "helios-error": "",
+    "error-text": "",
+    "focus-field": "",
+    "focus-tick": 0,
+    "root-missing": false,
+    "busy": false,
+    "dirty": false
+  }
+}

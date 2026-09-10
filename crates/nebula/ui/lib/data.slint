@@ -1,0 +1,275 @@
+// The wiring contract: everything `crates/nebula/src/gui/mod.rs` pushes in and
+// everything the screens call back out. Kept in one file so a Rust change and a
+// UI change meet in exactly one place. Component-level enums live with their
+// component; these are the ones the host names.
+import { Tone, ThemePreference } from "theme.slint";
+
+export enum AppPage { build, servers, import, publish, settings }
+
+/// Which modal is open. `none` is the only state in which Esc does nothing.
+export enum DialogKind { none, new-server }
+
+export enum Loader { none, forge, neoforge, fabric }
+export enum PublishTarget { none, webdav, gdrive }
+
+export struct ServerRowData {
+    id: string,
+    loader: string,
+    counts: string,
+    path: string,
+    /// The fallback avatar: one or two letters from the id.
+    initials: string,
+    /// 0–359, hashed from the id so a server keeps its colour between runs.
+    hue: int,
+}
+
+export struct FindingRowData {
+    severity: string,
+    location: string,
+    message: string,
+    is-error: bool,
+}
+
+export struct LogRowData {
+    /// Elapsed since launch, `+MM:SS`. The app has no local-timezone source.
+    time: string,
+    target: string,
+    message: string,
+    /// `error`, `warn` or anything else; decides the row colour.
+    level: string,
+}
+
+export struct ReadinessRowData {
+    label: string,
+    value: string,
+    /// `ok`, `missing`, `error` (the value is there but could not be read) or
+    /// `loading` (the first scan has not come back yet).
+    state: string,
+}
+
+export struct ManualDownloadData {
+    name: string,
+    file: string,
+    url: string,
+}
+
+export struct ImportRowData {
+    file-name: string,
+    format: string,
+    size-label: string,
+    selectable: bool,
+}
+
+export struct ToastData {
+    /// Identity, not position: the 4 s dismissal timer fires against this, so a
+    /// toast that appeared meanwhile cannot shift another one out from under it.
+    id: int,
+    tone: Tone,
+    message: string,
+}
+
+/// The shell: which page is on screen, what is floating over it.
+export global AppData {
+    in-out property <AppPage> page: AppPage.build;
+    in-out property <DialogKind> dialog: DialogKind.none;
+    in property <[ToastData]> toasts;
+
+    /// What a page's controls are gated on: no job running, and no dialog over
+    /// them. A control under a modal offers an action the dialog has taken.
+    /// Navigation is deliberately *not* gated on it.
+    out property <bool> page-live: !SheetData.busy && root.dialog == DialogKind.none;
+
+    /// The one way to change page. A no-op when the page is unchanged, so the
+    /// host's `navigate` — which re-reads the disk — does not fire on a click
+    /// that changed nothing.
+    public function go(target: AppPage) {
+        if (root.page != target) {
+            root.page = target;
+            SheetActions.navigate(target);
+        }
+    }
+}
+
+export global SheetData {
+    in property <[ReadinessRowData]> readiness;
+    in property <[ServerRowData]> servers;
+    /// Parallel to `servers`: each row's own `icon.png`/`icon.jpg`, or an empty
+    /// image when the folder has none. It is a separate model rather than a
+    /// field of `ServerRowData` because `slint-viewer --load-data` cannot write
+    /// an empty image into a struct, which would make every state file that
+    /// lists a server unrenderable.
+    in property <[image]> server-icons;
+    in property <[FindingRowData]> findings;
+    in property <[LogRowData]> log;
+
+    /// The whole verdict in one line, and the accessible label of the chip row
+    /// that shows the same four numbers.
+    in property <string> summary;
+    /// The four counts the summary chips carry. Only meaningful once
+    /// `verdict-title` is set.
+    in property <int> artifacts;
+    in property <int> sha256-count;
+    in property <int> errors;
+    in property <int> warnings;
+
+    // ── The verdict banner (replaces the stamp) ─────────────────────────────
+    /// `success` when the strict pass is clean, `warning` when only the strict
+    /// pass failed, `danger` when the displayed report has errors.
+    in property <Tone> verdict-tone: Tone.success;
+    /// Empty until a run has produced a verdict; that is what hides the banner.
+    in property <string> verdict-title;
+    /// `distribution.json · SHA-256 a91f3c02 · 파일 484`.
+    in property <string> verdict-detail;
+
+    in property <bool> busy;
+    in property <string> busy-label;
+    in property <string> error-text;
+    /// Which job failed: `generate`, `validate` or `init-root`. Decides the
+    /// prefix and what `retry-job` re-runs.
+    in property <string> error-kind;
+    /// One extra line under the retry button when the cause has a known fix.
+    in property <string> error-hint;
+    in property <bool> has-root;
+    in property <bool> root-initialised: true;
+    in property <bool> can-generate;
+    in property <bool> install-local-enabled;
+    /// True from launch until the first scan lands. An empty list under it is
+    /// "not read yet", never "there is nothing here".
+    in property <bool> loading;
+    /// Why the server listing could not be read, naming the file that broke it.
+    /// The rows already on screen are the last ones that *did* read, so they
+    /// stay; this says they may be stale.
+    in property <string> servers-error;
+
+    in-out property <string> distro-name: "distribution";
+    in-out property <bool> install-local;
+    in-out property <bool> invalidate-cache;
+    in-out property <bool> discard-output;
+    /// 더 보기 on the findings list. Lives here, not in the screen, so a new
+    /// run resets it: six findings from a different file are a different list.
+    in-out property <bool> findings-expanded;
+}
+
+/// Every callback here reads the values it needs back off the `in-out`
+/// properties above, so a retry runs with what is on screen *now* rather than
+/// replaying the arguments of the click that failed. That is why the four
+/// form-submitting callbacks take nothing.
+export global SheetActions {
+    callback generate();
+    callback validate-existing();
+    callback open-folder(string);
+    callback refresh();
+    callback init-root();
+    callback navigate(AppPage);
+    callback create-server(string, string, Loader, string);
+    callback lookup-loader-version(Loader, string);
+    callback import-modpack();
+    callback save-settings();
+    callback create-root(string);
+    callback clear-log();
+    callback publish(PublishTarget, bool);
+    callback connect-gdrive();
+    /// Re-runs the job named by `SheetData.error-kind` with the current field
+    /// values.
+    callback retry-job();
+    /// A settings field changed; the host debounces this and re-validates.
+    callback settings-edited();
+    /// Theme and reduced motion apply and persist on their own, whether or not
+    /// the root and base URL are valid.
+    callback appearance-changed(ThemePreference, bool);
+    /// The toast with this id was dismissed; the host drops it and cancels its
+    /// timer's effect.
+    callback dismiss-toast(int);
+    callback open-dialog(DialogKind);
+    callback close-dialog();
+}
+
+export global PublishData {
+    in-out property <PublishTarget> target: PublishTarget.none;
+    in-out property <bool> only-changed: true;
+
+    in property <bool> can-publish;
+    /// True only while *this* screen's job runs, so an upload spins the 업로드
+    /// button and a build somewhere else does not.
+    in property <bool> busy;
+    /// Why 업로드 is disabled, for everything the host knows about. The two the
+    /// screen knows without asking — no target chosen, and a target the
+    /// settings have not configured — it says itself.
+    in property <string> blocked-reason;
+    in property <string> result-line;
+    // A failed upload must not read like a finished one.
+    in property <bool> result-error;
+    in property <string> distribution-url;
+}
+
+export global NewServerData {
+    in-out property <string> id;
+    in-out property <string> mc-version;
+    in-out property <Loader> loader: Loader.none;
+    in-out property <string> loader-version;
+
+    in property <string> id-error;
+    in property <string> mc-error;
+    in property <string> loader-version-error;
+    /// Failures that are not about a field: disk, network, a broken archive.
+    in property <string> error-text;
+    in property <bool> forge-mod-lists-warning;
+    in property <bool> busy;
+    in property <bool> lookup-busy;
+}
+
+export global ImportData {
+    in property <[ImportRowData]> zips;
+    in property <[ManualDownloadData]> manual-downloads;
+    in property <string> folder-path;
+    in property <string> id-error;
+    /// Failures that are not about the server id.
+    in property <string> error-text;
+    in property <bool> busy;
+    /// `모드팩 3개를 가져왔습니다` and the like; empty until an import ran.
+    in property <string> result-line;
+
+    in-out property <int> selected-zip: -1;
+    in-out property <string> server-id;
+}
+
+export global SettingsData {
+    in-out property <string> root;
+    in-out property <string> base-url;
+    in-out property <string> java;
+    in-out property <string> helios;
+    in-out property <ThemePreference> theme: ThemePreference.system;
+    in-out property <bool> reduced-motion;
+
+    in-out property <string> webdav-url;
+    in-out property <string> webdav-user;
+    in-out property <string> webdav-password;
+    in-out property <string> webdav-public-url;
+
+    in-out property <string> gdrive-client-id;
+    in-out property <string> gdrive-client-secret;
+    in-out property <string> gdrive-folder-id;
+
+    in property <bool> gdrive-connected;
+    in property <bool> gdrive-busy;
+    /// Result of the last connect attempt; empty falls back to `gdrive-connected`.
+    in property <string> gdrive-status;
+    in property <bool> gdrive-status-error;
+    in property <string> root-error;
+    in property <string> base-url-error;
+    in property <string> java-error;
+    in property <string> helios-error;
+    /// A save that failed for a reason no single field owns: the disk, or the
+    /// settings file itself. Rendered as a danger `Callout` above the fields.
+    in property <string> error-text;
+    /// Which field a refused save wants the caret in: `root` or `base-url`.
+    in property <string> focus-field;
+    /// Bumped on every refusal, so a second refusal on the same field still
+    /// moves the focus — the field name alone would not have changed.
+    in property <int> focus-tick;
+    in property <bool> root-missing;
+    in property <bool> busy;
+    /// True while the form differs from what is on disk; the sticky footer
+    /// caption reads it.
+    in property <bool> dirty;
+}

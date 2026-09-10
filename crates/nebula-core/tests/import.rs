@@ -4,11 +4,10 @@
 //! downloads are served by a `DownloadFn` closure that copies from a local
 //! directory and asserts the SHA-1 it was handed.
 
-use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use nebula_core::hash::sha1_hex_of_file;
 use nebula_core::import::{ImportFormat, detect_format, import_modpack};
@@ -96,7 +95,6 @@ fn imports_a_curseforge_pack() {
         &fixture.root,
         "CF",
         Path::new("cf.zip"),
-        None,
         &nebula_core::import::default_download,
     )
     .unwrap();
@@ -138,7 +136,6 @@ fn rejects_a_legacy_neoforge_curseforge_pack() {
         &fixture.root,
         "Legacy",
         &zip,
-        None,
         &nebula_core::import::default_download,
     )
     .unwrap_err();
@@ -217,10 +214,11 @@ fn imports_a_modrinth_pack() {
     );
     assert_eq!(detect_format(&zip).unwrap(), ImportFormat::Modrinth);
 
-    // `DownloadFn` is `dyn Fn + 'static`, so the closure owns what it needs.
-    let calls = Rc::new(RefCell::new(Vec::new()));
+    // `DownloadFn` is `dyn Fn + Send + Sync + 'static`, so the closure owns what
+    // it needs and shares it through `Arc<Mutex<_>>`, not `Rc<RefCell<_>>`.
+    let calls = Arc::new(Mutex::new(Vec::new()));
     let download = {
-        let (sources, calls) = (sources.path().to_path_buf(), Rc::clone(&calls));
+        let (sources, calls) = (sources.path().to_path_buf(), Arc::clone(&calls));
         move |url: &str, dest: &Path, expected: Option<&str>| -> nebula_core::Result<()> {
             let name = url.rsplit('/').next().unwrap().to_owned();
             let source = sources.join(&name);
@@ -232,19 +230,19 @@ fn imports_a_modrinth_pack() {
             assert_eq!(expected.map(str::to_owned), want, "sha1 handed for {name}");
             fs::create_dir_all(dest.parent().unwrap()).unwrap();
             fs::copy(&source, dest).unwrap();
-            calls.borrow_mut().push(name);
+            calls.lock().unwrap().push(name);
             Ok(())
         }
     };
 
-    let report = import_modpack(&fixture.root, "Mr", &zip, None, &download).unwrap();
+    let report = import_modpack(&fixture.root, "Mr", &zip, &download).unwrap();
     assert_eq!(report.format, ImportFormat::Modrinth);
     assert_eq!(report.downloaded, 3);
     assert_eq!(report.skipped_unsupported, 1);
     assert_eq!(report.copied, 3);
 
     assert_eq!(
-        *calls.borrow(),
+        *calls.lock().unwrap(),
         ["required.jar", "optional.jar", "extra.cfg"]
     );
 
@@ -285,7 +283,6 @@ fn rejects_a_quilt_modrinth_pack() {
         &fixture.root,
         "Quilt",
         &zip,
-        None,
         &nebula_core::import::default_download,
     )
     .unwrap_err();
@@ -346,7 +343,6 @@ fn imports_a_prism_instance() {
         &fixture.root,
         "Prism",
         &zip,
-        None,
         &nebula_core::import::default_download,
     )
     .unwrap();
@@ -403,7 +399,6 @@ fn accepts_a_multimc_game_directory() {
         &fixture.root,
         "Old",
         &zip,
-        None,
         &nebula_core::import::default_download,
     )
     .unwrap();
@@ -438,7 +433,6 @@ fn rejects_an_archive_that_is_not_a_modpack() {
             &fixture.root,
             "Random",
             &zip,
-            None,
             &nebula_core::import::default_download
         )
         .is_err()
@@ -452,7 +446,6 @@ fn reports_a_missing_modpack_file() {
         &fixture.root,
         "Missing",
         Path::new("nope.zip"),
-        None,
         &nebula_core::import::default_download,
     )
     .unwrap_err();

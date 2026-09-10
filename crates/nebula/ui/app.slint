@@ -1,16 +1,33 @@
+// Pretendard is bundled: a Korean UI that falls back to whatever the machine
+// has is a different design on every machine.
+import "../assets/fonts/Pretendard-Regular.ttf";
+import "../assets/fonts/Pretendard-Medium.ttf";
+import "../assets/fonts/Pretendard-SemiBold.ttf";
+
 import { ScrollView } from "std-widgets.slint";
-import { Theme, AppPage, ButtonKind, SheetData, SheetActions } from "tokens.slint";
-import { SheetButton } from "components/button.slint";
-import { Sheet } from "screens/sheet.slint";
-import { NewServer } from "screens/new-server.slint";
-import { Import } from "screens/import.slint";
-import { Settings } from "screens/settings.slint";
+import { Theme, ThemePreference } from "lib/theme.slint";
+import { Button, ButtonVariant, ButtonSize } from "lib/button.slint";
+import { Dialog } from "lib/dialog.slint";
+import { NavRail } from "lib/nav-rail.slint";
+import { Toast } from "lib/toast.slint";
+import { TopBar } from "lib/top-bar.slint";
+import { AppData, AppPage, DialogKind, NewServerData, SettingsData, SheetActions, SheetData } from "lib/data.slint";
+import { BuildScreen } from "screens/build.slint";
+import { ServersScreen, NewServerForm } from "screens/servers.slint";
+import { ImportScreen } from "screens/import.slint";
+import { PublishScreen } from "screens/publish.slint";
+import { SettingsScreen, SettingsFooter } from "screens/settings.slint";
 
 export {
     Theme,
     ThemePreference,
+    Tone,
+} from "lib/theme.slint";
+
+export {
+    AppData,
     AppPage,
-    ButtonKind,
+    DialogKind,
     Loader,
     PublishTarget,
     ServerRowData,
@@ -19,116 +36,256 @@ export {
     ReadinessRowData,
     ManualDownloadData,
     ImportRowData,
+    ToastData,
     SheetData,
     SheetActions,
     PublishData,
     NewServerData,
     ImportData,
     SettingsData,
-} from "tokens.slint";
+} from "lib/data.slint";
 
 export component App inherits Window {
     title: "Nebula";
+    // Portrait 3:4. `Theme.screenshot` raises the floor to the design default
+    // so a headless render shows the app at 720×960; see theme.slint.
     preferred-width: 720px;
     preferred-height: 960px;
-    min-width: 600px;
-    min-height: 800px;
+    min-width: Theme.screenshot ? 720px : 640px;
+    min-height: Theme.screenshot ? 960px : 800px;
     background: Theme.bg;
+    default-font-family: "Pretendard";
     default-font-size: 14px;
 
-    function back-to-sheet() {
-        if (!SheetData.busy) {
-            SheetData.page = AppPage.sheet;
-            SheetActions.navigate(AppPage.sheet);
-        }
+    function flip-theme() {
+        SettingsData.theme = Theme.dark ? ThemePreference.light : ThemePreference.dark;
+        SheetActions.appearance-changed(SettingsData.theme, SettingsData.reduced-motion);
+    }
+
+    function submit-new-server() {
+        SheetActions.create-server(NewServerData.id, NewServerData.mc-version, NewServerData.loader, NewServerData.loader-version);
+    }
+
+    /// How far PageUp/PageDown move: not a whole screen, so the line that was
+    /// at the edge stays visible and the reader keeps their place.
+    function page-step() -> length {
+        sv.visible-height * 0.9
+    }
+
+    /// Scrolls the page by `by`, clamped to the content. Written imperatively:
+    /// a *binding* on `viewport-y` replaces the two-way binding the scrollbar
+    /// holds and makes the page unscrollable by mouse (README §6).
+    function scroll-by(by: length) {
+        sv.viewport-y = clamp(sv.viewport-y + by, min(0px, sv.visible-height - sv.viewport-height), 0px);
     }
 
     keys := FocusScope {
         init => {
             self.focus();
         }
-        key-pressed(event) => {
-            if (event.text == Key.Escape && SheetData.page != AppPage.sheet) {
-                root.back-to-sheet();
+
+        // Not a tab stop: it holds focus at startup and after a dialog closes,
+        // and has no visual of its own, so a Tab cycle that included it would
+        // have a step with no focus ring anywhere on screen.
+        focus-on-tab-navigation: false;
+
+        // `capture-key-pressed` runs before the focused child: a text field
+        // would otherwise eat Ctrl+1 as a keystroke and never reject it.
+        capture-key-pressed(event) => {
+            if (!event.modifiers.control && !event.modifiers.meta) {
+                return reject;
+            }
+            if (event.text == "1") {
+                AppData.go(AppPage.build);
+                accept
+            } else if (event.text == "2") {
+                AppData.go(AppPage.servers);
+                accept
+            } else if (event.text == "3") {
+                AppData.go(AppPage.import);
+                accept
+            } else if (event.text == "4") {
+                AppData.go(AppPage.publish);
+                accept
+            } else if (event.text == "5") {
+                AppData.go(AppPage.settings);
                 accept
             } else {
                 reject
             }
         }
 
-        ScrollView {
+        key-pressed(event) => {
+            // Esc closes the dialog, and only when nothing is running: a job
+            // started from it is still writing to disk.
+            if (event.text == Key.Escape && AppData.dialog != DialogKind.none && !SheetData.busy) {
+                SheetActions.close-dialog();
+                // The field that had focus is about to be destroyed with the
+                // dialog; without this the app would be left with no focus at
+                // all and Ctrl+1..5 would stop answering.
+                self.focus();
+                accept
+            // Slint 1.17 drops everything scrolled out of a ScrollView from the
+            // accessibility tree, and Tab never scrolls a control into view, so
+            // a keyboard-only reader cannot reach the log or the verdict banner
+            // at all (DESIGN-v2 §6, accepted ceiling). These four keys are the
+            // way out: they work wherever the focus is, because a control that
+            // does not want them rejects them and they arrive here.
+            } else if (event.text == Key.PageDown) {
+                root.scroll-by(-root.page-step());
+                accept
+            } else if (event.text == Key.PageUp) {
+                root.scroll-by(root.page-step());
+                accept
+            } else if (event.text == Key.Home && event.modifiers.control) {
+                root.scroll-by(sv.viewport-height);
+                accept
+            } else if (event.text == Key.End && event.modifiers.control) {
+                root.scroll-by(-sv.viewport-height);
+                accept
+            } else {
+                reject
+            }
+        }
+
+        HorizontalLayout {
+            NavRail {
+                page: AppData.page;
+                navigate(page) => {
+                    AppData.go(page);
+                }
+            }
+
             VerticalLayout {
-                padding: 24px;
-                spacing: 16px;
+                horizontal-stretch: 1;
 
-                // ── Header ───────────────────────────────────────────────────
-                HorizontalLayout {
-                    spacing: 12px;
-                    vertical-stretch: 0;
-
-                    VerticalLayout {
-                        alignment: center;
-                        spacing: 2px;
-                        horizontal-stretch: 1;
-
-                        Text {
-                            text: "Nebula";
-                            color: Theme.text;
-                            font-size: 22px;
-                            font-weight: 700;
-                        }
-
-                        Text {
-                            text: "배포본 빌드 시트";
-                            color: Theme.muted;
-                            font-size: 12px;
-                            font-weight: 600;
-                        }
-                    }
-
-                    SheetButton {
-                        kind: ButtonKind.ghost;
-                        text: "설정";
-                        a11y-label: "설정 화면 열기";
-                        enabled: !SheetData.busy;
-                        selected: SheetData.page == AppPage.settings;
-                        activated => {
-                            SheetData.page = AppPage.settings;
-                            SheetActions.navigate(AppPage.settings);
-                        }
+                TopBar {
+                    title: AppData.page == AppPage.build
+                        ? "빌드"
+                        : AppData.page == AppPage.servers
+                            ? "서버"
+                            : AppData.page == AppPage.import
+                                ? "가져오기"
+                                : AppData.page == AppPage.publish ? "배포" : "설정";
+                    busy: SheetData.busy;
+                    busy-label: SheetData.busy-label;
+                    dark: Theme.dark;
+                    toggle-theme => {
+                        root.flip-theme();
                     }
                 }
 
-                Rectangle {
-                    height: 1px;
-                    vertical-stretch: 0;
-                    background: Theme.line;
-                }
+                sv := ScrollView {
+                    vertical-stretch: 1;
+                    // The page never scrolls sideways: a long unbreakable
+                    // string (a URL in a read-only field) would otherwise widen
+                    // the viewport and push the cards off the right edge.
+                    viewport-width: self.visible-width;
+                    // `viewport-height` is deliberately *not* bound: the
+                    // Flickable inside already derives it from the content's
+                    // preferred height, and any binding here replaces that with
+                    // the visible height — which squeezes every control below
+                    // its own minimum (44 px buttons render 18 px tall).
 
-                if SheetData.page != AppPage.sheet : HorizontalLayout {
-                    alignment: start;
-                    vertical-stretch: 0;
-                    height: 44px;
+                    page := VerticalLayout {
+                        // Without this the cards keep their own preferred width
+                        // and the page scrolls sideways.
+                        width: parent.visible-width;
+                        padding: Theme.page-inset;
+                        spacing: Theme.card-gap;
+                        alignment: start;
 
-                    SheetButton {
-                        kind: ButtonKind.ghost;
-                        text: "시트로 돌아가기";
-                        a11y-label: "빌드 시트로 돌아가기";
-                        enabled: !SheetData.busy;
-                        activated => {
-                            root.back-to-sheet();
-                        }
+                        if AppData.page == AppPage.build : BuildScreen { }
+                        if AppData.page == AppPage.servers : ServersScreen { }
+                        if AppData.page == AppPage.import : ImportScreen { }
+                        if AppData.page == AppPage.publish : PublishScreen { }
+                        if AppData.page == AppPage.settings : SettingsScreen { }
                     }
                 }
 
-                // ── Page ─────────────────────────────────────────────────────
-                if SheetData.page == AppPage.sheet : Sheet { }
+                if AppData.page == AppPage.settings : SettingsFooter { }
+            }
+        }
 
-                if SheetData.page == AppPage.new-server : NewServer { }
+        // ── Dialog layer ────────────────────────────────────────────────────
+        // Inside the key scope, not beside it: `key-pressed` on an enclosing
+        // scope only sees keys the *focused* element rejected, so a dialog that
+        // is a sibling of this scope stops answering Esc the moment the user
+        // clicks into one of its fields. A FocusScope is not a layout, so this
+        // and the toast layer simply fill it, later sibling on top.
+        if AppData.dialog == DialogKind.new-server : Dialog {
+            title: "새 서버";
+            a11y-id: "new-server-dialog";
+            closable: !SheetData.busy;
+            // The caret starts in the first field: a modal that opens with the
+            // focus still behind it makes the keyboard user hunt for it.
+            init => {
+                form.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
 
-                if SheetData.page == AppPage.import : Import { }
+            form := NewServerForm {
+                submitted => {
+                    root.submit-new-server();
+                }
+            }
 
-                if SheetData.page == AppPage.settings : Settings { }
+            HorizontalLayout {
+                spacing: Theme.sp-2;
+                alignment: end;
+                vertical-stretch: 0;
+
+                Button {
+                    text: "취소";
+                    variant: ButtonVariant.ghost;
+                    a11y-label: "새 서버 만들기 취소";
+                    a11y-id: "new-server-cancel";
+                    enabled: !SheetData.busy;
+                    activated => {
+                        SheetActions.close-dialog();
+                        keys.focus();
+                    }
+                }
+
+                Button {
+                    text: "서버 만들기";
+                    a11y-label: "서버 만들기";
+                    a11y-id: "new-server-submit";
+                    variant: ButtonVariant.primary;
+                    size: ButtonSize.lg;
+                    enabled: !SheetData.busy;
+                    loading: NewServerData.busy;
+                    activated => {
+                        root.submit-new-server();
+                    }
+                }
+            }
+        }
+
+        // ── Toast layer ─────────────────────────────────────────────────────────
+        // No background and no TouchArea, so clicks fall through to the page.
+        Rectangle {
+            VerticalLayout {
+                alignment: end;
+                padding-bottom: Theme.sp-6;
+                spacing: Theme.sp-2;
+
+                for item in AppData.toasts : HorizontalLayout {
+                    alignment: center;
+                    vertical-stretch: 0;
+
+                    Toast {
+                        tone: item.tone;
+                        text: item.message;
+                        a11y-id: "toast-" + item.id;
+                        dismissed => {
+                            SheetActions.dismiss-toast(item.id);
+                        }
+                    }
+                }
             }
         }
     }

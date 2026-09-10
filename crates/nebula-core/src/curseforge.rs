@@ -86,7 +86,7 @@ pub fn loader_for(manifest: &CurseForgeManifest) -> Result<Option<(LoaderKind, S
             let version = loader.id[prefix.len()..].to_owned();
             if kind == LoaderKind::NeoForge && version.starts_with(&format!("{mc}-")) {
                 return Err(Error::Invalid(format!(
-                    "Legacy NeoForge ({}) is not supported. Minecraft {mc} packs must use Forge instead.",
+                    "Legacy NeoForge({})는 지원하지 않습니다 — Minecraft {mc} 모드팩은 Forge를 쓰세요",
                     loader.id
                 )));
             }
@@ -94,7 +94,9 @@ pub fn loader_for(manifest: &CurseForgeManifest) -> Result<Option<(LoaderKind, S
         }
         if lower.starts_with("quilt-") {
             return Err(Error::Invalid(
-                "Quilt modpacks are not supported; Helios and Hambugui cannot launch Quilt.".into(),
+                "Quilt 모드팩은 지원하지 않습니다 — Helios도 Hambugui도 Quilt를 실행할 수 없습니다. \
+                 Forge, NeoForge 또는 Fabric 모드팩을 쓰세요"
+                    .into(),
             ));
         }
         log::warn!("Ignoring unknown CurseForge mod loader {}.", loader.id);

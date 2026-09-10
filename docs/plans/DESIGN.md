@@ -1,3 +1,5 @@
+> Superseded on 2026-09-10 by DESIGN-v2.md ("Quiet Studio"). Kept for the token/contrast method and the original audit trail.
+
 # Nebula GUI — Design Record ("Build Sheet")
 
 Stack: Slint 1.17.1, software renderer, same toolchain as Hambugui Launcher.
@@ -108,8 +110,8 @@ Each secondary screen replaces the sheet below the header and starts with a ghos
 - `ToggleRow` (label, checked <=> , enabled): 44 px row, 18 px square box with 2 px border, filled with `primary` and a check drawn with two `Path`/`Rectangle` strokes when checked; role checkbox, label is the accessible label.
 - `ServerRow`: as drawn; `폴더 열기` ghost button; row is focusable but not a button (no action besides opening the folder).
 - `FindingRow`: severity word (`오류`/`경고`, 12/600, coloured) + location (mono 12 muted) + message (13, wraps).
-- `Stamp`: Slint 1.17.1 has **no rotation on `Rectangle`** (verified: `Unknown property rotation-angle in Rectangle`). Build it as: an `Image { source: @image-url("../assets/stamp-frame.svg"); colorize: Theme.primary; transform-rotation: -6deg; }` whose SVG is a 240×96 double border (3 px outer, 1 px inner 4 px inset, transparent centre), plus three `Text`s each with `transform-rotation: -6deg` and `transform-origin` at the centre, laid over the image. Verify with a software-renderer screenshot; if rotated text renders incorrectly, ship the upright variant (same frame, no rotation) — the evidence (hash + time) matters more than the tilt. Appears via `if stamped : Stamp {}` with `animate opacity { duration: Theme.stamp; }` (opacity rather than size, so layout never shifts).
-- `LogRow`: time (mono muted) + target (mono, 6 chars padded) + message (mono, wraps).
+- `Stamp`: shipped **upright and static** — Slint 1.17.1's software renderer ignores `transform-rotation` on both `Image` and `Text` (verified in Task 6a), and a declared `animate opacity` renders the first frame transparent. The frame is the colorized SVG (`assets/stamp-frame.svg`, 240×96 double border) with three `Text`s: `검증 통과`, the file name (`distribution.json`), and `SHA-256 a91f3c02` (first 8 hex of the written file). No clock: the app has no local-timezone source and a UTC time misleads a KST user. The stamp appears only when the **strict** validation of that file has zero errors, and it clears when the file-name field changes.
+- `LogRow`: elapsed time since launch `+MM:SS` (mono) + target (mono, 6 chars padded) + message (mono, wraps); error rows in `danger`, warn rows in `warning`, others `text`. The band auto-scrolls to the newest row on append.
 
 All custom interactive components: `accessible-role`, `accessible-label`, `accessible-enabled`, visible 2 px focus ring in `Theme.focus`, `mouse-cursor: pointer` when enabled.
 
@@ -120,7 +122,9 @@ All custom interactive components: `accessible-role`, `accessible-label`, `acces
 | First run (no settings) | Readiness rows show `미설정`; servers band empty state: "루트 폴더를 먼저 설정하세요." + `설정 열기`. Primary disabled with helper "루트와 기본 URL을 설정하면 생성할 수 있습니다." |
 | Root set, no servers | "아직 서버가 없습니다. 새 서버를 만들거나 CurseForge 모드팩을 가져오세요." + the two band buttons. |
 | Root set, root not initialised | Banner in build band: "이 루트에는 meta/distrometa.json이 없습니다." + `루트 초기화` secondary button (runs init root). |
-| Busy | Primary label → `생성 중…` (loading), navigation and other actions disabled, band eyebrow "작업 중: 배포본 생성" ; log streams. |
+| Busy | Primary label → `… 생성 중` (loading), job-starting actions disabled (navigation and Esc still work), band eyebrow `작업 중: 배포본 생성 · 1분 23초` updated every tick; log streams and auto-scrolls. Only the screen whose job is running shows a loading primary. |
+| Verdict gate | Strict validation (http:// and missing SHA-256 are errors) decides the stamp and the 업로드 button; the non-strict report is what the findings list shows. When they differ the summary ends with `· 런처 배포 불가` and the 업로드 helper explains why. |
+| Job failure (per kind) | Prefix by job: `생성 실패:` / `검증 실패:` / `초기화 실패:` / `업로드 실패:`; 다시 시도 re-runs the same job with the current field values; a cache hint appears when the message mentions the cache. |
 | Success | Summary line + findings + Stamp; log line "distribution.json 저장: <path>". If installed locally: second line "Helios 데이터 폴더에 설치: <path>". |
 | Validation errors | Summary with 오류 N in danger; findings list; no stamp; primary re-enabled. |
 | Job failure | Danger-bordered box: "생성 실패: <error message>" + `다시 시도` secondary + hint when the message mentions Forge installer directory. |
@@ -153,6 +157,14 @@ These extend §4–§6 without changing the direction, tokens, or rhythm.
 - **Vertical budget:** the 배포 band adds ~150 px; the whole sheet already scrolls, and at 960 px the log band keeps a minimum of 140 px.
 - **Copy rules unchanged:** sentence case, no emoji, no arrows, active verbs (`업로드`, `연결`), errors state cause + fix ("업로드 실패: 401 인증 거부 — 설정에서 WebDAV 사용자와 비밀번호를 확인하세요").
 - **Globals to add:** `PublishData { target: PublishTarget (none|webdav|gdrive), only-changed: bool, can-publish: bool, result-line: string, distribution-url: string }`, `SheetActions.publish(PublishTarget, bool)`, `SettingsData` fields for the eight new values plus `gdrive-connected: bool`, `SheetActions.connect-gdrive()`, `ImportRowData { file-name, format, size-label, selectable }`.
+
+## 11. Accepted ceilings (after the heuristic audit, 2026-09-10)
+
+- No job cancellation: the Forge/NeoForge installer has a 10-minute timeout; every other job finishes in seconds to a minute.
+- Core log lines stay English (they mirror upstream Nebula and stay searchable against upstream issues); only errors that reach the UI carry Korean cause + fix.
+- No live-region announcements: Slint 1.17 exposes none; the result band has an accessible role and label instead.
+- Contrast is measured against `bg` for sheet text (bands have no background): light muted 4.90, primary 5.30, danger 5.15, warning 4.67; dark 7.01 / 7.19 / 6.37 / 11.57 — all ≥ 4.5:1. The §3 table (against `surface`) applies to fields and rows.
+- Selected exclusive buttons, checked toggles and the primary button share the accent; 확인됨 chips do not.
 
 ## 10. Contrast check script
 

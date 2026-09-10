@@ -1,0 +1,111 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// Two to four exclusive options in one surface-2 track; the selected one is a
+/// raised card with a border (DESIGN-v2 §3). Used for the loader, the publish
+/// target and the theme.
+export component SegmentedControl inherits Rectangle {
+    in property <[string]> options;
+    in property <string> a11y-prefix;
+    /// Stable handle for automation, kebab-case. Becomes the UIA AutomationId;
+    /// the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    in property <bool> enabled: true;
+    /// Which option is selected, `-1` for none. Strictly `in`: the control does
+    /// not decide its own state. Every caller derives this from the value it
+    /// owns and updates that value in `changed`, so a selection the caller
+    /// refuses — or rewrites — cannot leave the track showing something else.
+    in property <int> selected: 0;
+    callback changed(int);
+
+    height: 40px + 2 * Theme.ring-gutter;
+    vertical-stretch: 0;
+    opacity: root.enabled ? 1.0 : 0.5;
+    border-width: (fs.has-focus || Theme.focus-demo) ? Theme.ring-width : 0px;
+    border-color: Theme.accent;
+    border-radius: Theme.r-md + Theme.ring-gutter;
+
+    accessible-role: tab-list;
+    accessible-label: root.a11y-prefix;
+    accessible-id: root.a11y-id;
+    accessible-enabled: root.enabled;
+
+    function pick(index: int) {
+        if (root.enabled && index >= 0 && index < root.options.length && index != root.selected) {
+            root.changed(index);
+        }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.LeftArrow) {
+                root.pick(max(0, root.selected - 1));
+                accept
+            } else if (event.text == Key.RightArrow) {
+                root.pick(min(root.options.length - 1, root.selected + 1));
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            padding: Theme.ring-gutter;
+
+            Rectangle {
+                background: Theme.surface-2;
+                border-radius: Theme.r-md;
+
+                HorizontalLayout {
+                    padding: 3px;
+                    spacing: 3px;
+
+                    for option[index] in root.options : Rectangle {
+                        border-radius: Theme.r-sm + 1px;
+                        background: root.selected == index
+                            ? Theme.surface
+                            : touch.has-hover ? Theme.surface-3 : transparent;
+                        border-width: root.selected == index ? 1px : 0px;
+                        border-color: Theme.border;
+                        animate background { duration: Theme.fast; }
+
+                        accessible-role: tab;
+                        accessible-label: root.a11y-prefix + " " + option;
+                        // `theme-0`, `theme-1`, …: one handle per option.
+                        accessible-id: root.a11y-id == "" ? "" : root.a11y-id + "-" + index;
+                        accessible-enabled: root.enabled;
+                        accessible-checkable: true;
+                        accessible-checked: root.selected == index;
+                        accessible-action-default => {
+                            root.pick(index);
+                        }
+
+                        HorizontalLayout {
+                            padding-left: 10px;
+                            padding-right: 10px;
+
+                            Text {
+                                text: option;
+                                color: root.selected == index ? Theme.text : Theme.text-2;
+                                font-size: Type.button;
+                                font-weight: root.selected == index ? Type.semibold : Type.medium;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+
+                        touch := TouchArea {
+                            enabled: root.enabled;
+                            mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+                            clicked => {
+                                root.pick(index);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,2 @@
+Lucide icons (https://lucide.dev), ISC License. Copyright (c) 2022 Lucide Contributors.
+Full text: https://lucide.dev/license

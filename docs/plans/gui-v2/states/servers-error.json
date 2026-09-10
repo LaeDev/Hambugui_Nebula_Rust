@@ -1,0 +1,169 @@
+{
+  "Theme": {
+    "preference": "light",
+    "screenshot": true
+  },
+  "AppData": {
+    "page": "servers",
+    "dialog": "none",
+    "toasts": [
+      {
+        "id": 1,
+        "tone": "danger",
+        "message": "서버 목록을 읽지 못했습니다"
+      }
+    ]
+  },
+  "SheetData": {
+    "has-root": true,
+    "root-initialised": true,
+    "can-generate": true,
+    "install-local-enabled": true,
+    "loading": false,
+    "servers-error": "D:\\TestRoot\\servers\\Sky-1.20.1\\servermeta.json is not a valid servermeta.json: expected value at line 1 column 1 — 해당 servermeta.json을 고치거나 지운 뒤 새로 고침을 누르세요",
+    "busy": false,
+    "busy-label": "",
+    "distro-name": "distribution",
+    "verdict-title": "",
+    "verdict-detail": "",
+    "verdict-tone": "success",
+    "summary": "",
+    "artifacts": 0,
+    "sha256-count": 0,
+    "errors": 0,
+    "warnings": 0,
+    "error-text": "",
+    "error-kind": "",
+    "error-hint": "",
+    "install-local": false,
+    "invalidate-cache": false,
+    "discard-output": false,
+    "findings-expanded": false,
+    "readiness": [
+      {
+        "label": "루트",
+        "value": "D:\\TestRoot",
+        "state": "error"
+      },
+      {
+        "label": "기본 URL",
+        "value": "https://cdn.example.com/",
+        "state": "ok"
+      },
+      {
+        "label": "Java",
+        "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+        "state": "ok"
+      },
+      {
+        "label": "Launcher 폴더",
+        "value": "미설정",
+        "state": "missing"
+      }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2",
+        "initials": "TE",
+        "hue": 194
+      },
+      {
+        "id": "Sky-1.20.1",
+        "loader": "NeoForge 21.1.77",
+        "counts": "모드 128 · 파일 304 · 라이브러리 12",
+        "path": "D:\\TestRoot\\servers\\Sky-1.20.1",
+        "initials": "SK",
+        "hue": 28
+      },
+      {
+        "id": "Vanilla-1.21",
+        "loader": "없음",
+        "counts": "모드 0 · 파일 62 · 라이브러리 0",
+        "path": "D:\\TestRoot\\servers\\Vanilla-1.21",
+        "initials": "VA",
+        "hue": 268
+      }
+    ],
+    "findings": [],
+    "log": [
+      {
+        "time": "+00:00",
+        "target": "nebula",
+        "message": "루트 D:\\TestRoot · 서버 3개 · 모드팩 2개",
+        "level": "info"
+      },
+      {
+        "time": "+00:12",
+        "target": "gui",
+        "message": "D:\\TestRoot\\servers\\Sky-1.20.1\\servermeta.json is not a valid servermeta.json: expected value at line 1 column 1 — 해당 servermeta.json을 고치거나 지운 뒤 새로 고침을 누르세요",
+        "level": "error"
+      }
+    ]
+  },
+  "PublishData": {
+    "target": "none",
+    "only-changed": true,
+    "can-publish": false,
+    "busy": false,
+    "blocked-reason": "",
+    "result-line": "",
+    "result-error": false,
+    "distribution-url": ""
+  },
+  "NewServerData": {
+    "id": "",
+    "mc-version": "",
+    "loader": "none",
+    "loader-version": "",
+    "id-error": "",
+    "mc-error": "",
+    "loader-version-error": "",
+    "error-text": "",
+    "forge-mod-lists-warning": false,
+    "busy": false,
+    "lookup-busy": false
+  },
+  "ImportData": {
+    "zips": [],
+    "manual-downloads": [],
+    "folder-path": "D:\\TestRoot\\modpacks",
+    "id-error": "",
+    "error-text": "",
+    "busy": false,
+    "result-line": "",
+    "selected-zip": -1,
+    "server-id": ""
+  },
+  "SettingsData": {
+    "root": "D:\\TestRoot",
+    "base-url": "https://cdn.example.com/",
+    "java": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+    "helios": "",
+    "theme": "light",
+    "reduced-motion": false,
+    "webdav-url": "https://dav.example.com/nebula/",
+    "webdav-user": "nebula",
+    "webdav-password": "hunter2hunter2",
+    "webdav-public-url": "",
+    "gdrive-client-id": "",
+    "gdrive-client-secret": "",
+    "gdrive-folder-id": "",
+    "gdrive-connected": false,
+    "gdrive-busy": false,
+    "gdrive-status": "",
+    "gdrive-status-error": false,
+    "root-error": "",
+    "base-url-error": "",
+    "java-error": "",
+    "helios-error": "",
+    "error-text": "",
+    "focus-field": "",
+    "focus-tick": 0,
+    "root-missing": false,
+    "busy": false,
+    "dirty": false
+  }
+}

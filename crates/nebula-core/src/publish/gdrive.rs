@@ -11,7 +11,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use reqwest::blocking::{Body, Client};
 use reqwest::{Method, StatusCode};
@@ -26,6 +26,11 @@ pub const AUTH_ENDPOINT: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 pub const TOKEN_ENDPOINT: &str = "https://oauth2.googleapis.com/token";
 /// Per-file scope: Nebula only ever sees the files it created itself.
 pub const SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
+
+/// How long the loopback listener waits for the browser to come back. A
+/// publish that is really waiting for a person cannot block a process forever.
+const LOGIN_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+const LOGIN_POLL: Duration = Duration::from_millis(200);
 
 const FILES_ENDPOINT: &str = "https://www.googleapis.com/drive/v3/files";
 const UPLOAD_ENDPOINT: &str = "https://www.googleapis.com/upload/drive/v3/files";
@@ -510,10 +515,40 @@ fn post_form<T: serde::de::DeserializeOwned>(
 }
 
 /// Serves exactly one redirect, then hands back the authorisation code.
+///
+/// The listener is polled rather than blocked on, so a consent screen nobody
+/// finishes gives up after [`LOGIN_TIMEOUT`] instead of pinning the caller (the
+/// GUI runs this on a worker thread that would never come back).
 fn accept_code(listener: &TcpListener, expected_state: &str) -> Result<String> {
-    let (stream, _) = listener
-        .accept()
-        .map_err(io("accepting the OAuth redirect"))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(io("waiting for the OAuth redirect"))?;
+    let deadline = Instant::now() + LOGIN_TIMEOUT;
+    let stream = loop {
+        match listener.accept() {
+            Ok((stream, _)) => break stream,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                if Instant::now() >= deadline {
+                    return Err(Error::Invalid(
+                        "Google 로그인 대기 시간이 초과되었습니다. 다시 시도하세요.".into(),
+                    ));
+                }
+                std::thread::sleep(LOGIN_POLL);
+            }
+            Err(error) => {
+                return Err(Error::Io {
+                    context: "accepting the OAuth redirect".to_owned(),
+                    source: error,
+                });
+            }
+        }
+    };
+    // On Windows an accepted socket inherits the listener's non-blocking mode,
+    // and the request below is read with blocking calls.
+    stream
+        .set_nonblocking(false)
+        .map_err(io("reading the OAuth redirect"))?;
+
     let mut writer = stream
         .try_clone()
         .map_err(io("reading the OAuth redirect"))?;

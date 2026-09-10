@@ -1,0 +1,301 @@
+import { Theme, Tone } from "../lib/theme.slint";
+import { Type } from "../lib/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "../lib/button.slint";
+import { Card, CardHeader } from "../lib/card.slint";
+import { Chip } from "../lib/chip.slint";
+import { Callout, VerdictBanner } from "../lib/callout.slint";
+import { KeyValue } from "../lib/key-value.slint";
+import { LogView } from "../lib/log-view.slint";
+import { Switch } from "../lib/switch.slint";
+import { TextField } from "../lib/text-field.slint";
+import { AppData, AppPage, FindingRowData, PublishData, SheetActions, SheetData } from "../lib/data.slint";
+
+component FindingRow inherits HorizontalLayout {
+    in property <FindingRowData> data;
+
+    spacing: Theme.sp-2;
+    vertical-stretch: 0;
+
+    accessible-role: text;
+    accessible-label: root.data.severity + ", " + root.data.location + ", " + root.data.message;
+
+    Image {
+        source: root.data.is-error
+            ? @image-url("../../assets/icons/circle-x.svg")
+            : @image-url("../../assets/icons/triangle-alert.svg");
+        width: 16px;
+        height: 16px;
+        colorize: root.data.is-error ? Theme.danger : Theme.warning;
+        horizontal-stretch: 0;
+        vertical-alignment: top;
+        y: 2px;
+    }
+
+    VerticalLayout {
+        spacing: 2px;
+        horizontal-stretch: 1;
+
+        Text {
+            text: root.data.location;
+            color: Theme.text-2;
+            font-family: Theme.mono;
+            font-size: Type.caption;
+            wrap: word-wrap;
+        }
+
+        Text {
+            text: root.data.message;
+            color: Theme.text;
+            font-size: Type.secondary;
+            wrap: word-wrap;
+        }
+    }
+}
+
+/// 빌드 — the hero page (DESIGN-v2 §4).
+export component BuildScreen inherits VerticalLayout {
+    // The global job lock plus the modal check: navigation is deliberately not
+    // one of the things they disable, only the actions that start a job.
+    private property <bool> live: AppData.page-live;
+    private property <bool> has-verdict: SheetData.verdict-title != "";
+    private property <int> shown-findings: SheetData.findings-expanded
+        ? SheetData.findings.length
+        : min(6, SheetData.findings.length);
+
+    spacing: Theme.card-gap;
+
+    // ── Readiness ───────────────────────────────────────────────────────────
+    Card {
+        CardHeader {
+            title: "준비 상태";
+            Button {
+                text: "설정 열기";
+                variant: ButtonVariant.ghost;
+                a11y-label: "설정 화면 열기";
+                a11y-id: "build-open-settings";
+                activated => {
+                    AppData.go(AppPage.settings);
+                }
+            }
+        }
+
+        for row in SheetData.readiness : KeyValue {
+            key: row.label;
+            value: row.value;
+            dim: row.state == "missing";
+            Chip {
+                // `확인됨` is a claim that something was read. Before the first
+                // scan lands, and when a scan failed, it would be a lie.
+                text: row.state == "loading"
+                    ? "불러오는 중"
+                    : row.state == "error" ? "읽기 실패" : row.state == "missing" ? "미설정" : "확인됨";
+                tone: row.state == "loading"
+                    ? Tone.neutral
+                    : row.state == "error" ? Tone.danger : row.state == "missing" ? Tone.warning : Tone.success;
+                tone-glyph: row.state != "loading";
+            }
+        }
+    }
+
+    // ── Build ───────────────────────────────────────────────────────────────
+    Card {
+        CardHeader { title: "배포본"; }
+
+        if !SheetData.root-initialised : Callout {
+            tone: Tone.warning;
+            title: "루트가 초기화되지 않았습니다";
+            body: "이 루트에는 meta/distrometa.json이 없습니다. 루트 초기화는 기본 메타 파일과 폴더를 추가하며 기존 파일은 그대로 둡니다.";
+            Button {
+                text: "루트 초기화";
+                a11y-label: "루트 폴더 초기화";
+                a11y-id: "build-init-root";
+                enabled: root.live;
+                activated => {
+                    SheetActions.init-root();
+                }
+            }
+        }
+
+        TextField {
+            label: "파일 이름";
+            a11y-label: "배포본 파일 이름";
+            a11y-id: "build-name";
+            suffix: ".json";
+            placeholder: "distribution";
+            enabled: root.live;
+            text <=> SheetData.distro-name;
+        }
+
+        Switch {
+            text: "Launcher 데이터 폴더에 설치";
+            a11y-label: "생성 후 Launcher 데이터 폴더에 설치";
+            a11y-id: "build-install-local";
+            helper: SheetData.install-local-enabled ? "" : "설정에서 Launcher 폴더를 지정하면 켤 수 있습니다";
+            enabled: root.live && SheetData.install-local-enabled;
+            checked <=> SheetData.install-local;
+        }
+
+        Switch {
+            text: "Forge 설치 캐시 무효화";
+            a11y-label: "Forge 설치 캐시 무효화";
+            a11y-id: "build-invalidate-cache";
+            enabled: root.live;
+            checked <=> SheetData.invalidate-cache;
+        }
+
+        Switch {
+            text: "설치 출력 삭제";
+            a11y-label: "설치 출력 삭제";
+            a11y-id: "build-discard-output";
+            enabled: root.live;
+            checked <=> SheetData.discard-output;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.sp-2;
+            alignment: start;
+            vertical-stretch: 0;
+
+            Button {
+                text: "배포본 생성";
+                a11y-label: "배포본 생성";
+                a11y-id: "build-generate";
+                icon: @image-url("../../assets/icons/play.svg");
+                variant: ButtonVariant.primary;
+                size: ButtonSize.lg;
+                enabled: SheetData.can-generate;
+                loading: SheetData.busy;
+                activated => {
+                    SheetActions.generate();
+                }
+            }
+
+            Button {
+                text: "기존 파일 검증";
+                a11y-label: "이미 저장된 배포본 파일 검증";
+                a11y-id: "build-validate";
+                icon: @image-url("../../assets/icons/file-check-2.svg");
+                size: ButtonSize.lg;
+                enabled: root.live;
+                activated => {
+                    SheetActions.validate-existing();
+                }
+            }
+        }
+
+        if !SheetData.can-generate && !SheetData.busy : Text {
+            text: "루트와 기본 URL을 설정하면 생성할 수 있습니다.";
+            color: Theme.text-3;
+            font-size: Type.caption;
+            font-weight: Type.medium;
+            wrap: word-wrap;
+        }
+    }
+
+    // ── Failure ─────────────────────────────────────────────────────────────
+    if SheetData.error-text != "" : Card {
+        Callout {
+            tone: Tone.danger;
+            title: SheetData.error-kind == "validate"
+                ? "검증 실패"
+                : SheetData.error-kind == "init-root" ? "초기화 실패" : "생성 실패";
+            body: SheetData.error-text;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.sp-2;
+            alignment: start;
+            vertical-stretch: 0;
+
+            Button {
+                text: "다시 시도";
+                a11y-label: "실패한 작업 다시 시도";
+                a11y-id: "build-retry";
+                icon: @image-url("../../assets/icons/refresh-cw.svg");
+                enabled: root.live;
+                activated => {
+                    SheetActions.retry-job();
+                }
+            }
+        }
+
+        if SheetData.error-hint != "" : Text {
+            text: SheetData.error-hint;
+            color: Theme.text-2;
+            font-size: Type.secondary;
+            wrap: word-wrap;
+        }
+    }
+
+    // ── Result ──────────────────────────────────────────────────────────────
+    if root.has-verdict : Card {
+        VerdictBanner {
+            tone: SheetData.verdict-tone;
+            title: SheetData.verdict-title;
+            detail: SheetData.verdict-detail;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.sp-2;
+            alignment: start;
+            vertical-stretch: 0;
+
+            accessible-role: text;
+            accessible-label: SheetData.summary;
+
+            Chip { text: "파일 " + SheetData.artifacts; }
+            Chip { text: "SHA-256 " + SheetData.sha256-count; }
+            Chip {
+                text: "오류 " + SheetData.errors;
+                tone: SheetData.errors > 0 ? Tone.danger : Tone.neutral;
+            }
+            Chip {
+                text: "경고 " + SheetData.warnings;
+                tone: SheetData.warnings > 0 ? Tone.warning : Tone.neutral;
+            }
+        }
+
+        // Readable but unpublishable: the launcher's own pass failed even
+        // though nothing in the list above is an error.
+        // The reason is the host's, and it is already written once — for the
+        // 업로드 button. Repeating the sentence here is how the two drift apart.
+        if SheetData.verdict-tone == Tone.warning : Callout {
+            tone: Tone.warning;
+            title: "런처 배포 불가";
+            body: PublishData.blocked-reason;
+        }
+
+        if SheetData.findings.length > 0 : VerticalLayout {
+            spacing: Theme.sp-3;
+            vertical-stretch: 0;
+
+            for index in root.shown-findings : FindingRow {
+                data: SheetData.findings[index];
+            }
+        }
+
+        if SheetData.findings.length > 6 && !SheetData.findings-expanded : HorizontalLayout {
+            alignment: start;
+            vertical-stretch: 0;
+
+            Button {
+                text: "더 보기 (" + (SheetData.findings.length - 6) + ")";
+                a11y-label: "나머지 검증 결과 더 보기";
+                a11y-id: "build-more-findings";
+                variant: ButtonVariant.ghost;
+                activated => {
+                    SheetData.findings-expanded = true;
+                }
+            }
+        }
+    }
+
+    // ── Log ─────────────────────────────────────────────────────────────────
+    LogView {
+        height: 180px;
+        rows: SheetData.log;
+        cleared => {
+            SheetActions.clear-log();
+        }
+    }
+}

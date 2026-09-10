@@ -138,6 +138,15 @@ impl Validator {
             self.error("$", "the distribution root must be a JSON object");
             return;
         }
+        // Both launchers compare it against the one they have cached, so an
+        // absent or empty version makes every distribution look unchanged.
+        match value.get("version").and_then(Value::as_str) {
+            Some(version) if !version.is_empty() => {}
+            _ => self.error(
+                "version",
+                "the distribution version must be a non-empty string",
+            ),
+        }
         let Some(servers) = value.get("servers").and_then(Value::as_array) else {
             self.error("servers", "servers must be an array");
             return;
@@ -151,11 +160,21 @@ impl Validator {
                 continue;
             }
             match server.get("id").and_then(Value::as_str) {
-                Some(id) if ids.insert(id) => {}
-                Some(id) => self.error(
-                    format!("{location}.id"),
-                    format!("duplicate server id {id}"),
-                ),
+                Some(id) => {
+                    if !ids.insert(id) {
+                        self.error(
+                            format!("{location}.id"),
+                            format!("duplicate server id {id}"),
+                        );
+                    }
+                    // The launcher joins it onto its instance directory.
+                    if !paths::is_single_segment(id) {
+                        self.error(
+                            format!("{location}.id"),
+                            "a server id must be a single path segment (no / \\ : or ..)",
+                        );
+                    }
+                }
                 None => self.error(format!("{location}.id"), "a server id must be a string"),
             }
 
@@ -204,8 +223,18 @@ impl Validator {
             };
 
             let id = module.get("id").and_then(Value::as_str);
-            if id.is_none() {
-                self.error(format!("{location}.id"), "a module id must be a string");
+            match id {
+                Some("") => self.error(format!("{location}.id"), "a module id must not be empty"),
+                // Nebula shipped these until the FG2 resolver started unpacking:
+                // the Hambugui runtime verifies the bytes it downloads and never
+                // unpacks anything, so the file it stores is unusable.
+                Some(id) if id.ends_with("@jar.pack.xz") => self.error(
+                    format!("{location}.id"),
+                    "pack.xz artifacts cannot be verified by the Hambugui runtime; regenerate \
+                     with this Nebula version",
+                ),
+                Some(_) => {}
+                None => self.error(format!("{location}.id"), "a module id must be a string"),
             }
 
             self.required(module.get("required"), &location);
@@ -248,6 +277,15 @@ impl Validator {
             );
             return;
         };
+        // `parse_required` in the launcher takes them as booleans or not at all.
+        for key in ["value", "def"] {
+            if object.get(key).is_some_and(|field| !field.is_boolean()) {
+                self.error(
+                    format!("{location}.required.{key}"),
+                    format!("required.{key} must be a boolean"),
+                );
+            }
+        }
         if object.get("value").and_then(Value::as_bool) == Some(true)
             && object.get("def").and_then(Value::as_bool) == Some(false)
         {
@@ -295,9 +333,9 @@ impl Validator {
             None => self.error(format!("{at}.url"), "artifact url must be a string"),
         }
 
-        let md5 = self.digest(artifact, &at, "MD5", 32);
-        let sha256 = self.digest(artifact, &at, "SHA256", 64);
-        if sha256 {
+        let (md5, _) = self.digest(artifact, &at, "MD5", 32);
+        let (sha256, sha256_usable) = self.digest(artifact, &at, "SHA256", 64);
+        if sha256_usable {
             self.report.sha256 += 1;
         }
         match (md5, sha256) {
@@ -339,8 +377,10 @@ impl Validator {
                 format!("{location}.artifact.path"),
                 "a File module must declare artifact.path",
             ),
+            // The launcher joins the id onto `repo/versions` as a directory and
+            // a file name, so `:` is out too: it is not a legal one on Windows.
             ModuleType::VersionManifest => {
-                if id.contains(['/', '\\']) || id.split(['/', '\\']).any(|part| part == "..") {
+                if !paths::is_single_segment(id) {
                     self.error(
                         format!("{location}.id"),
                         "a pathless VersionManifest id must be a single safe path segment",
@@ -355,21 +395,25 @@ impl Validator {
         }
     }
 
-    /// Returns whether the key was present at all: a malformed digest is still
-    /// a declared one, so the presence rules above stay stable.
-    fn digest(&mut self, artifact: &Value, at: &str, key: &str, length: usize) -> bool {
+    /// `(declared, well formed)`. A malformed digest is still a declared one,
+    /// so the presence rules above stay stable, but only a well formed one is
+    /// counted in [`Report::sha256`]: that number says how many artifacts the
+    /// Hambugui runtime can actually verify.
+    fn digest(&mut self, artifact: &Value, at: &str, key: &str, length: usize) -> (bool, bool) {
         let Some(value) = artifact.get(key) else {
-            return false;
+            return (false, false);
         };
         match value.as_str() {
-            Some(hex) if hex.len() == length && hex.chars().all(|c| c.is_ascii_hexdigit()) => {}
+            Some(hex) if hex.len() == length && hex.chars().all(|c| c.is_ascii_hexdigit()) => {
+                return (true, true);
+            }
             Some(_) => self.error(
                 format!("{at}.{key}"),
                 format!("{key} must be {length} hexadecimal characters"),
             ),
             None => self.error(format!("{at}.{key}"), format!("{key} must be a string")),
         }
-        true
+        (true, false)
     }
 }
 
@@ -400,7 +444,10 @@ fn module_type_of(raw: &str) -> Option<ModuleType> {
 mod tests {
     use super::*;
 
+    /// Every fixture below carries a root version, so only the rule under test
+    /// produces findings.
     fn report(json: &str, strict: bool) -> Report {
+        let json = json.replacen('{', r#"{"version":"1.0.0","#, 1);
         validate_json(json.as_bytes(), strict).unwrap()
     }
 
@@ -412,6 +459,24 @@ mod tests {
     }
 
     #[test]
+    fn requires_a_distribution_version() {
+        for json in [
+            r#"{"servers":[]}"#,
+            r#"{"version":"","servers":[]}"#,
+            r#"{"version":1,"servers":[]}"#,
+        ] {
+            let report = validate_json(json.as_bytes(), false).unwrap();
+            assert_eq!(report.errors(), 1, "{json}");
+            assert_eq!(report.findings[0].location, "version");
+        }
+        assert!(
+            validate_json(br#"{"version":"1.0.0","servers":[]}"#, false)
+                .unwrap()
+                .is_ok()
+        );
+    }
+
+    #[test]
     fn rejects_duplicate_server_ids() {
         let json = r#"{"servers":[{"id":"a","modules":[]},{"id":"a","modules":[]}]}"#;
         let report = report(json, false);
@@ -420,15 +485,57 @@ mod tests {
     }
 
     #[test]
-    fn counts_a_malformed_digest_as_declared() {
+    fn rejects_server_ids_that_are_not_a_single_path_segment() {
+        for id in ["", "../evil", "a/b", "C:/tmp/x"] {
+            let json = format!(r#"{{"servers":[{{"id":"{id}","modules":[]}}]}}"#);
+            let report = report(&json, false);
+            assert_eq!(report.errors(), 1, "{id}");
+            assert_eq!(report.findings[0].location, "servers[0].id");
+        }
+    }
+
+    #[test]
+    fn rejects_pack_xz_module_ids() {
+        let json = r#"{"servers":[{"id":"a","modules":[{"id":"g:a:1@jar.pack.xz","type":"Library",
+            "artifact":{"size":1,"url":"https://h/x","MD5":"00112233445566778899aabbccddeeff",
+            "SHA256":"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"}}]}]}"#;
+        let report = report(json, false);
+        assert_eq!(report.errors(), 1);
+        assert_eq!(report.findings[0].location, "servers[0].modules[0].id");
+        assert!(report.findings[0].message.contains("pack.xz"));
+    }
+
+    #[test]
+    fn rejects_a_required_object_that_is_not_booleans() {
+        let json = r#"{"servers":[{"id":"a","modules":[{"id":"x.cfg","type":"File",
+            "required":{"value":"yes","def":1},
+            "artifact":{"size":1,"url":"https://h/x","MD5":"00112233445566778899aabbccddeeff",
+            "SHA256":"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+            "path":"x"}}]}]}"#;
+        let report = report(json, false);
+        assert_eq!(report.errors(), 2);
+        assert_eq!(
+            report.findings[0].location,
+            "servers[0].modules[0].required.value"
+        );
+        assert_eq!(
+            report.findings[1].location,
+            "servers[0].modules[0].required.def"
+        );
+    }
+
+    #[test]
+    fn counts_only_a_usable_sha256() {
         let json = r#"{"servers":[{"id":"a","modules":[{"id":"x.cfg","type":"File",
             "artifact":{"size":1,"url":"https://h/x","SHA256":"zz","path":"x"}}]}]}"#;
         let report = report(json, false);
         // One error for the bad hex, one warning for the missing MD5 -- but no
-        // "neither digest" error.
+        // "neither digest" error, because one was declared.
         assert_eq!(report.errors(), 1);
         assert_eq!(report.warnings(), 1);
-        assert_eq!(report.sha256, 1);
+        // Nothing can verify this artifact, so it does not count as covered.
+        assert_eq!(report.sha256, 0);
+        assert_eq!(report.artifacts, 1);
     }
 
     #[test]

@@ -1,0 +1,74 @@
+import { Theme, Tone } from "theme.slint";
+import { Type } from "typography.slint";
+import { IconButton } from "icon-button.slint";
+
+/// One bottom-centre notice (DESIGN-v2 §3). The 4 s auto-dismiss is a
+/// `slint::Timer` in the host, so it survives a re-render and can be cancelled
+/// by the close button; `app.slint` stacks at most three.
+export component Toast inherits Rectangle {
+    in property <Tone> tone: Tone.accent;
+    in property <string> text;
+    /// Stable handle for automation, kebab-case. Becomes the UIA AutomationId;
+    /// the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    callback dismissed();
+
+    min-width: 360px;
+    max-width: 520px;
+    min-height: 48px;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    background: Theme.surface;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: Theme.border;
+    drop-shadow-blur: 24px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: Theme.shadow;
+
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+    accessible-id: root.a11y-id;
+
+    layout := HorizontalLayout {
+        padding-left: Theme.sp-3;
+        padding-right: Theme.sp-1;
+        padding-top: Theme.sp-2;
+        padding-bottom: Theme.sp-2;
+        spacing: Theme.sp-3;
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+
+            Image {
+                source: Theme.tone-icon(root.tone);
+                width: 20px;
+                height: 20px;
+                image-fit: contain;
+                colorize: Theme.tone-fg(root.tone);
+                accessible-role: none;
+            }
+        }
+
+        Text {
+            text: root.text;
+            color: Theme.text;
+            font-size: Type.body;
+            vertical-alignment: center;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+
+        IconButton {
+            icon: @image-url("../../assets/icons/x.svg");
+            a11y-label: "알림 닫기";
+            a11y-id: root.a11y-id == "" ? "" : root.a11y-id + "-close";
+            icon-size: 16px;
+            horizontal-stretch: 0;
+            activated => {
+                root.dismissed();
+            }
+        }
+    }
+}

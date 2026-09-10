@@ -4,45 +4,23 @@
 //! modpack importer and the publish targets. Command names, aliases and the
 //! messages users grep for are kept as upstream wrote them.
 
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
 use log::LevelFilter;
 use nebula_core::publish::{PublishOptions, Target, gdrive, webdav};
+use nebula_core::server::FORGE_MOD_LIST_WARNING;
 use nebula_core::{
-    Config, CreateServerOptions, Error, GenerateOptions, Java, MinecraftVersion, Promotion, Report,
+    Config, CreateServerOptions, Error, GenerateOptions, MinecraftVersion, Promotion, Report,
     Result, Root, distribution, import, meta, publish, remote, server, validate,
 };
 
-/// Copied verbatim from the private `FORGE_MOD_LIST_WARNING` in
-/// `nebula-core/src/server.rs`, which prints it at distro time. Upstream
-/// printed it here, at `generate server`, and both boxes must look the same.
-const FORGE_MOD_LIST_WARNING: &str = "\
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃                     !!  WARNING !!                      ┃
-┃                                                         ┃
-┃    Forge 1.20.3+ removed support for --fml.modLists.    ┃
-┃  Helios Launcher can no longer load mods through Forge. ┃
-┃      Please use Fabric or NeoForge instead.             ┃
-┃                                                         ┃
-┃                     !!  WARNING !!                      ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛";
-
 /// Where Nebula keeps per-user state: the Google Drive refresh token, and the
-/// GUI's `settings.json`.
-pub fn config_dir() -> PathBuf {
-    let base = if cfg!(windows) {
-        std::env::var_os("APPDATA").map(PathBuf::from)
-    } else if cfg!(target_os = "macos") {
-        std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support"))
-    } else {
-        std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
-    };
-    base.unwrap_or_else(std::env::temp_dir).join("nebula")
-}
+/// GUI's `settings.json`. One definition, in the GUI's settings module — the
+/// CLI had its own copy that ignored `NEBULA_CONFIG_DIR`, so a test run with
+/// that variable set still wrote its token to the real config directory.
+use crate::gui::config_dir;
 
 #[derive(Parser)]
 #[command(
@@ -181,23 +159,28 @@ enum PublishTargetKind {
 
 pub fn run() -> Result<()> {
     let cli = Cli::parse();
+    let level = log_level(cli.verbose, cli.quiet);
     match cli.command {
         // The GUI installs its own `log::Log`, and only one may be set per
-        // process, so env_logger stays out of its way.
-        None | Some(Command::Gui) => crate::gui::run(),
+        // process, so env_logger stays out of its way. It still takes the same
+        // verdict `-v`/`-q` gives the CLI.
+        None | Some(Command::Gui) => crate::gui::run(level),
         Some(command) => {
-            init_logger(cli.verbose, cli.quiet);
+            init_logger(level);
             dispatch(command)
         }
     }
 }
 
-fn init_logger(verbose: bool, quiet: bool) {
-    let level = match (verbose, quiet) {
+fn log_level(verbose: bool, quiet: bool) -> LevelFilter {
+    match (verbose, quiet) {
         (true, _) => LevelFilter::Debug,
         (_, true) => LevelFilter::Warn,
         _ => LevelFilter::Info,
-    };
+    }
+}
+
+fn init_logger(level: LevelFilter) {
     env_logger::Builder::new()
         .filter_level(level)
         // RUST_LOG still wins, which is how you silence one noisy module.
@@ -233,7 +216,9 @@ fn dispatch(command: Command) -> Result<()> {
             &gdrive::config_from_env(&config_dir())?,
             &gdrive::default_open_browser,
         ),
-        Command::Gui => crate::gui::run(),
+        // `run` routes the GUI before dispatch, so it can hand it the log
+        // level; reaching it here would mean that stopped being true.
+        Command::Gui => unreachable!("the GUI is dispatched by `run`"),
     }
 }
 
@@ -278,6 +263,7 @@ fn generate(command: GenerateCommand) -> Result<()> {
             discard_output,
             invalidate_cache,
             helios_untracked,
+            gui_fallback: installer_gui_fallback(),
         }),
         GenerateCommand::Schemas => {
             let (_, root) = root_from_env()?;
@@ -327,6 +313,14 @@ fn generate_server(
     Ok(())
 }
 
+/// Whether a failed headless Forge/NeoForge install may re-run the installer
+/// with its window open. Never in CI: `NEBULA_FORGE_GUI_FALLBACK=0` disables it
+/// outright, and otherwise somebody has to be sitting at the terminal to see it.
+fn installer_gui_fallback() -> bool {
+    std::env::var("NEBULA_FORGE_GUI_FALLBACK").as_deref() != Ok("0")
+        && std::io::stdin().is_terminal()
+}
+
 /// `latest` and `recommended` are looked up; anything else is a literal version.
 fn promoted(
     raw: Option<String>,
@@ -345,7 +339,7 @@ fn promoted(
 
 /// `expected` is set by `server-curseforge`, which only accepts that one format.
 fn import_modpack(id: &str, file: &Path, expected: Option<import::ImportFormat>) -> Result<()> {
-    let (cfg, root) = root_from_env()?;
+    let (_, root) = root_from_env()?;
     log::debug!(
         "Generating server {id} using modpack {} as a template.",
         file.display()
@@ -362,13 +356,8 @@ fn import_modpack(id: &str, file: &Path, expected: Option<import::ImportFormat>)
         }
     }
 
-    let java = cfg
-        .java_executable
-        .as_deref()
-        .map(|exe| Java::new(exe, &root));
-    // `import_modpack` logs the manual-download banner itself.
-    let report =
-        import::import_modpack(&root, id, &path, java.as_ref(), &import::default_download)?;
+    let report = import::import_modpack(&root, id, &path, &import::default_download)?;
+    report_manual_downloads(&report.manual);
     log::info!(
         "{} modpack: {} downloaded, {} copied, {} skipped, {} manual.",
         report.format,
@@ -378,6 +367,44 @@ fn import_modpack(id: &str, file: &Path, expected: Option<import::ImportFormat>)
         report.manual.len()
     );
     Ok(())
+}
+
+/// The upstream banner. It only makes sense on a terminal that scrolls, so it
+/// lives here and not in `import_modpack`, which logs one line the GUI renders
+/// as its own box. Written straight to stderr: no level prefix, no ANSI, and
+/// `--quiet` cannot hide a list the user has to act on.
+fn report_manual_downloads(manual: &[import::ManualDownload]) {
+    if manual.is_empty() {
+        return;
+    }
+    let rule = "============================================";
+    let mut out = std::io::stderr().lock();
+    let _ = writeln!(
+        out,
+        "{rule}
+WARNING"
+    );
+    let _ = writeln!(
+        out,
+        "{} files declared by this modpack do not permit 3rd-party downloads.",
+        manual.len()
+    );
+    let _ = writeln!(out, "They MUST be downloaded manually.");
+    let _ = writeln!(
+        out,
+        "The mods and their download urls will be listed below."
+    );
+    let _ = writeln!(out, "{rule}");
+    for file in manual {
+        let _ = writeln!(out, "{} ({}) - {}", file.name, file.file_name, file.url);
+    }
+    let _ = writeln!(out, "{rule}");
+    let _ = writeln!(out, "YOUR MODPACK IS NOT FULLY GENERATED!");
+    let _ = writeln!(
+        out,
+        "MANUAL ACTION REQUIRED! SCROLL UP AND READ THE WARNING!"
+    );
+    let _ = writeln!(out, "{rule}");
 }
 
 fn generate_distro(opts: GenerateOptions) -> Result<()> {
@@ -477,7 +504,7 @@ fn publish_command(name: &str, kind: PublishTargetKind, all: bool) -> Result<()>
     let path = root.path.join(format!("{name}.json"));
     let plan = publish::plan_from_distribution(&root, &path)?;
 
-    let mut target: Box<dyn Target> = match kind {
+    let mut target: Box<dyn Target + Send> = match kind {
         PublishTargetKind::Webdav => Box::new(webdav::WebDavTarget::from_env(&root.base_url)?),
         PublishTargetKind::Gdrive => Box::new(gdrive::GoogleDriveTarget::new(
             gdrive::config_from_env(&config_dir())?,
@@ -532,7 +559,11 @@ mod tests {
     }
 
     #[test]
-    fn config_dir_ends_with_nebula() {
-        assert_eq!(config_dir().file_name().unwrap(), "nebula");
+    fn verbosity_flags_pick_the_log_level() {
+        // The GUI takes the same verdict, so `nebula gui -v` fills its log band
+        // with the debug lines the CLI would have printed.
+        assert_eq!(log_level(true, false), LevelFilter::Debug);
+        assert_eq!(log_level(false, true), LevelFilter::Warn);
+        assert_eq!(log_level(false, false), LevelFilter::Info);
     }
 }

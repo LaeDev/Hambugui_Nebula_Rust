@@ -26,6 +26,9 @@ fn client() -> Result<&'static reqwest::blocking::Client> {
             reqwest::blocking::Client::builder()
                 .user_agent(concat!("nebula-rust/", env!("CARGO_PKG_VERSION")))
                 .connect_timeout(Duration::from_secs(30))
+                // No read timeout: `read_timeout` exists only on reqwest's async
+                // builder, and the blocking `timeout` covers the whole request,
+                // which would kill a legitimate 300 MB installer download.
                 .build()
                 .map_err(|e| e.to_string())
         })

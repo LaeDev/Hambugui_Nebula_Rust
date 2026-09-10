@@ -90,15 +90,16 @@ impl Java {
         Ok(path)
     }
 
+    /// Runs a bundled helper jar in Nebula's own working directory; the two
+    /// helpers take absolute paths, and only the installer needs a `cwd`.
     pub fn run(
         &self,
         vm_opts: &[String],
         jar: &Path,
         args: &[String],
-        cwd: Option<&Path>,
         timeout: Option<Duration>,
     ) -> Result<ExitStatus> {
-        self.exec(vm_opts, jar, args, cwd, timeout, ("java", Level::Warn))
+        self.exec(vm_opts, jar, args, None, timeout, ("java", Level::Warn))
     }
 
     pub fn run_installer(
@@ -187,7 +188,7 @@ impl Java {
 
         let jar = self.jar(JarKind::Claritas)?;
         let vm_opts = [format!("-Dclaritas.argFile={}", arg_file.display())];
-        let status = self.run(&vm_opts, &jar, &[], None, None)?;
+        let status = self.run(&vm_opts, &jar, &[], None)?;
         if !status.success() {
             log::error!(target: "java", "Claritas finished with non-zero exit code, {:?}", status.code());
             return Ok(None);
@@ -210,7 +211,7 @@ impl Java {
     pub fn packxz_extract_unpack(&self, files: &[PathBuf]) -> Result<()> {
         let jar = self.jar(JarKind::PackXzExtract)?;
         let args = ["-packxz".to_string(), join_paths(files)];
-        let status = self.run(&[], &jar, &args, None, None)?;
+        let status = self.run(&[], &jar, &args, None)?;
         if !status.success() {
             return Err(Error::Tool {
                 tool: jar_name(&jar),
@@ -350,7 +351,7 @@ mod tests {
             &Root::new(tmp.path(), Url::parse("https://host/").unwrap()),
         );
         let err = java
-            .run(&[], &tmp.path().join("any.jar"), &[], None, None)
+            .run(&[], &tmp.path().join("any.jar"), &[], None)
             .unwrap_err();
         assert!(matches!(err, Error::Io { .. }), "{err}");
         assert!(err.to_string().contains("java"), "{err}");
@@ -384,7 +385,6 @@ mod tests {
                 &["-version".to_string()],
                 &jar,
                 &[],
-                None,
                 Some(Duration::from_secs(60)),
             )
             .unwrap();

@@ -17,6 +17,11 @@ pub struct Config {
 }
 
 impl Config {
+    /// **Call this once on the main thread before starting any worker.**
+    /// The first call runs `dotenvy::dotenv()`, which writes to the process
+    /// environment; in edition 2024 that is `unsafe` precisely because another
+    /// thread may be reading the environment at the same time. The `Once` makes
+    /// later calls cheap and thread safe, not the first one.
     pub fn from_env() -> Result<Self> {
         DOTENV.call_once(|| {
             dotenvy::dotenv().ok();
@@ -39,8 +44,11 @@ impl Config {
             if candidate.to_lowercase().starts_with("localhost") {
                 candidate.insert_str(0, "http://");
             } else {
+                // This one reaches a settings field, so it speaks the language
+                // the rest of the form does (DESIGN-v2 §5).
+                log::debug!("BASE_URL {raw} has no URL protocol (ex. http:// or https://)");
                 return Err(Error::Config(
-                    "Please provide a URL protocol (ex. http:// or https://)".into(),
+                    "기본 URL에 프로토콜이 없습니다. https:// 로 시작하는 주소를 입력하세요".into(),
                 ));
             }
         }
@@ -63,12 +71,32 @@ impl Config {
     pub fn java(&self) -> Result<&Path> {
         self.java_executable
             .as_deref()
-            .ok_or_else(|| Error::Config("JAVA_EXECUTABLE is not set".into()))
+            .ok_or_else(|| {
+                Error::Config(
+                    "JAVA_EXECUTABLE이 설정되지 않았습니다 — Forge/NeoForge 서버를 처리하려면 \
+                     설정 화면에서 Java 실행 파일 경로를 지정하세요 (예: C:\\Program Files\\Java\\jdk-21\\bin\\java.exe)"
+                        .into(),
+                )
+            })
     }
 }
 
 fn required(key: &str) -> Result<String> {
-    optional(key).ok_or_else(|| Error::Config(format!("{key} is not set")))
+    optional(key).ok_or_else(|| Error::Config(missing(key)))
+}
+
+/// The two values nothing works without reach the GUI as a failed `to_config`,
+/// so they name the fix as well as the cause.
+fn missing(key: &str) -> String {
+    match key {
+        "ROOT" => "ROOT가 비어 있습니다 — 배포본을 만들 루트 폴더를 설정 화면의 루트에 입력하세요 \
+                   (.env를 쓴다면 ROOT=D:\\NebulaRoot)"
+            .to_owned(),
+        "BASE_URL" => "BASE_URL이 비어 있습니다 — 배포본이 올라갈 주소를 설정 화면의 기본 URL에 \
+                       입력하세요 (예: https://cdn.example.com/)"
+            .to_owned(),
+        other => format!("{other} 값이 비어 있습니다 — .env 또는 설정 화면에서 값을 입력하세요"),
+    }
 }
 
 fn optional(key: &str) -> Option<String> {
@@ -102,7 +130,7 @@ mod tests {
         let err = Config::normalize_base_url("cdn.example.invalid").unwrap_err();
         assert_eq!(
             err.to_string(),
-            "Please provide a URL protocol (ex. http:// or https://)"
+            "기본 URL에 프로토콜이 없습니다. https:// 로 시작하는 주소를 입력하세요"
         );
     }
 

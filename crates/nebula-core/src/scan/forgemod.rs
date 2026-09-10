@@ -6,7 +6,6 @@
 //! NeoForge on year-based Minecraft (26.x) has no minor-range meaning.
 
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 
@@ -100,12 +99,12 @@ pub fn forge_flavour_for(mc: &MinecraftVersion) -> Result<ForgeFlavour> {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ModsToml {
+pub(crate) struct ModsToml {
     pub mods: Vec<ModsTomlEntry>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct ModsTomlEntry {
+pub(crate) struct ModsTomlEntry {
     #[serde(rename = "modId")]
     pub mod_id: String,
     pub version: Option<String>,
@@ -114,7 +113,7 @@ pub struct ModsTomlEntry {
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
-pub struct McModInfo {
+pub(crate) struct McModInfo {
     pub modid: Option<String>,
     pub name: Option<String>,
     pub version: Option<String>,
@@ -133,14 +132,14 @@ enum McModInfoFile {
 /// `None` means "absent or unusable", which sends the caller down the
 /// Claritas/crude fallback path. An empty `[[mods]]` array counts as unusable:
 /// upstream threw a `TypeError` on `mods[0]`.
-pub fn parse_mods_toml(bytes: &[u8]) -> Option<ModsToml> {
+pub(crate) fn parse_mods_toml(bytes: &[u8]) -> Option<ModsToml> {
     let parsed: ModsToml = toml::from_str(std::str::from_utf8(bytes).ok()?).ok()?;
     (!parsed.mods.is_empty()).then_some(parsed)
 }
 
 /// Accepts both `mcmod.info` shapes: a bare array and `{ modListVersion,
 /// modList }`. The first entry is taken to be the main mod.
-pub fn parse_mcmod_info(bytes: &[u8]) -> Option<McModInfo> {
+pub(crate) fn parse_mcmod_info(bytes: &[u8]) -> Option<McModInfo> {
     let entries = match serde_json::from_slice::<McModInfoFile>(bytes).ok()? {
         McModInfoFile::List { mod_list } => mod_list,
         McModInfoFile::Array(entries) => entries,
@@ -154,7 +153,7 @@ pub fn parse_mcmod_info(bytes: &[u8]) -> Option<McModInfo> {
 /// Divergence: upstream's regex ends in `[\r\n]` yet it is applied to lines
 /// already split on `\n`, so it only ever matched CRLF manifests. We accept
 /// both line endings.
-pub fn implementation_version(manifest: &[u8]) -> Option<String> {
+pub(crate) fn implementation_version(manifest: &[u8]) -> Option<String> {
     let text = String::from_utf8_lossy(manifest);
     text.split('\n')
         .filter_map(|line| line.strip_prefix(IMPLEMENTATION_VERSION))
@@ -165,12 +164,12 @@ pub fn implementation_version(manifest: &[u8]) -> Option<String> {
 /// OptiFine ships no mod metadata; upstream reads `changelog.txt` instead and
 /// takes the first line plus its second space-separated token.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OptifineChangelog {
+pub(crate) struct OptifineChangelog {
     pub first_line: String,
     pub version: Option<String>,
 }
 
-pub fn optifine_from_changelog(changelog: &[u8]) -> OptifineChangelog {
+pub(crate) fn optifine_from_changelog(changelog: &[u8]) -> OptifineChangelog {
     let text = String::from_utf8_lossy(changelog);
     let first_line = text
         .split('\n')
@@ -195,7 +194,7 @@ pub fn optifine_from_changelog(changelog: &[u8]) -> OptifineChangelog {
 
 /// The three values one mod jar contributes to its module.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ForgeModMeta {
+pub(crate) struct ForgeModMeta {
     pub mod_id: String,
     pub version: String,
     pub display_name: String,
@@ -216,7 +215,11 @@ fn claritas_field<'a>(
     claritas.and_then(field).map(String::as_str)
 }
 
-pub fn optifine_meta(flavour: ForgeFlavour, file_name: &str, changelog: &[u8]) -> ForgeModMeta {
+pub(crate) fn optifine_meta(
+    flavour: ForgeFlavour,
+    file_name: &str,
+    changelog: &[u8],
+) -> ForgeModMeta {
     let info = optifine_from_changelog(changelog);
     // Upstream would emit `undefined` when the first line has no second token.
     let version = info.version.unwrap_or_else(|| crude_inference(file_name).1);
@@ -232,7 +235,7 @@ pub fn optifine_meta(flavour: ForgeFlavour, file_name: &str, changelog: &[u8]) -
 
 /// 1.13+ resolution. `manifest` is only consulted for the
 /// `${file.jarVersion}` wildcard.
-pub fn forge_meta_113(
+pub(crate) fn forge_meta_113(
     file_name: &str,
     parsed: Option<ModsToml>,
     claritas: Option<&ClaritasMeta>,
@@ -274,7 +277,7 @@ pub fn forge_meta_113(
 }
 
 /// 1.7-1.12 resolution.
-pub fn forge_meta_17(
+pub(crate) fn forge_meta_17(
     file_name: &str,
     parsed: Option<McModInfo>,
     claritas: Option<&ClaritasMeta>,
@@ -319,7 +322,7 @@ fn is_malformed_version(version: &str) -> bool {
 /// `(module id, module name)`. The group comes from Claritas when it reported
 /// one, otherwise from the module type (`generated.forgemod`,
 /// `generated.neoforgemod`).
-pub fn build_forge_module_from_meta(
+pub(crate) fn build_forge_module_from_meta(
     meta: &ForgeModMeta,
     claritas: Option<&ClaritasMeta>,
     module_type: ModuleType,
@@ -350,6 +353,7 @@ pub fn scan_forge_mods(
     }
 
     let claritas = invoke_claritas(ctx, &candidates)?;
+    let container_real = crate::paths::real_path(&container)?;
     let matcher = UntrackedMatcher::new(loader.struct_root(), ctx.untracked)?;
     let module_type = loader.module_type();
 
@@ -370,7 +374,7 @@ pub fn scan_forge_mods(
         let rel = format!("{}/{}", namespace.dir_name(), candidate.file_name);
         let untracked = matcher.is_untracked(&rel);
         let artifact = build_artifact(
-            &container,
+            &container_real,
             &candidate.path,
             candidate.size,
             ctx.server.url(&format!("{}/{rel}", loader.struct_root())),
@@ -394,15 +398,14 @@ pub fn scan_forge_mods(
 
 /// Reads one jar and resolves its metadata. Exposed so the flavour and the
 /// `neoforge.mods.toml` precedence can be tested without Java.
-pub fn read_forge_mod_meta(
+pub(crate) fn read_forge_mod_meta(
     loader: ModLoader,
     flavour: ForgeFlavour,
     file_name: &str,
     jar: &Path,
     claritas: Option<&ClaritasMeta>,
 ) -> Result<ForgeModMeta> {
-    let file = File::open(jar).map_err(io(format!("opening {}", jar.display())))?;
-    let mut zip = ZipArchive::new(file)?;
+    let mut zip = crate::import::open(jar)?;
 
     if is_optifine(file_name) {
         let Some(changelog) = entry_bytes(&mut zip, "changelog.txt") else {
@@ -435,7 +438,11 @@ pub fn read_forge_mod_meta(
                     None
                 }
             };
-            let manifest = entry_bytes(&mut zip, "META-INF/MANIFEST.MF");
+            // The manifest is only ever consulted for `${file.jarVersion}`, and
+            // reading it means inflating another zip entry for every mod.
+            let manifest = wants_jar_version(parsed.as_ref())
+                .then(|| entry_bytes(&mut zip, "META-INF/MANIFEST.MF"))
+                .flatten();
             Ok(forge_meta_113(
                 file_name,
                 parsed,
@@ -463,6 +470,14 @@ pub fn read_forge_mod_meta(
     }
 }
 
+/// Whether the mod defers its version to `META-INF/MANIFEST.MF`.
+fn wants_jar_version(parsed: Option<&ModsToml>) -> bool {
+    parsed
+        .and_then(|toml| toml.mods.first())
+        .and_then(|entry| entry.version.as_deref())
+        == Some(JAR_VERSION_WILDCARD)
+}
+
 fn log_mod_type(file_name: &str, claritas: Option<&ClaritasMeta>) {
     match claritas_field(claritas, |meta| meta.mod_type.as_ref()) {
         Some("CORE_MOD") => log::info!(
@@ -484,12 +499,6 @@ fn invoke_claritas(
     ctx: &ScanContext,
     candidates: &[(Namespace, Candidate)],
 ) -> Result<HashMap<PathBuf, ClaritasMeta>> {
-    let Some(java) = ctx.java else {
-        return Err(Error::Config(
-            "JAVA_EXECUTABLE is required to analyse Forge mods".into(),
-        ));
-    };
-
     let (mut jars, mut proxies) = (Vec::new(), Vec::new());
     for (_, candidate) in candidates {
         let key = claritas_key(&candidate.path)?;
@@ -500,14 +509,24 @@ fn invoke_claritas(
         }
     }
 
-    let scratch = ctx.server.path.join("claritasWork");
-    let mut result = match java.run_claritas(&scratch, &ctx.mc, &jars)? {
-        Some(result) => result,
-        None => {
-            log::error!("Failed to process Claritas result!");
-            HashMap::new()
-        }
-    };
+    // OptiFine never goes through Claritas: its metadata is the proxy below and
+    // its changelog, so a container holding only OptiFine needs no JDK at all.
+    let mut result = HashMap::new();
+    if !jars.is_empty() {
+        let Some(java) = ctx.java else {
+            return Err(Error::Config(
+                "JAVA_EXECUTABLE is required to analyse Forge mods".into(),
+            ));
+        };
+        let scratch = ctx.server.path.join("claritasWork");
+        result = match java.run_claritas(&scratch, &ctx.mc, &jars)? {
+            Some(result) => result,
+            None => {
+                log::error!("Failed to process Claritas result!");
+                HashMap::new()
+            }
+        };
+    }
 
     // Claritas echoes the jar paths back as object keys. If it normalised them
     // the lookup silently misses and every mod falls back to the default group.
@@ -547,4 +566,298 @@ fn entry_bytes<R: Read + Seek>(zip: &mut ZipArchive<R>, name: &str) -> Option<Ve
     let mut bytes = Vec::new();
     entry.read_to_end(&mut bytes).ok()?;
     Some(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    const MODS_TOML: &str = r#"
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "MIT"
+
+[[mods]]
+modId = "jei"
+version = "${file.jarVersion}"
+displayName = "Just Enough Items"
+description = "Item and recipe viewing."
+"#;
+
+    fn write_jar(path: &Path, entries: &[(&str, &[u8])]) {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(path).unwrap());
+        for (name, bytes) in entries {
+            zip.start_file(*name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn resolves_a_1_13_mod_with_a_jar_version_wildcard() {
+        let jar_name = "jei-1.20.1-11.6.0.1024.jar";
+        let parsed = parse_mods_toml(MODS_TOML.as_bytes()).unwrap();
+        assert_eq!(parsed.mods[0].mod_id, "jei");
+        assert_eq!(
+            parsed.mods[0].display_name.as_deref(),
+            Some("Just Enough Items")
+        );
+        // Only this shape makes `read_forge_mod_meta` open the manifest.
+        assert!(wants_jar_version(Some(&parsed)));
+
+        let manifest = b"Manifest-Version: 1.0\r\nImplementation-Version: 11.6.0.1024\r\n\r\n";
+        let meta = forge_meta_113(
+            jar_name,
+            parse_mods_toml(MODS_TOML.as_bytes()),
+            None,
+            Some(manifest),
+        );
+        assert_eq!(
+            meta,
+            ForgeModMeta {
+                mod_id: "jei".to_owned(),
+                version: "11.6.0.1024".to_owned(),
+                display_name: "Just Enough Items".to_owned(),
+            }
+        );
+
+        let (id, name) = build_forge_module_from_meta(&meta, None, ModuleType::ForgeMod);
+        assert_eq!(id, "generated.forgemod:jei:11.6.0.1024@jar");
+        assert_eq!(name, "Just Enough Items");
+
+        // Deliberate divergence: upstream's regex only matched CRLF manifests.
+        assert_eq!(
+            implementation_version(b"Implementation-Version: 1.2.3\n"),
+            Some("1.2.3".to_owned())
+        );
+        // Last occurrence wins, empty values are ignored.
+        assert_eq!(
+            implementation_version(
+                b"Implementation-Version: 1\r\nImplementation-Version: 2\r\nImplementation-Version: \r\n"
+            ),
+            Some("2".to_owned())
+        );
+        assert_eq!(implementation_version(b"Manifest-Version: 1.0\r\n"), None);
+
+        // No manifest -> crude version.
+        let meta = forge_meta_113(jar_name, parse_mods_toml(MODS_TOML.as_bytes()), None, None);
+        assert_eq!(meta.version, "1.20.1-11.6.0.1024");
+    }
+
+    #[test]
+    fn only_reads_the_manifest_for_the_jar_version_wildcard() {
+        let fixed = br#"
+[[mods]]
+modId = "jei"
+version = "1.0"
+"#;
+        assert!(!wants_jar_version(parse_mods_toml(fixed).as_ref()));
+        assert!(!wants_jar_version(None));
+    }
+
+    #[test]
+    fn falls_back_to_claritas_for_1_13_example_mods() {
+        let claritas = ClaritasMeta {
+            id: Some("realmod".to_owned()),
+            group: Some("com.example.real".to_owned()),
+            ..ClaritasMeta::default()
+        };
+        let toml = br#"
+[[mods]]
+modId = "examplemod"
+version = "1.0"
+displayName = "Example Mod"
+"#;
+        let meta = forge_meta_113(
+            "RealMod-1.0.jar",
+            parse_mods_toml(toml),
+            Some(&claritas),
+            None,
+        );
+        assert_eq!(meta.mod_id, "realmod");
+        assert_eq!(meta.display_name, "RealMod");
+        assert_eq!(meta.version, "1.0");
+
+        let (id, name) =
+            build_forge_module_from_meta(&meta, Some(&claritas), ModuleType::NeoForgeMod);
+        assert_eq!(id, "com.example.real:realmod:1.0@jar");
+        assert_eq!(name, "RealMod");
+
+        // An empty `[[mods]]` array is unusable (upstream threw on `mods[0]`).
+        assert!(parse_mods_toml(b"modLoader = \"javafml\"\n").is_none());
+        assert!(parse_mods_toml(b"not = [toml").is_none());
+
+        let meta = forge_meta_113("RealMod-1.0.jar", None, None, None);
+        assert_eq!(meta.mod_id, "realmod");
+        assert_eq!(meta.version, "1.0");
+        let (id, _) = build_forge_module_from_meta(&meta, None, ModuleType::ForgeMod);
+        assert_eq!(id, "generated.forgemod:realmod:1.0@jar");
+    }
+
+    #[test]
+    fn parses_both_mcmod_info_shapes() {
+        const ENTRY: &str = r#"{"modid":"jei","name":"Just Enough Items","version":"4.16.1.302"}"#;
+        let array = format!("[{ENTRY}]");
+        let list = format!(r#"{{"modListVersion":2,"modList":[{ENTRY}]}}"#);
+
+        for raw in [array.as_bytes(), list.as_bytes()] {
+            let info = parse_mcmod_info(raw).unwrap();
+            let meta = forge_meta_17("jei_1.12.2-4.16.1.302.jar", Some(info), None);
+            assert_eq!(meta.mod_id, "jei");
+            assert_eq!(meta.version, "4.16.1.302");
+            assert_eq!(meta.display_name, "Just Enough Items");
+        }
+        assert!(parse_mcmod_info(b"[]").is_none());
+        assert!(parse_mcmod_info(b"not json").is_none());
+
+        // A malformed version falls through to Claritas, then to crude inference.
+        let info = parse_mcmod_info(br#"[{"modid":"jei","name":"JEI","version":"@VERSION@"}]"#);
+        let meta = forge_meta_17("jei-4.16.1.302.jar", info, None);
+        assert_eq!(meta.version, "4.16.1.302");
+
+        let claritas = ClaritasMeta {
+            id: Some("realid".to_owned()),
+            name: Some("Real Mod".to_owned()),
+            version: Some("9.9".to_owned()),
+            mod_type: Some("CORE_MOD".to_owned()),
+            ..ClaritasMeta::default()
+        };
+        let info = parse_mcmod_info(br#"[{"modid":"examplemod","name":"Example","version":""}]"#);
+        let meta = forge_meta_17("whatever-1.0.jar", info, Some(&claritas));
+        assert_eq!(meta.mod_id, "realid");
+        assert_eq!(meta.display_name, "Real Mod");
+        assert_eq!(meta.version, "9.9");
+
+        // Nothing anywhere: everything comes from the file name.
+        let meta = forge_meta_17("whatever-1.0.jar", None, None);
+        assert_eq!(
+            meta,
+            ForgeModMeta {
+                mod_id: "whatever".to_owned(),
+                version: "1.0".to_owned(),
+                display_name: "whatever".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn handles_the_optifine_special_case_for_both_flavours() {
+        let changelog = b"OptiFine 1.12.2_HD_U_G5\nchangelog body\n".as_slice();
+        let parsed = optifine_from_changelog(changelog);
+        assert_eq!(parsed.first_line, "OptiFine 1.12.2_HD_U_G5");
+        assert_eq!(parsed.version.as_deref(), Some("1.12.2_HD_U_G5"));
+
+        let jar_name = "OptiFine_1.12.2_HD_U_G5.jar";
+        let legacy = optifine_meta(ForgeFlavour::Legacy17, jar_name, changelog);
+        assert_eq!(legacy.mod_id, "optifine");
+        assert_eq!(legacy.version, "1.12.2_HD_U_G5");
+        assert_eq!(legacy.display_name, "OptiFine 1.12.2_HD_U_G5");
+
+        let modern = optifine_meta(ForgeFlavour::Modern113, jar_name, changelog);
+        assert_eq!(modern.mod_id, "optifine");
+        assert_eq!(modern.version, "1.12.2_HD_U_G5");
+        assert_eq!(modern.display_name, "OptiFine");
+
+        // The group is the Claritas proxy metadata, never read from the jar.
+        let proxy = ClaritasMeta {
+            group: Some("net.optifine".to_owned()),
+            ..ClaritasMeta::default()
+        };
+        let (id, name) = build_forge_module_from_meta(&modern, Some(&proxy), ModuleType::ForgeMod);
+        assert_eq!(id, "net.optifine:optifine:1.12.2_HD_U_G5@jar");
+        assert_eq!(name, "OptiFine");
+
+        // Reading a real jar takes the same path, and a missing changelog fails.
+        let dir = tempfile::tempdir().unwrap();
+        let jar = dir.path().join(jar_name);
+        write_jar(&jar, &[("changelog.txt", changelog)]);
+        for flavour in [ForgeFlavour::Legacy17, ForgeFlavour::Modern113] {
+            let meta =
+                read_forge_mod_meta(ModLoader::Forge, flavour, jar_name, &jar, None).unwrap();
+            assert_eq!(meta, optifine_meta(flavour, jar_name, changelog));
+        }
+
+        let empty = dir.path().join("OptiFine_empty.jar");
+        write_jar(&empty, &[("README", b"nothing here")]);
+        let error = read_forge_mod_meta(
+            ModLoader::Forge,
+            ForgeFlavour::Modern113,
+            "OptiFine_empty.jar",
+            &empty,
+            None,
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("Failed to read OptiFine changelog."),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn neoforge_metadata_takes_precedence_over_mods_toml() {
+        assert_eq!(ModLoader::NeoForge.module_type(), ModuleType::NeoForgeMod);
+        assert_eq!(ModLoader::NeoForge.struct_root(), "neoforgemods");
+        assert_eq!(ModLoader::Forge.module_type(), ModuleType::ForgeMod);
+        assert_eq!(ModLoader::Forge.struct_root(), "forgemods");
+        assert_eq!(
+            ModuleType::NeoForgeMod.default_group(),
+            "generated.neoforgemod"
+        );
+
+        let neo = br#"
+[[mods]]
+modId = "neomod"
+version = "2.0"
+displayName = "Neo Mod"
+"#;
+        let forge = br#"
+[[mods]]
+modId = "forgemod"
+version = "1.0"
+displayName = "Forge Mod"
+"#;
+
+        let dir = tempfile::tempdir().unwrap();
+        let both = dir.path().join("mymod-1.0.jar");
+        write_jar(
+            &both,
+            &[
+                ("META-INF/mods.toml", forge),
+                ("META-INF/neoforge.mods.toml", neo),
+            ],
+        );
+
+        let read = |loader| {
+            read_forge_mod_meta(
+                loader,
+                ForgeFlavour::Modern113,
+                "mymod-1.0.jar",
+                &both,
+                None,
+            )
+            .unwrap()
+        };
+        assert_eq!(read(ModLoader::NeoForge).mod_id, "neomod");
+        assert_eq!(read(ModLoader::Forge).mod_id, "forgemod");
+
+        // NeoForge still falls back to mods.toml.
+        let legacy_only = dir.path().join("legacy-1.0.jar");
+        write_jar(&legacy_only, &[("META-INF/mods.toml", forge)]);
+        let meta = read_forge_mod_meta(
+            ModLoader::NeoForge,
+            ForgeFlavour::Modern113,
+            "legacy-1.0.jar",
+            &legacy_only,
+            None,
+        )
+        .unwrap();
+        assert_eq!(meta.mod_id, "forgemod");
+        let (id, _) = build_forge_module_from_meta(&meta, None, ModuleType::NeoForgeMod);
+        assert_eq!(id, "generated.neoforgemod:forgemod:1.0@jar");
+    }
 }

@@ -1,137 +1,95 @@
-import { Theme, ButtonKind, ImportData, ImportRowData, SheetActions } from "../tokens.slint";
-import { SheetButton } from "../components/button.slint";
-import { Field } from "../components/field.slint";
+import { Theme, Tone } from "../lib/theme.slint";
+import { Type } from "../lib/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "../lib/button.slint";
+import { Card, CardHeader } from "../lib/card.slint";
+import { Chip } from "../lib/chip.slint";
+import { Callout } from "../lib/callout.slint";
+import { EmptyState } from "../lib/empty-state.slint";
+import { KeyValue } from "../lib/key-value.slint";
+import { ListRow } from "../lib/list-row.slint";
+import { TextField } from "../lib/text-field.slint";
+import { AppData, ImportData, SheetActions, SheetData } from "../lib/data.slint";
 
-component ImportRow inherits Rectangle {
-    in property <ImportRowData> data;
-    in property <bool> selected: false;
-    in property <bool> enabled: true;
-    callback activated();
+/// 가져오기 (DESIGN-v2 §4).
+export component ImportScreen inherits VerticalLayout {
+    private property <bool> live: AppData.page-live;
 
-    private property <bool> live: root.enabled && root.data.selectable;
-    private property <bool> ring: fs.has-focus || Theme.focus-demo;
+    spacing: Theme.card-gap;
 
-    min-height: 48px;
-    max-height: 48px;
-    vertical-stretch: 0;
-    background: root.live ? (touch.has-hover ? Theme.raised : Theme.surface) : Theme.bg;
-    border-radius: Theme.radius-row;
-    border-width: root.ring ? 2px : (root.selected ? 2px : 1px);
-    border-color: root.ring ? Theme.focus : (root.selected ? Theme.primary : Theme.line);
-    opacity: root.live ? 1.0 : 0.72;
+    Card {
+        CardHeader { title: "모드팩"; }
 
-    accessible-role: button;
-    accessible-label: root.data.file-name + ", " + root.data.format + ", " + root.data.size-label;
-    accessible-enabled: root.live;
-    accessible-checkable: true;
-    accessible-checked: root.selected;
-    accessible-action-default => {
-        if (root.live) {
-            root.activated();
-        }
-    }
-    animate background { duration: Theme.micro; }
-
-    fs := FocusScope {
-        enabled: root.live;
-        key-pressed(event) => {
-            if ((event.text == " " || event.text == "\n") && root.live) {
-                root.activated();
-                accept
-            } else {
-                reject
+        KeyValue {
+            key: "폴더";
+            value: ImportData.folder-path;
+            Button {
+                text: "폴더 열기";
+                variant: ButtonVariant.ghost;
+                a11y-label: "모드팩 폴더 열기";
+                a11y-id: "import-open-folder";
+                activated => {
+                    SheetActions.open-folder(ImportData.folder-path);
+                }
             }
         }
 
-        HorizontalLayout {
-            padding-left: 12px;
-            padding-right: 12px;
-            spacing: 12px;
+        for row[index] in ImportData.zips : VerticalLayout {
+            spacing: Theme.sp-1;
+            vertical-stretch: 0;
 
-            Text {
-                text: root.data.file-name;
-                color: Theme.text;
-                font-size: 14px;
-                font-weight: 600;
-                vertical-alignment: center;
-                overflow: elide;
-                horizontal-stretch: 1;
-            }
+            ListRow {
+                title: row.file-name;
+                subtitle: row.size-label;
+                icon: @image-url("../../assets/icons/package.svg");
+                selectable: row.selectable;
+                selected: ImportData.selected-zip == index;
+                enabled: root.live && row.selectable;
+                a11y-label: row.file-name + ", " + row.format + ", " + row.size-label;
+                // Keyed by file name, not by row: a pack dropped into the
+                // folder re-sorts the list and every index would mean another
+                // file. Two packs can share a name in different subdirectories,
+                // which is why `selected-zip` stays an index — but a handle an
+                // automation script types has to survive a refresh.
+                a11y-id: "import-row-" + row.file-name;
 
-            Rectangle {
-                horizontal-stretch: 0;
-                y: (parent.height - 22px) / 2;
-                height: 22px;
-                border-radius: Theme.radius-field;
-                border-width: 1px;
-                border-color: root.data.selectable ? Theme.line : Theme.warning;
-                background: Theme.bg;
+                Chip {
+                    text: row.format;
+                    // Neutral, not accent: a selected row is already
+                    // accent-soft, and an accent chip on it has no edges.
+                    tone: row.selectable ? Tone.neutral : Tone.warning;
+                }
 
-                HorizontalLayout {
-                    padding-left: 6px;
-                    padding-right: 6px;
-                    Text {
-                        text: root.data.format;
-                        color: root.data.selectable ? Theme.text : Theme.warning;
-                        font-family: Theme.mono;
-                        font-size: 12px;
-                        vertical-alignment: center;
-                    }
+                activated => {
+                    ImportData.selected-zip = index;
                 }
             }
 
-            Text {
-                text: root.data.size-label;
-                color: Theme.muted;
-                font-family: Theme.mono;
-                font-size: 12px;
-                vertical-alignment: center;
-                horizontal-stretch: 0;
+            if !row.selectable : Text {
+                text: "manifest.json, modrinth.index.json, mmc-pack.json 중 하나가 없습니다.";
+                color: Theme.text-3;
+                font-size: Type.caption;
+                font-weight: Type.medium;
+                wrap: word-wrap;
             }
         }
 
-        touch := TouchArea {
-            enabled: root.live;
-            mouse-cursor: root.live ? MouseCursor.pointer : MouseCursor.default;
-            clicked => {
-                root.activated();
-            }
-        }
-    }
-}
-
-export component Import inherits VerticalLayout {
-    private property <bool> live: !ImportData.busy;
-    private property <string> selected-name: ImportData.selected-zip >= 0
-        ? ImportData.zips[ImportData.selected-zip].file-name
-        : "";
-
-    spacing: 16px;
-
-    Text {
-        text: "모드팩 가져오기";
-        color: Theme.text;
-        font-size: 16px;
-        font-weight: 700;
-    }
-
-    if ImportData.zips.length == 0 : VerticalLayout {
-        spacing: 12px;
-
-        Text {
-            text: "modpacks/curseforge 폴더에 CurseForge 모드팩 zip을 넣으면 여기에 표시됩니다.";
-            color: Theme.muted;
-            font-size: 14px;
-            wrap: word-wrap;
-            horizontal-stretch: 1;
+        if SheetData.loading : EmptyState {
+            icon: @image-url("../../assets/icons/package.svg");
+            title: "불러오는 중";
+            body: "modpacks 폴더를 읽고 있습니다.";
         }
 
-        HorizontalLayout {
-            alignment: start;
-            SheetButton {
+        if ImportData.zips.length == 0 && !SheetData.loading : EmptyState {
+            icon: @image-url("../../assets/icons/package.svg");
+            title: "모드팩이 없습니다";
+            body: "모드팩 zip 또는 mrpack을 modpacks 폴더에 넣으면 여기에 표시됩니다.";
+
+            Button {
                 text: "폴더 열기";
-                a11y-label: "CurseForge 모드팩 폴더 열기";
-                enabled: root.live;
+                variant: ButtonVariant.primary;
+                icon: @image-url("../../assets/icons/folder-open.svg");
+                a11y-label: "모드팩 폴더 열기";
+                a11y-id: "import-empty-open-folder";
                 activated => {
                     SheetActions.open-folder(ImportData.folder-path);
                 }
@@ -139,127 +97,104 @@ export component Import inherits VerticalLayout {
         }
     }
 
-    if ImportData.zips.length > 0 : VerticalLayout {
-        spacing: 8px;
+    Card {
+        CardHeader { title: "가져오기"; }
 
-        Text {
-            text: "가져올 모드팩 파일을 고르세요.";
-            color: Theme.muted;
-            font-size: 12px;
-            font-weight: 600;
+        TextField {
+            label: "서버 ID";
+            a11y-label: "가져올 서버 ID";
+            a11y-id: "import-id";
+            placeholder: "my-server";
+            helper: "폴더 이름은 <ID>-<버전>이 됩니다";
+            error: ImportData.id-error;
+            enabled: root.live;
+            text <=> ImportData.server-id;
+            accepted => {
+                SheetActions.import-modpack();
+            }
         }
 
-        for row[i] in ImportData.zips : VerticalLayout {
-            spacing: 4px;
+        HorizontalLayout {
+            alignment: start;
+            vertical-stretch: 0;
 
-            ImportRow {
-                data: row;
-                selected: ImportData.selected-zip == i;
-                enabled: root.live;
+            Button {
+                text: "모드팩 가져오기";
+                a11y-label: "모드팩 가져오기";
+                a11y-id: "import-run";
+                icon: @image-url("../../assets/icons/download.svg");
+                variant: ButtonVariant.primary;
+                size: ButtonSize.lg;
+                enabled: root.live && ImportData.selected-zip >= 0;
+                loading: ImportData.busy;
                 activated => {
-                    ImportData.selected-zip = i;
+                    SheetActions.import-modpack();
                 }
             }
+        }
 
-            if !row.selectable : Text {
-                text: "manifest.json, modrinth.index.json, mmc-pack.json 중 하나가 없습니다";
-                color: Theme.muted;
-                font-size: 12px;
-                wrap: word-wrap;
-                horizontal-stretch: 1;
-            }
+        if ImportData.selected-zip < 0 && ImportData.zips.length > 0 : Text {
+            text: "가져올 모드팩을 목록에서 고르세요.";
+            color: Theme.text-3;
+            font-size: Type.caption;
+            font-weight: Type.medium;
+            wrap: word-wrap;
+        }
+
+        if ImportData.error-text != "" : Callout {
+            tone: Tone.danger;
+            title: "가져오기 실패";
+            body: ImportData.error-text;
+        }
+
+        if ImportData.result-line != "" : Callout {
+            tone: Tone.success;
+            title: "가져왔습니다";
+            body: ImportData.result-line;
         }
     }
 
-    Field {
-        label: "서버 ID";
-        a11y-label: "가져올 서버 ID";
-        helper: "폴더 이름은 <ID>-<버전>이 됩니다";
-        error: ImportData.id-error;
-        enabled: root.live;
-        text <=> ImportData.server-id;
-    }
+    if ImportData.manual-downloads.length > 0 : Card {
+        CardHeader { title: "수동 다운로드 필요"; }
 
-    HorizontalLayout {
-        alignment: start;
-        height: 48px;
-
-        SheetButton {
-            kind: ButtonKind.primary;
-            text: ImportData.busy ? "가져오는 중" : "모드팩 가져오기";
-            a11y-label: "모드팩 가져오기";
-            enabled: root.live && ImportData.selected-zip >= 0;
-            loading: ImportData.busy;
-            width: 240px;
-            activated => {
-                SheetActions.import-modpack(ImportData.server-id, root.selected-name);
-            }
+        Callout {
+            tone: Tone.warning;
+            title: ImportData.manual-downloads.length + "개 파일";
+            body: "CurseForge가 배포를 허용하지 않는 파일입니다. 직접 내려받아 서버의 mods 폴더에 넣으세요.";
         }
-    }
 
-    if ImportData.manual-downloads.length > 0 : Rectangle {
-        background: Theme.surface;
-        border-width: 1px;
-        border-color: Theme.warning;
-        border-radius: Theme.radius-field;
-
-        VerticalLayout {
-            padding: 12px;
-            spacing: 12px;
+        for item in ImportData.manual-downloads : VerticalLayout {
+            spacing: Theme.sp-1;
+            vertical-stretch: 0;
 
             Text {
-                text: "수동 다운로드 필요";
-                color: Theme.warning;
-                font-size: 14px;
-                font-weight: 700;
-            }
-
-            Text {
-                text: "아래 파일은 CurseForge가 배포를 허용하지 않습니다. 직접 내려받아 모드 폴더에 넣으세요.";
+                text: item.name;
                 color: Theme.text;
-                font-size: 13px;
+                font-size: Type.row-title;
+                font-weight: Type.medium;
                 wrap: word-wrap;
-                horizontal-stretch: 1;
             }
 
-            for item in ImportData.manual-downloads : VerticalLayout {
-                spacing: 2px;
+            Text {
+                text: item.file;
+                color: Theme.text-2;
+                font-family: Theme.mono;
+                font-size: Type.mono;
+                wrap: word-wrap;
+            }
 
-                Text {
-                    text: item.name;
-                    color: Theme.text;
-                    font-size: 14px;
-                    font-weight: 600;
-                    wrap: word-wrap;
-                    horizontal-stretch: 1;
-                }
-
-                Text {
-                    text: item.file;
-                    color: Theme.muted;
-                    font-family: Theme.mono;
-                    font-size: 12px;
-                    wrap: word-wrap;
-                    horizontal-stretch: 1;
-                }
-
-                TextInput {
-                    text: item.url;
-                    read-only: true;
-                    color: Theme.text;
-                    font-family: Theme.mono;
-                    font-size: 12px;
-                    single-line: false;
-                    wrap: word-wrap;
-                    selection-background-color: Theme.primary;
-                    selection-foreground-color: Theme.on-primary;
-                    accessible-role: text-input;
-                    accessible-label: item.name + " 다운로드 주소";
-                    horizontal-stretch: 1;
+            url := TextField {
+                a11y-label: item.name + " 다운로드 주소";
+                a11y-id: "import-manual-url-" + item.file;
+                read-only: true;
+                text: item.url;
+                action-icon: @image-url("../../assets/icons/copy.svg");
+                action-label: "주소 전체 선택";
+                helper: "드래그해서 선택한 뒤 Ctrl+C로 복사";
+                action => {
+                    url.select-all();
                 }
             }
         }
     }
-
-    Rectangle { }
 }

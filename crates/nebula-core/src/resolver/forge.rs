@@ -3,7 +3,7 @@
 //! and NeoForge both use.
 
 use std::fs;
-use std::io::{IsTerminal, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -105,8 +105,7 @@ pub fn log4j_warning(mc: &MinecraftVersion, forge_version: &str) -> Option<Strin
 
 /// Reads the `version.json` entry of a Forge universal or installer jar.
 pub fn version_json_from_jar(jar: &Path) -> Result<Vec<u8>> {
-    let file = fs::File::open(jar).map_err(io(format!("opening {}", jar.display())))?;
-    let mut archive = zip::ZipArchive::new(file)?;
+    let mut archive = crate::import::open(jar)?;
     let mut entry = archive.by_name("version.json")?;
     let mut buffer = Vec::new();
     entry
@@ -132,10 +131,14 @@ pub fn version_json_from_jar(jar: &Path) -> Result<Vec<u8>> {
 ///
 /// `manifest_present` reports whether the installer produced its version
 /// manifest: a fixed path for Forge, a directory scan for NeoForge.
+///
+/// Step (c) only happens when `gui_fallback` is set: whether a window can be
+/// seen is the caller's knowledge, never this crate's.
 pub fn run_installer_headless_then_gui(
     java: &Java,
     installer: &Path,
     dir: &Path,
+    gui_fallback: bool,
     manifest_present: impl Fn() -> bool,
 ) -> Result<()> {
     let timeout = install_timeout();
@@ -148,7 +151,7 @@ pub fn run_installer_headless_then_gui(
         return Ok(());
     }
 
-    if gui_fallback_allowed() {
+    if gui_fallback {
         log::info!("============== [ IMPORTANT ] ==============");
         log::info!("When the installer opens please set the client installation directory to:");
         log::info!("{}", dir.display());
@@ -163,12 +166,13 @@ pub fn run_installer_headless_then_gui(
 
     let _ = fs::remove_dir_all(dir);
     let mut message = format!(
-        "The installer did not produce a version manifest. It was either not installed or \
-         installed to the wrong location; the installation directory must be {}",
+        "설치기가 버전 매니페스트를 만들지 못했습니다. 설치되지 않았거나 다른 위치에 설치되었습니다 \
+         — 'Forge 설치 캐시 무효화'를 켜고 다시 시도하거나, 설치기 창이 열리면 설치 폴더를 다음으로 \
+         지정하세요: {}",
         dir.display()
     );
     if let Some(error) = last_error {
-        message.push_str(&format!(" (installer error: {error})"));
+        message.push_str(&format!(" (설치기 오류: {error})"));
     }
     Err(Error::Invalid(message))
 }
@@ -226,15 +230,6 @@ fn install_timeout() -> Duration {
         .and_then(|value| value.parse().ok())
         .unwrap_or(DEFAULT_INSTALL_TIMEOUT_SECS);
     Duration::from_secs(seconds)
-}
-
-/// Never open a window in CI: `NEBULA_FORGE_GUI_FALLBACK=0` disables the
-/// fallback outright, and otherwise somebody has to be able to see it.
-fn gui_fallback_allowed() -> bool {
-    if std::env::var("NEBULA_FORGE_GUI_FALLBACK").as_deref() == Ok("0") {
-        return false;
-    }
-    std::io::stdin().is_terminal() || std::env::var("NEBULA_GUI").as_deref() == Ok("1")
 }
 
 #[cfg(test)]

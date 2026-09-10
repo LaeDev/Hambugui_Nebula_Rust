@@ -1,0 +1,36 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// A readiness or summary row: key on the left, value in the middle, whatever
+/// status the caller hangs on the right (DESIGN-v2 §3).
+/// The value is always mono: every one of them is a path, a URL or an id.
+export component KeyValue inherits HorizontalLayout {
+    in property <string> key;
+    in property <string> value;
+    in property <bool> dim: false;
+
+    min-height: 32px;
+    spacing: Theme.sp-3;
+    vertical-stretch: 0;
+
+    Text {
+        text: root.key;
+        color: Theme.text-2;
+        font-size: Type.secondary;
+        width: 92px;
+        horizontal-stretch: 0;
+        vertical-alignment: center;
+    }
+
+    Text {
+        text: root.value;
+        color: root.dim ? Theme.text-3 : Theme.text;
+        font-family: Theme.mono;
+        font-size: Type.mono;
+        vertical-alignment: center;
+        overflow: elide;
+        horizontal-stretch: 1;
+    }
+
+    @children
+}

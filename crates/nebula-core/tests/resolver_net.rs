@@ -23,16 +23,21 @@ use url::Url;
 
 const BASE_URL: &str = "https://cdn.example.invalid/";
 
-/// The installer must never open a window here, whatever the terminal looks
-/// like: these tests also run unattended.
 fn enabled(name: &str) -> bool {
     if std::env::var("NEBULA_NET_TESTS").as_deref() != Ok("1") {
         println!("skipping {name}: set NEBULA_NET_TESTS=1 to run the network tests");
         return false;
     }
-    // SAFETY: single threaded (`--test-threads=1`), before any child process.
-    unsafe { std::env::set_var("NEBULA_FORGE_GUI_FALLBACK", "0") };
     true
+}
+
+/// The installer must never open a window here, whatever the terminal looks
+/// like: these tests also run unattended.
+fn options() -> ResolveOptions {
+    ResolveOptions {
+        gui_fallback: false,
+        ..ResolveOptions::default()
+    }
 }
 
 fn java_executable(name: &str) -> Option<PathBuf> {
@@ -166,16 +171,10 @@ fn forge_1_12_2_fg3_without_installer() {
     let forge_version = "14.23.5.2860";
 
     let started = Instant::now();
-    let module = resolver::forge_resolver(
-        &root,
-        &minecraft,
-        forge_version,
-        &java,
-        ResolveOptions::default(),
-    )
-    .unwrap()
-    .module()
-    .unwrap();
+    let module = resolver::forge_resolver(&root, &minecraft, forge_version, &java, options())
+        .unwrap()
+        .module()
+        .unwrap();
     let elapsed = started.elapsed();
 
     let count = check_tree(
@@ -200,6 +199,83 @@ fn forge_1_12_2_fg3_without_installer() {
     println!("{name}: {count} modules, root {}, {elapsed:?}", module.id);
 }
 
+/// FG2 ships plain jars only: the `.pack.xz` files Forge's maven serves are
+/// unpacked into `repo/lib` and the packed intermediates are thrown away, so
+/// every module id ends in `@jar` and every artifact describes bytes the
+/// Hambugui runtime can verify.
+#[test]
+fn forge_1_7_10_fg2() {
+    let name = "forge_1_7_10_fg2";
+    if !enabled(name) {
+        return;
+    }
+    let Some(exe) = java_executable(name) else {
+        return;
+    };
+
+    let dir = tempfile::tempdir().unwrap();
+    let root = root_in(dir.path());
+    let java = Java::new(exe, &root);
+    let minecraft = mc("1.7.10");
+    let forge_version = "10.13.4.1614";
+    println!("{name}: forge {forge_version} (PackXZExtract unpacks the scala libraries)");
+
+    let started = Instant::now();
+    let module = resolver::forge_resolver(&root, &minecraft, forge_version, &java, options())
+        .unwrap()
+        .module()
+        .unwrap();
+    let elapsed = started.elapsed();
+
+    assert_eq!(module.module_type, ModuleType::ForgeHosted);
+    assert_eq!(
+        module.id,
+        "net.minecraftforge:forge:1.7.10-10.13.4.1614-1.7.10:universal"
+    );
+    // FG2 has no version manifest at all: `version.json` lives inside the
+    // universal jar the launcher already downloads.
+    let sub_modules = module.sub_modules.as_ref().expect("sub-modules");
+    assert!(!sub_modules.is_empty());
+    for entry in sub_modules {
+        assert!(
+            entry.id.ends_with("@jar"),
+            "{} is not a plain jar module",
+            entry.id
+        );
+        assert_eq!(entry.module_type, ModuleType::Library);
+        MavenId::parse(&entry.id, "jar")
+            .unwrap_or_else(|error| panic!("{} is not a maven identifier: {error}", entry.id));
+    }
+
+    // Every artifact must describe the bytes on disk, digest for digest.
+    for entry in std::iter::once(&module).chain(sub_modules) {
+        check_artifact(&root, entry);
+        let relative = entry.artifact.url.strip_prefix(BASE_URL).unwrap();
+        let local = root.path.join(relative);
+        assert!(
+            relative.starts_with("repo/lib/") && relative.ends_with(".jar"),
+            "{} is not a jar under repo/lib: {relative}",
+            entry.id
+        );
+        let digests = nebula_core::hash::digests_of_file(&local).unwrap();
+        assert_eq!(digests.size, entry.artifact.size, "{}", entry.id);
+        assert_eq!(
+            Some(digests.sha256.as_str()),
+            entry.artifact.sha256.as_deref(),
+            "{}",
+            entry.id
+        );
+    }
+    // Nothing packed is left behind, in `repo/lib` or in `temp/`.
+    assert!(!root.temp_dir().exists(), "the temp directory was kept");
+
+    println!(
+        "{name}: {} modules, root {}, {elapsed:?}",
+        1 + sub_modules.len(),
+        module.id
+    );
+}
+
 #[test]
 fn neoforge_1_21_1_recommended() {
     let name = "neoforge_1_21_1_recommended";
@@ -219,16 +295,10 @@ fn neoforge_1_21_1_recommended() {
     println!("{name}: neoforge {version} (headless installer, ~100 MB of downloads)");
 
     let started = Instant::now();
-    let module = resolver::neoforge_resolver(
-        &root,
-        &minecraft,
-        &version,
-        &java,
-        ResolveOptions::default(),
-    )
-    .unwrap()
-    .module()
-    .unwrap();
+    let module = resolver::neoforge_resolver(&root, &minecraft, &version, &java, options())
+        .unwrap()
+        .module()
+        .unwrap();
     let elapsed = started.elapsed();
 
     let count = check_tree(

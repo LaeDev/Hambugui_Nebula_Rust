@@ -1,231 +1,288 @@
-import { Theme, ThemePreference, ButtonKind, SettingsData, SheetActions } from "../tokens.slint";
-import { SheetButton } from "../components/button.slint";
-import { Field } from "../components/field.slint";
-import { ToggleRow } from "../components/toggle-row.slint";
+import { Theme, ThemePreference, Tone } from "../lib/theme.slint";
+import { Type } from "../lib/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "../lib/button.slint";
+import { Card, CardHeader } from "../lib/card.slint";
+import { Chip } from "../lib/chip.slint";
+import { SegmentedControl } from "../lib/segmented.slint";
+import { Switch } from "../lib/switch.slint";
+import { TextField } from "../lib/text-field.slint";
+import { Callout } from "../lib/callout.slint";
+import { AppData, DialogKind, SettingsData, SheetActions, SheetData } from "../lib/data.slint";
 
-component GroupTitle inherits Text {
-    color: Theme.text;
-    font-size: 16px;
-    font-weight: 700;
-}
-
-component GroupRule inherits Rectangle {
-    height: 2px;
-    vertical-stretch: 0;
-    background: Theme.line;
-}
-
-component ThemeChoice inherits SheetButton {
-    in property <ThemePreference> value;
-    exclusive: true;
-    selected: SettingsData.theme == root.value;
-    a11y-label: "테마 " + root.text;
-    activated => {
-        SettingsData.theme = root.value;
+/// Every settings field: Enter saves the form, and a keystroke asks the host to
+/// re-validate (it debounces), so an error clears as soon as the value is good.
+component SettingsField inherits TextField {
+    enabled: AppData.page-live;
+    accepted => {
+        SheetActions.save-settings();
+    }
+    edited => {
+        SheetActions.settings-edited();
     }
 }
 
-export component Settings inherits VerticalLayout {
-    private property <bool> live: !SettingsData.busy;
-
-    spacing: 16px;
-
-    GroupTitle {
-        text: "설정";
-    }
-
-    Field {
-        label: "루트";
-        a11y-label: "루트 폴더 경로";
-        error: SettingsData.root-error;
-        enabled: root.live;
-        text <=> SettingsData.root;
-    }
-
-    if SettingsData.root-missing : HorizontalLayout {
-        alignment: start;
-        SheetButton {
-            text: "폴더 만들기";
-            a11y-label: "루트 폴더 만들기";
-            enabled: root.live;
-            activated => {
-                SheetActions.create-root(SettingsData.root);
-            }
+/// 설정 (DESIGN-v2 §4).
+export component SettingsScreen inherits VerticalLayout {
+    private property <bool> live: AppData.page-live;
+    private property <int> theme-index: SettingsData.theme == ThemePreference.light
+        ? 1
+        : SettingsData.theme == ThemePreference.dark ? 2 : 0;
+    /// A refused save bumps this; the field it named takes the caret. Keyed on
+    /// the counter, not the name, so two refusals in a row still move it.
+    private property <int> focus-tick: SettingsData.focus-tick;
+    changed focus-tick => {
+        if (SettingsData.focus-field == "base-url") {
+            base-url.focus-input();
+        } else if (SettingsData.focus-field == "root") {
+            root-folder.focus-input();
         }
     }
 
-    Field {
-        label: "기본 URL";
-        a11y-label: "배포본 기본 URL";
-        helper: "끝에 / 를 붙여 저장합니다";
-        error: SettingsData.base-url-error;
-        enabled: root.live;
-        text <=> SettingsData.base-url;
+    spacing: Theme.card-gap;
+
+    // ── 기본 ────────────────────────────────────────────────────────────────
+    Card {
+        CardHeader { title: "기본"; }
+
+        // A save that no single field owns: the disk, or the settings file.
+        if SettingsData.error-text != "" : Callout {
+            tone: Tone.danger;
+            title: "설정 저장 실패";
+            body: SettingsData.error-text;
+        }
+
+        root-folder := SettingsField {
+            label: "루트 폴더";
+            a11y-label: "루트 폴더 경로";
+            a11y-id: "settings-root";
+            placeholder: "D:\\NebulaRoot";
+            error: SettingsData.root-error;
+            text <=> SettingsData.root;
+        }
+
+        if SettingsData.root-missing : HorizontalLayout {
+            alignment: start;
+            vertical-stretch: 0;
+
+            Button {
+                text: "폴더 만들기";
+                a11y-label: "루트 폴더 만들기";
+                a11y-id: "settings-create-root";
+                enabled: root.live;
+                activated => {
+                    SheetActions.create-root(SettingsData.root);
+                }
+            }
+        }
+
+        base-url := SettingsField {
+            label: "기본 URL";
+            a11y-label: "배포본 기본 URL";
+            a11y-id: "settings-base-url";
+            placeholder: "https://cdn.example.com/";
+            helper: "끝에 / 를 붙여 저장합니다";
+            error: SettingsData.base-url-error;
+            text <=> SettingsData.base-url;
+        }
+
+        SettingsField {
+            label: "Java 실행 파일";
+            a11y-label: "Java 실행 파일 경로";
+            a11y-id: "settings-java";
+            placeholder: "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe";
+            error: SettingsData.java-error;
+            text <=> SettingsData.java;
+        }
+
+        SettingsField {
+            label: "Launcher 데이터 폴더";
+            a11y-label: "Launcher 데이터 폴더 경로";
+            a11y-id: "settings-helios";
+            placeholder: "C:\\Users\\me\\AppData\\Roaming\\Helios";
+            error: SettingsData.helios-error;
+            text <=> SettingsData.helios;
+        }
     }
 
-    Field {
-        label: "Java 실행 파일";
-        a11y-label: "Java 실행 파일 경로";
-        error: SettingsData.java-error;
-        enabled: root.live;
-        text <=> SettingsData.java;
+    // ── WebDAV ──────────────────────────────────────────────────────────────
+    Card {
+        CardHeader { title: "WebDAV"; }
+
+        SettingsField {
+            label: "업로드 URL";
+            a11y-label: "WebDAV 업로드 URL";
+            a11y-id: "settings-webdav-url";
+            placeholder: "https://dav.example.com/nebula/";
+            text <=> SettingsData.webdav-url;
+        }
+
+        SettingsField {
+            label: "사용자";
+            a11y-label: "WebDAV 사용자";
+            a11y-id: "settings-webdav-user";
+            text <=> SettingsData.webdav-user;
+        }
+
+        SettingsField {
+            label: "비밀번호";
+            a11y-label: "WebDAV 비밀번호";
+            a11y-id: "settings-webdav-password";
+            password: true;
+            text <=> SettingsData.webdav-password;
+        }
+
+        SettingsField {
+            label: "공개 URL";
+            a11y-label: "WebDAV 공개 URL";
+            a11y-id: "settings-webdav-public-url";
+            helper: "비우면 기본 URL을 사용합니다";
+            text <=> SettingsData.webdav-public-url;
+        }
     }
 
-    Field {
-        label: "Helios 데이터 폴더";
-        a11y-label: "Helios 데이터 폴더 경로";
-        error: SettingsData.helios-error;
-        enabled: root.live;
-        text <=> SettingsData.helios;
-    }
+    // ── Google Drive ────────────────────────────────────────────────────────
+    Card {
+        CardHeader { title: "Google Drive"; }
 
-    VerticalLayout {
-        spacing: 4px;
+        SettingsField {
+            label: "클라이언트 ID";
+            a11y-label: "Google Drive 클라이언트 ID";
+            a11y-id: "settings-gdrive-client-id";
+            text <=> SettingsData.gdrive-client-id;
+        }
 
-        Text {
-            text: "테마";
-            color: Theme.muted;
-            font-size: 12px;
-            font-weight: 600;
+        SettingsField {
+            label: "클라이언트 시크릿";
+            a11y-label: "Google Drive 클라이언트 시크릿";
+            a11y-id: "settings-gdrive-client-secret";
+            password: true;
+            text <=> SettingsData.gdrive-client-secret;
+        }
+
+        SettingsField {
+            label: "폴더 ID";
+            a11y-label: "Google Drive 폴더 ID";
+            a11y-id: "settings-gdrive-folder-id";
+            text <=> SettingsData.gdrive-folder-id;
         }
 
         HorizontalLayout {
-            spacing: 8px;
+            spacing: Theme.sp-3;
             alignment: start;
-            height: 44px;
+            vertical-stretch: 0;
 
-            ThemeChoice {
-                text: "시스템";
-                value: ThemePreference.system;
-                enabled: root.live;
+            Button {
+                text: "Google 계정 연결";
+                a11y-label: "Google 계정 연결";
+                a11y-id: "settings-connect-gdrive";
+                icon: @image-url("../../assets/icons/key-round.svg");
+                // Waiting on a browser is not a job the rest of the app has to
+                // stand still for: this button gates on its own flag, so a
+                // build can run while the consent screen is open — and a second
+                // connect still cannot start.
+                enabled: !SettingsData.gdrive-busy && AppData.dialog == DialogKind.none;
+                loading: SettingsData.gdrive-busy;
+                activated => {
+                    SheetActions.connect-gdrive();
+                }
             }
 
-            ThemeChoice {
-                text: "라이트";
-                value: ThemePreference.light;
-                enabled: root.live;
+            Chip {
+                text: SettingsData.gdrive-connected ? "연결됨" : "연결되지 않음";
+                tone: SettingsData.gdrive-connected ? Tone.success : Tone.neutral;
+                tone-glyph: SettingsData.gdrive-connected;
             }
+        }
 
-            ThemeChoice {
-                text: "다크";
-                value: ThemePreference.dark;
-                enabled: root.live;
-            }
+        if SettingsData.gdrive-status != "" : Text {
+            text: SettingsData.gdrive-status;
+            color: SettingsData.gdrive-status-error ? Theme.danger : Theme.text-2;
+            font-size: Type.secondary;
+            wrap: word-wrap;
         }
     }
 
-    ToggleRow {
-        label: "애니메이션 줄이기";
-        a11y-label: "애니메이션 줄이기";
-        enabled: root.live;
-        checked <=> SettingsData.reduced-motion;
+    // ── 모양 ────────────────────────────────────────────────────────────────
+    Card {
+        CardHeader { title: "모양"; }
+
+        VerticalLayout {
+            spacing: Theme.sp-half;
+            vertical-stretch: 0;
+
+            Text {
+                text: "테마";
+                color: Theme.text-2;
+                font-size: Type.secondary;
+                font-weight: Type.medium;
+            }
+
+            SegmentedControl {
+                options: ["시스템", "라이트", "다크"];
+                a11y-prefix: "테마";
+                a11y-id: "settings-theme";
+                selected: root.theme-index;
+                changed(index) => {
+                    SettingsData.theme = index == 1
+                        ? ThemePreference.light
+                        : index == 2 ? ThemePreference.dark : ThemePreference.system;
+                    // Appearance does not wait for a valid root or base URL.
+                    SheetActions.appearance-changed(SettingsData.theme, SettingsData.reduced-motion);
+                }
+            }
+        }
+
+        Switch {
+            text: "모션 줄이기";
+            a11y-label: "모션 줄이기";
+            a11y-id: "settings-reduced-motion";
+            helper: "모든 전환을 즉시 끝냅니다";
+            checked <=> SettingsData.reduced-motion;
+            toggled(on) => {
+                SheetActions.appearance-changed(SettingsData.theme, on);
+            }
+        }
     }
+}
 
-    GroupRule { }
+/// The save bar. `app.slint` keeps it outside the scrolling area, so it stays
+/// on screen however long the form gets.
+export component SettingsFooter inherits Rectangle {
+    height: 72px;
+    vertical-stretch: 0;
+    background: Theme.surface;
 
-    GroupTitle {
-        text: "WebDAV";
-    }
-
-    Field {
-        label: "업로드 URL";
-        a11y-label: "WebDAV 업로드 URL";
-        enabled: root.live;
-        text <=> SettingsData.webdav-url;
-    }
-
-    Field {
-        label: "사용자";
-        a11y-label: "WebDAV 사용자";
-        enabled: root.live;
-        text <=> SettingsData.webdav-user;
-    }
-
-    Field {
-        label: "비밀번호";
-        a11y-label: "WebDAV 비밀번호";
-        password: true;
-        enabled: root.live;
-        text <=> SettingsData.webdav-password;
-    }
-
-    Field {
-        label: "공개 URL";
-        a11y-label: "WebDAV 공개 URL";
-        helper: "비우면 기본 URL을 사용합니다";
-        enabled: root.live;
-        text <=> SettingsData.webdav-public-url;
-    }
-
-    GroupRule { }
-
-    GroupTitle {
-        text: "Google Drive";
-    }
-
-    Field {
-        label: "클라이언트 ID";
-        a11y-label: "Google Drive 클라이언트 ID";
-        enabled: root.live;
-        text <=> SettingsData.gdrive-client-id;
-    }
-
-    Field {
-        label: "클라이언트 시크릿";
-        a11y-label: "Google Drive 클라이언트 시크릿";
-        password: true;
-        enabled: root.live;
-        text <=> SettingsData.gdrive-client-secret;
-    }
-
-    Field {
-        label: "폴더 ID";
-        a11y-label: "Google Drive 폴더 ID";
-        enabled: root.live;
-        text <=> SettingsData.gdrive-folder-id;
+    Rectangle {
+        y: 0;
+        height: 1px;
+        background: Theme.border;
     }
 
     HorizontalLayout {
-        spacing: 12px;
-        alignment: start;
-        height: 44px;
-
-        SheetButton {
-            text: "Google 계정 연결";
-            a11y-label: "Google 계정 연결";
-            enabled: root.live;
-            activated => {
-                SheetActions.connect-gdrive();
-            }
-        }
+        padding-left: Theme.page-inset;
+        padding-right: Theme.page-inset;
+        spacing: Theme.sp-3;
 
         Text {
-            text: SettingsData.gdrive-connected ? "연결됨 (토큰 저장됨)" : "연결되지 않음";
-            color: SettingsData.gdrive-connected ? Theme.primary : Theme.muted;
-            font-family: Theme.mono;
-            font-size: 13px;
+            text: SettingsData.dirty ? "저장되지 않은 변경" : "변경 사항 없음";
+            color: SettingsData.dirty ? Theme.text : Theme.text-3;
+            font-size: Type.secondary;
+            font-weight: Type.medium;
             vertical-alignment: center;
+            horizontal-stretch: 1;
         }
-    }
 
-    GroupRule { }
-
-    HorizontalLayout {
-        alignment: start;
-        height: 48px;
-
-        SheetButton {
-            kind: ButtonKind.primary;
-            text: SettingsData.busy ? "저장 중" : "저장";
+        Button {
+            text: "저장";
             a11y-label: "설정 저장";
-            enabled: root.live;
+            a11y-id: "settings-save";
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            enabled: !SheetData.busy;
             loading: SettingsData.busy;
-            width: 240px;
             activated => {
-                SheetActions.save-settings(SettingsData.root, SettingsData.base-url, SettingsData.java, SettingsData.helios, SettingsData.theme, SettingsData.reduced-motion);
+                SheetActions.save-settings();
             }
         }
     }
-
-    Rectangle { }
 }

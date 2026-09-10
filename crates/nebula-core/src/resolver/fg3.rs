@@ -24,7 +24,10 @@ use super::forge::{
     self, FMLCORE_ARTIFACT, FORGE_ARTIFACT, FORGE_GROUP, JAVAFMLLANGUAGE_ARTIFACT,
     LOWCODELANGUAGE_ARTIFACT, MCLANGUAGE_ARTIFACT, MINECRAFT_CLIENT_ARTIFACT, MINECRAFT_GROUP,
 };
-use super::{ResolveOptions, Resolver, artifact_for_file, copy_file, join_maven, plain_module};
+use super::{
+    ResolveOptions, Resolver, artifact_for_file, artifact_from_digests, copy_file, join_maven,
+    plain_module, verified_digests,
+};
 
 pub const WILDCARD_MCP_VERSION: &str = "${mcpVersion}";
 
@@ -420,9 +423,13 @@ impl ForgeGradle3Adapter {
             }
         }
         if install {
-            forge::run_installer_headless_then_gui(&self.java, installer, &cache, || {
-                installed_manifest.exists()
-            })?;
+            forge::run_installer_headless_then_gui(
+                &self.java,
+                installer,
+                &cache,
+                self.opts.gui_fallback,
+                || installed_manifest.exists(),
+            )?;
         } else if !installed_manifest.exists() {
             fs::remove_dir_all(&cache).map_err(io(format!("removing {}", cache.display())))?;
             return Err(Error::Invalid(format!(
@@ -604,11 +611,14 @@ impl ForgeGradle3Adapter {
             Error::Invalid("Forge entry in version.json has no download artifact!".to_owned())
         })?;
 
-        let mut usable = false;
+        // The local copy is hashed once: the SHA-1 decides whether it is the jar
+        // the manifest describes, and the same pass feeds the module artifact.
+        let mut local = None;
         if universal.exists() {
-            if hash::sha1_hex_of_file(&universal)? == forge_artifact.sha1 {
+            let digests = hash::digests_of_file(&universal)?;
+            if digests.sha1 == forge_artifact.sha1 {
                 log::debug!("Using locally discovered forge.");
-                usable = true;
+                local = Some(digests);
             } else {
                 log::debug!("SHA-1 of local universal jar does not match version.json entry.");
                 log::debug!("Redownloading Forge Universal jar..");
@@ -616,12 +626,16 @@ impl ForgeGradle3Adapter {
         } else {
             log::debug!("Forge Universal jar not found locally, initializing download..");
         }
-        if !usable {
-            remote::download_to(
-                &join_maven(remote::FORGE_MAVEN, &universal_id.path()),
-                &universal,
-            )?;
-        }
+        let universal_digests = match local {
+            Some(digests) => digests,
+            None => {
+                remote::download_to(
+                    &join_maven(remote::FORGE_MAVEN, &universal_id.path()),
+                    &universal,
+                )?;
+                hash::digests_of_file(&universal)?
+            }
+        };
 
         log::debug!(
             "Beginning processing of Forge v{} (Minecraft {})",
@@ -633,7 +647,7 @@ impl ForgeGradle3Adapter {
             universal_id.id_without_extension(),
             "Minecraft Forge".to_owned(),
             ModuleType::ForgeHosted,
-            artifact_for_file(&universal, self.root.lib_url(&universal_id))?,
+            artifact_from_digests(&universal_digests, self.root.lib_url(&universal_id)),
         );
 
         let mut sub_modules = vec![plain_module(
@@ -657,32 +671,25 @@ impl ForgeGradle3Adapter {
             let id = MavenId::parse(&lib.name, "jar")?;
             let local = self.root.lib_path(&id);
 
-            let mut download = !local.exists();
-            if download {
-                log::debug!("Not found locally, downloading..");
-            } else if !artifact.sha1.is_empty() && hash::sha1_hex_of_file(&local)? != artifact.sha1
-            {
-                log::debug!("Hashes do not match, redownloading..");
-                download = true;
-            }
-
-            if download {
-                if artifact.url.is_empty() {
-                    return Err(Error::Invalid(format!(
-                        "Library {} has no download url in version.json!",
-                        lib.name
-                    )));
-                }
-                remote::download_to(&artifact.url, &local)?;
-            } else {
-                log::debug!("Using local copy.");
-            }
+            let digests = verified_digests(
+                &local,
+                (!artifact.sha1.is_empty()).then_some(artifact.sha1.as_str()),
+                || {
+                    if artifact.url.is_empty() {
+                        return Err(Error::Invalid(format!(
+                            "Library {} has no download url in version.json!",
+                            lib.name
+                        )));
+                    }
+                    remote::download_to(&artifact.url, &local)
+                },
+            )?;
 
             sub_modules.push(plain_module(
                 id.id(),
                 format!("Minecraft Forge ({})", id.artifact),
                 ModuleType::Library,
-                artifact_for_file(&local, self.root.lib_url(&id))?,
+                artifact_from_digests(&digests, self.root.lib_url(&id)),
             ));
         }
 

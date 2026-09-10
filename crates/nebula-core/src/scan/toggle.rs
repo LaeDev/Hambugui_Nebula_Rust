@@ -81,11 +81,10 @@ pub fn url_file_name(module: &Module) -> &str {
 /// lowercase first and fall back to byte order, an accepted divergence that
 /// only shows up for names differing in case or leading punctuation.
 pub fn finish_modules(mut modules: Vec<Module>) -> Vec<Module> {
-    modules.sort_by(|a, b| {
-        let (left, right) = (url_file_name(a), url_file_name(b));
-        left.to_lowercase()
-            .cmp(&right.to_lowercase())
-            .then_with(|| left.cmp(right))
+    // Cached: the lowercased name is otherwise rebuilt on every comparison.
+    modules.sort_by_cached_key(|module| {
+        let name = url_file_name(module);
+        (name.to_lowercase(), name.to_owned())
     });
     modules
 }

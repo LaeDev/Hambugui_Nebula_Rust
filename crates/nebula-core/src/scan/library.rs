@@ -1,6 +1,7 @@
 //! Port of `Library.struct.ts`.
 
 use crate::error::Result;
+use crate::paths;
 use crate::spec::{Module, ModuleType};
 
 use super::{
@@ -16,16 +17,21 @@ pub fn scan_libraries(ctx: &ScanContext) -> Result<Vec<Module>> {
     let extension = TYPE.default_extension().unwrap_or("jar");
 
     let container = ctx.server.libraries_dir();
+    let candidates = discover(&container)?;
+    if candidates.is_empty() {
+        return Ok(Vec::new());
+    }
+    let container_real = paths::real_path(&container)?;
     let matcher = UntrackedMatcher::new(STRUCT_ROOT, ctx.untracked)?;
     let mut modules = Vec::new();
-    for candidate in discover(&container)? {
+    for candidate in candidates {
         if !candidate.file_name.to_lowercase().ends_with(extension) {
             continue;
         }
         let (name, version) = crude_inference(&candidate.file_name);
         let untracked = matcher.is_untracked(&candidate.file_name);
         let artifact = build_artifact(
-            &container,
+            &container_real,
             &candidate.path,
             candidate.size,
             ctx.server

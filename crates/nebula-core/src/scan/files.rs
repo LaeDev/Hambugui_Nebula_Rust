@@ -4,6 +4,7 @@
 use std::path::Path;
 
 use crate::error::{Error, Result, io};
+use crate::paths;
 use crate::spec::{Module, ModuleType};
 
 use super::{FILE_NAME_BLACKLIST, ScanContext, UntrackedMatcher, build_artifact};
@@ -15,15 +16,16 @@ pub fn scan_files(ctx: &ScanContext) -> Result<Vec<Module>> {
     if !container.exists() {
         return Ok(Vec::new());
     }
+    let container_real = paths::real_path(&container)?;
     let matcher = UntrackedMatcher::new(STRUCT_ROOT, ctx.untracked)?;
     let mut modules = Vec::new();
-    scan_dir(ctx, &container, &container, "", &matcher, &mut modules)?;
+    scan_dir(ctx, &container_real, &container, "", &matcher, &mut modules)?;
     Ok(modules)
 }
 
 fn scan_dir(
     ctx: &ScanContext,
-    container: &Path,
+    container_real: &Path,
     dir: &Path,
     prefix: &str,
     matcher: &UntrackedMatcher,
@@ -54,7 +56,7 @@ fn scan_dir(
             format!("{prefix}/{file_name}")
         };
         if meta.is_dir() {
-            scan_dir(ctx, container, &path, &rel, matcher, modules)?;
+            scan_dir(ctx, container_real, &path, &rel, matcher, modules)?;
             continue;
         }
         if FILE_NAME_BLACKLIST.contains(&file_name.as_str()) {
@@ -62,7 +64,7 @@ fn scan_dir(
         }
         let untracked = matcher.is_untracked(&rel);
         let artifact = build_artifact(
-            container,
+            container_real,
             &path,
             meta.len(),
             ctx.server.url(&format!("{STRUCT_ROOT}/{rel}")),

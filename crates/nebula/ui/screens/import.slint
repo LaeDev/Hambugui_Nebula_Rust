@@ -1,0 +1,265 @@
+import { Theme, ButtonKind, ImportData, ImportRowData, SheetActions } from "../tokens.slint";
+import { SheetButton } from "../components/button.slint";
+import { Field } from "../components/field.slint";
+
+component ImportRow inherits Rectangle {
+    in property <ImportRowData> data;
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    callback activated();
+
+    private property <bool> live: root.enabled && root.data.selectable;
+    private property <bool> ring: fs.has-focus || Theme.focus-demo;
+
+    min-height: 48px;
+    max-height: 48px;
+    vertical-stretch: 0;
+    background: root.live ? (touch.has-hover ? Theme.raised : Theme.surface) : Theme.bg;
+    border-radius: Theme.radius-row;
+    border-width: root.ring ? 2px : (root.selected ? 2px : 1px);
+    border-color: root.ring ? Theme.focus : (root.selected ? Theme.primary : Theme.line);
+    opacity: root.live ? 1.0 : 0.72;
+
+    accessible-role: button;
+    accessible-label: root.data.file-name + ", " + root.data.format + ", " + root.data.size-label;
+    accessible-enabled: root.live;
+    accessible-checkable: true;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        if (root.live) {
+            root.activated();
+        }
+    }
+    animate background { duration: Theme.micro; }
+
+    fs := FocusScope {
+        enabled: root.live;
+        key-pressed(event) => {
+            if ((event.text == " " || event.text == "\n") && root.live) {
+                root.activated();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            spacing: 12px;
+
+            Text {
+                text: root.data.file-name;
+                color: Theme.text;
+                font-size: 14px;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
+
+            Rectangle {
+                horizontal-stretch: 0;
+                y: (parent.height - 22px) / 2;
+                height: 22px;
+                border-radius: Theme.radius-field;
+                border-width: 1px;
+                border-color: root.data.selectable ? Theme.line : Theme.warning;
+                background: Theme.bg;
+
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: root.data.format;
+                        color: root.data.selectable ? Theme.text : Theme.warning;
+                        font-family: Theme.mono;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.data.size-label;
+                color: Theme.muted;
+                font-family: Theme.mono;
+                font-size: 12px;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+        }
+
+        touch := TouchArea {
+            enabled: root.live;
+            mouse-cursor: root.live ? MouseCursor.pointer : MouseCursor.default;
+            clicked => {
+                root.activated();
+            }
+        }
+    }
+}
+
+export component Import inherits VerticalLayout {
+    private property <bool> live: !ImportData.busy;
+    private property <string> selected-name: ImportData.selected-zip >= 0
+        ? ImportData.zips[ImportData.selected-zip].file-name
+        : "";
+
+    spacing: 16px;
+
+    Text {
+        text: "모드팩 가져오기";
+        color: Theme.text;
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    if ImportData.zips.length == 0 : VerticalLayout {
+        spacing: 12px;
+
+        Text {
+            text: "modpacks/curseforge 폴더에 CurseForge 모드팩 zip을 넣으면 여기에 표시됩니다.";
+            color: Theme.muted;
+            font-size: 14px;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            SheetButton {
+                text: "폴더 열기";
+                a11y-label: "CurseForge 모드팩 폴더 열기";
+                enabled: root.live;
+                activated => {
+                    SheetActions.open-folder(ImportData.folder-path);
+                }
+            }
+        }
+    }
+
+    if ImportData.zips.length > 0 : VerticalLayout {
+        spacing: 8px;
+
+        Text {
+            text: "가져올 모드팩 파일을 고르세요.";
+            color: Theme.muted;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        for row[i] in ImportData.zips : VerticalLayout {
+            spacing: 4px;
+
+            ImportRow {
+                data: row;
+                selected: ImportData.selected-zip == i;
+                enabled: root.live;
+                activated => {
+                    ImportData.selected-zip = i;
+                }
+            }
+
+            if !row.selectable : Text {
+                text: "manifest.json, modrinth.index.json, mmc-pack.json 중 하나가 없습니다";
+                color: Theme.muted;
+                font-size: 12px;
+                wrap: word-wrap;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+
+    Field {
+        label: "서버 ID";
+        a11y-label: "가져올 서버 ID";
+        helper: "폴더 이름은 <ID>-<버전>이 됩니다";
+        error: ImportData.id-error;
+        enabled: root.live;
+        text <=> ImportData.server-id;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        height: 48px;
+
+        SheetButton {
+            kind: ButtonKind.primary;
+            text: ImportData.busy ? "가져오는 중" : "모드팩 가져오기";
+            a11y-label: "모드팩 가져오기";
+            enabled: root.live && ImportData.selected-zip >= 0;
+            loading: ImportData.busy;
+            width: 240px;
+            activated => {
+                SheetActions.import-modpack(ImportData.server-id, root.selected-name);
+            }
+        }
+    }
+
+    if ImportData.manual-downloads.length > 0 : Rectangle {
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Theme.warning;
+        border-radius: Theme.radius-field;
+
+        VerticalLayout {
+            padding: 12px;
+            spacing: 12px;
+
+            Text {
+                text: "수동 다운로드 필요";
+                color: Theme.warning;
+                font-size: 14px;
+                font-weight: 700;
+            }
+
+            Text {
+                text: "아래 파일은 CurseForge가 배포를 허용하지 않습니다. 직접 내려받아 모드 폴더에 넣으세요.";
+                color: Theme.text;
+                font-size: 13px;
+                wrap: word-wrap;
+                horizontal-stretch: 1;
+            }
+
+            for item in ImportData.manual-downloads : VerticalLayout {
+                spacing: 2px;
+
+                Text {
+                    text: item.name;
+                    color: Theme.text;
+                    font-size: 14px;
+                    font-weight: 600;
+                    wrap: word-wrap;
+                    horizontal-stretch: 1;
+                }
+
+                Text {
+                    text: item.file;
+                    color: Theme.muted;
+                    font-family: Theme.mono;
+                    font-size: 12px;
+                    wrap: word-wrap;
+                    horizontal-stretch: 1;
+                }
+
+                TextInput {
+                    text: item.url;
+                    read-only: true;
+                    color: Theme.text;
+                    font-family: Theme.mono;
+                    font-size: 12px;
+                    single-line: false;
+                    wrap: word-wrap;
+                    selection-background-color: Theme.primary;
+                    selection-foreground-color: Theme.on-primary;
+                    accessible-role: text-input;
+                    accessible-label: item.name + " 다운로드 주소";
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+    }
+
+    Rectangle { }
+}

@@ -1,0 +1,27 @@
+[package]
+name = "nebula-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+log.workspace = true
+url.workspace = true
+schemars = "1.2.2"
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "json", "native-tls"] } # native-tls like the launcher: no NASM/CMake needed on Windows CI
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+toml = "1.1.5"
+globset = "0.4.20"
+md-5 = "0.11.0"
+sha2 = "0.11.0"
+sha1 = "0.11.0"
+hex = "0.4.3"
+dotenvy = "0.15.7"
+tempfile = "3.27.0"
+
+[dev-dependencies]
+zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }

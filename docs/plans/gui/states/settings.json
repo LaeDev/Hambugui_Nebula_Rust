@@ -1,0 +1,26 @@
+{
+  "Theme": { "preference": "light" },
+  "SheetData": { "page": "settings", "has-root": true, "busy": false },
+  "SettingsData": {
+    "root": "D:\\TestRoot",
+    "base-url": "https://cdn.example.com/",
+    "java": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+    "helios": "",
+    "theme": "system",
+    "reduced-motion": false,
+    "webdav-url": "https://dav.example.com/nebula/",
+    "webdav-user": "hambugui",
+    "webdav-password": "hunter2hunter2",
+    "webdav-public-url": "",
+    "gdrive-client-id": "",
+    "gdrive-client-secret": "",
+    "gdrive-folder-id": "",
+    "gdrive-connected": false,
+    "root-error": "",
+    "base-url-error": "",
+    "java-error": "",
+    "helios-error": "",
+    "root-missing": false,
+    "busy": false
+  }
+}

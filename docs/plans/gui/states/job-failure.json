@@ -1,0 +1,41 @@
+{
+  "Theme": { "preference": "light" },
+  "SheetData": {
+    "page": "sheet",
+    "has-root": true,
+    "root-initialised": false,
+    "can-generate": true,
+    "install-local-enabled": true,
+    "busy": false,
+    "stamped": false,
+    "summary": "",
+    "error-text": "Forge 설치 프로그램이 D:\\TestRoot\\cache\\forge\\14.23.5.2860 에 버전 폴더를 만들지 않았습니다. 캐시를 무효화하고 다시 실행하세요.",
+    "distro-name": "distribution",
+    "readiness": [
+      { "label": "루트", "value": "D:\\TestRoot", "state": "ok" },
+      { "label": "기본 URL", "value": "https://cdn.example.com/", "state": "ok" },
+      { "label": "Java", "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe", "state": "ok" },
+      { "label": "Helios 폴더", "value": "", "state": "missing" }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2"
+      }
+    ],
+    "findings": [],
+    "log": [
+      { "time": "14:07:02", "target": "forge", "message": "Running installer with --installClient D:\\TestRoot\\cache\\forge\\14.23.5.2860" },
+      { "time": "14:07:44", "target": "forge", "message": "installer finished, no versions/ directory produced" }
+    ]
+  },
+  "PublishData": {
+    "target": "none",
+    "only-changed": true,
+    "can-publish": false,
+    "result-line": "",
+    "distribution-url": ""
+  }
+}

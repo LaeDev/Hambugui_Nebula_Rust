@@ -1,0 +1,71 @@
+{
+  "Theme": {
+    "preference": "light"
+  },
+  "SheetData": {
+    "page": "sheet",
+    "has-root": true,
+    "root-initialised": true,
+    "can-generate": true,
+    "install-local-enabled": true,
+    "busy": false,
+    "stamped": false,
+    "summary": "",
+    "distro-name": "distribution",
+    "readiness": [
+      {
+        "label": "루트",
+        "value": "D:\\TestRoot",
+        "state": "ok"
+      },
+      {
+        "label": "기본 URL",
+        "value": "https://cdn.example.com/",
+        "state": "ok"
+      },
+      {
+        "label": "Java",
+        "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+        "state": "ok"
+      },
+      {
+        "label": "Helios 폴더",
+        "value": "",
+        "state": "missing"
+      }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2"
+      }
+    ],
+    "findings": [],
+    "log": [
+      {
+        "time": "14:02:17",
+        "target": "write",
+        "message": "distribution.json 저장: D:\\TestRoot\\distribution.json"
+      },
+      {
+        "time": "14:03:02",
+        "target": "dav",
+        "message": "PUT https://cdn.example.com/repo/lib (312 files)"
+      },
+      {
+        "time": "14:03:41",
+        "target": "dav",
+        "message": "312 uploaded, 172 unchanged"
+      }
+    ]
+  },
+  "PublishData": {
+    "target": "webdav",
+    "only-changed": true,
+    "can-publish": true,
+    "result-line": "312개 업로드 · 172개 변경 없음 · 배포 URL:",
+    "distribution-url": "https://cdn.example.com/distribution.json"
+  }
+}

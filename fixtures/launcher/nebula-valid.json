@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "java": { "oracle": "https://example.invalid/java" },
+  "servers": [
+    {
+      "id": "hambugui-main",
+      "minecraftVersion": "1.20.1",
+      "modules": [
+        {
+          "id": "net.minecraftforge:forge:1.20.1-47.2.0",
+          "type": "Forge",
+          "artifact": {
+            "size": 12,
+            "SHA256": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+            "url": "https://cdn.example.invalid/forge.jar",
+            "path": "libraries/net/minecraftforge/forge.jar"
+          },
+          "subModules": [
+            {
+              "id": "com.example:common-lib:1.0.0",
+              "type": "Library",
+              "artifact": {
+                "size": 1,
+                "MD5": "00112233445566778899aabbccddeeff",
+                "url": "https://cdn.example.invalid/lib.jar"
+              }
+            },
+            {
+              "id": "example.cfg",
+              "type": "file",
+              "required": { "value": false, "def": true },
+              "artifact": {
+                "size": 2,
+                "SHA256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                "url": "https://cdn.example.invalid/example.cfg",
+                "path": "config/example.cfg"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

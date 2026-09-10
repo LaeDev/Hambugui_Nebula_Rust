@@ -1,0 +1,37 @@
+{
+  "Theme": { "preference": "light", "focus-demo": true },
+  "SheetData": {
+    "page": "sheet",
+    "has-root": true,
+    "root-initialised": true,
+    "can-generate": true,
+    "install-local-enabled": true,
+    "busy": false,
+    "stamped": false,
+    "summary": "",
+    "distro-name": "distribution",
+    "readiness": [
+      { "label": "루트", "value": "D:\\TestRoot", "state": "ok" },
+      { "label": "기본 URL", "value": "https://cdn.example.com/", "state": "ok" },
+      { "label": "Java", "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe", "state": "ok" },
+      { "label": "Helios 폴더", "value": "", "state": "missing" }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2"
+      }
+    ],
+    "findings": [],
+    "log": []
+  },
+  "PublishData": {
+    "target": "webdav",
+    "only-changed": true,
+    "can-publish": true,
+    "result-line": "",
+    "distribution-url": ""
+  }
+}

@@ -1,0 +1,166 @@
+import { Theme, ButtonKind, Loader, NewServerData, SheetActions } from "../tokens.slint";
+import { SheetButton } from "../components/button.slint";
+import { Field } from "../components/field.slint";
+
+component LoaderChoice inherits SheetButton {
+    in property <Loader> value;
+    exclusive: true;
+    selected: NewServerData.loader == root.value;
+    a11y-label: "로더 " + root.text;
+    activated => {
+        NewServerData.loader = root.value;
+    }
+}
+
+export component NewServer inherits VerticalLayout {
+    private property <bool> live: !NewServerData.busy;
+
+    spacing: 16px;
+
+    Text {
+        text: "새 서버";
+        color: Theme.text;
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    Field {
+        label: "서버 ID";
+        a11y-label: "서버 ID";
+        helper: "폴더 이름은 <ID>-<버전>이 됩니다";
+        error: NewServerData.id-error;
+        enabled: root.live;
+        text <=> NewServerData.id;
+    }
+
+    Field {
+        label: "Minecraft 버전";
+        a11y-label: "Minecraft 버전";
+        helper: "예: 1.20.1";
+        error: NewServerData.mc-error;
+        enabled: root.live;
+        text <=> NewServerData.mc-version;
+    }
+
+    VerticalLayout {
+        spacing: 4px;
+
+        Text {
+            text: "로더";
+            color: Theme.muted;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            height: 44px;
+
+            LoaderChoice {
+                text: "없음";
+                value: Loader.none;
+                enabled: root.live;
+            }
+
+            LoaderChoice {
+                text: "Forge";
+                value: Loader.forge;
+                enabled: root.live;
+            }
+
+            LoaderChoice {
+                text: "NeoForge";
+                value: Loader.neoforge;
+                enabled: root.live;
+            }
+
+            LoaderChoice {
+                text: "Fabric";
+                value: Loader.fabric;
+                enabled: root.live;
+            }
+        }
+
+        if NewServerData.loader == Loader.neoforge : Text {
+            text: "Minecraft 1.20.2 이상";
+            color: Theme.muted;
+            font-size: 12px;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+    }
+
+    if NewServerData.loader != Loader.none : VerticalLayout {
+        spacing: 12px;
+
+        Field {
+            label: "로더 버전";
+            a11y-label: "로더 버전";
+            error: NewServerData.loader-version-error;
+            enabled: root.live;
+            text <=> NewServerData.loader-version;
+        }
+
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            height: 44px;
+
+            SheetButton {
+                text: "최신 버전 찾기";
+                a11y-label: "최신 로더 버전 찾기";
+                enabled: root.live && !NewServerData.lookup-busy;
+                loading: NewServerData.lookup-busy;
+                activated => {
+                    SheetActions.lookup-loader-version(NewServerData.loader, "latest");
+                }
+            }
+
+            SheetButton {
+                text: "권장 버전 찾기";
+                a11y-label: "권장 로더 버전 찾기";
+                enabled: root.live && !NewServerData.lookup-busy;
+                loading: NewServerData.lookup-busy;
+                activated => {
+                    SheetActions.lookup-loader-version(NewServerData.loader, "recommended");
+                }
+            }
+        }
+    }
+
+    if NewServerData.forge-mod-lists-warning : Text {
+        text: "Forge 1.20.3부터 --fml.modLists 인수가 제거되어 Helios가 모드를 불러오지 못합니다.";
+        color: Theme.warning;
+        font-size: 13px;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
+    }
+
+    if NewServerData.loader == Loader.neoforge : Text {
+        text: "Hambugui 런처에 NeoForge 패치가 필요합니다 (docs/launcher)";
+        color: Theme.warning;
+        font-size: 13px;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        height: 48px;
+
+        SheetButton {
+            kind: ButtonKind.primary;
+            text: NewServerData.busy ? "만드는 중" : "서버 만들기";
+            a11y-label: "서버 만들기";
+            enabled: root.live;
+            loading: NewServerData.busy;
+            width: 240px;
+            activated => {
+                SheetActions.create-server(NewServerData.id, NewServerData.mc-version, NewServerData.loader, NewServerData.loader-version);
+            }
+        }
+    }
+
+    Rectangle { }
+}

@@ -1,0 +1,72 @@
+{
+  "Theme": { "preference": "light" },
+  "SheetData": {
+    "page": "sheet",
+    "has-root": true,
+    "root-initialised": true,
+    "can-generate": true,
+    "install-local-enabled": true,
+    "busy": false,
+    "stamped": false,
+    "summary": "아티팩트 484 · SHA-256 484 · 오류 2 · 경고 1",
+    "distro-name": "distribution",
+    "readiness": [
+      { "label": "루트", "value": "D:\\TestRoot", "state": "ok" },
+      { "label": "기본 URL", "value": "https://cdn.example.com/", "state": "ok" },
+      { "label": "Java", "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe", "state": "ok" },
+      { "label": "Helios 폴더", "value": "", "state": "missing" }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2"
+      },
+      {
+        "id": "Sky-1.20.1",
+        "loader": "Fabric 0.15.11",
+        "counts": "모드 96 · 파일 214 · 라이브러리 0",
+        "path": "D:\\TestRoot\\servers\\Sky-1.20.1"
+      },
+      {
+        "id": "Neo-1.21.1",
+        "loader": "NeoForge 21.1.77",
+        "counts": "모드 61 · 파일 152 · 라이브러리 0",
+        "path": "D:\\TestRoot\\servers\\Neo-1.21.1"
+      }
+    ],
+    "findings": [
+      {
+        "severity": "오류",
+        "location": "servers[0].modules[12].artifact.MD5",
+        "message": "해시가 비어 있습니다. 파일을 다시 스캔하거나 캐시를 무효화하세요.",
+        "is-error": true
+      },
+      {
+        "severity": "오류",
+        "location": "servers[1].modules[7].artifact.size",
+        "message": "크기가 0입니다. optionalmods/required 폴더의 빈 jar를 확인하세요.",
+        "is-error": true
+      },
+      {
+        "severity": "경고",
+        "location": "servers[2]",
+        "message": "NeoForge 모듈은 Hambugui 런처에 NeoForge 파서 패치(docs/launcher/hambugui-neoforge.patch)가 필요하고 Helios는 지원하지 않습니다",
+        "is-error": false
+      }
+    ],
+    "log": [
+      { "time": "14:02:11", "target": "forge", "message": "Using cached results at D:\\TestRoot\\cache\\forge\\14.23.5.2860" },
+      { "time": "14:02:16", "target": "files", "message": "484 modules hashed" },
+      { "time": "14:02:17", "target": "valid", "message": "2 errors, 1 warning" }
+    ]
+  },
+  "PublishData": {
+    "target": "none",
+    "only-changed": true,
+    "can-publish": false,
+    "result-line": "",
+    "distribution-url": ""
+  }
+}

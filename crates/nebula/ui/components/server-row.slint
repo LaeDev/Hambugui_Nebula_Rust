@@ -1,0 +1,85 @@
+import { Theme, ServerRowData } from "../tokens.slint";
+import { SheetButton } from "button.slint";
+import { ButtonKind } from "../tokens.slint";
+
+export component ServerRow inherits Rectangle {
+    in property <ServerRowData> data;
+    in property <bool> enabled: true;
+    callback open-folder();
+
+    private property <bool> ring: fs.has-focus || Theme.focus-demo;
+
+    height: 64px;
+    background: Theme.surface;
+    border-radius: Theme.radius-row;
+    border-width: root.ring ? 2px : 1px;
+    border-color: root.ring ? Theme.focus : Theme.line;
+
+    accessible-role: list-item;
+    accessible-label: root.data.id + ", " + root.data.loader + ", " + root.data.counts;
+
+    fs := FocusScope {
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 10px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            spacing: 12px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.data.id;
+                    color: Theme.text;
+                    font-size: 15px;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: root.data.counts;
+                    color: Theme.muted;
+                    font-family: Theme.mono;
+                    font-size: 13px;
+                    overflow: elide;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 0;
+                vertical-stretch: 0;
+                y: (parent.height - 22px) / 2;
+                height: 22px;
+                border-radius: Theme.radius-field;
+                border-width: 1px;
+                border-color: Theme.line;
+                background: Theme.bg;
+
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: root.data.loader;
+                        color: Theme.text;
+                        font-family: Theme.mono;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            SheetButton {
+                kind: ButtonKind.ghost;
+                text: "폴더 열기";
+                a11y-label: root.data.id + " 폴더 열기";
+                enabled: root.enabled;
+                activated => {
+                    root.open-folder();
+                }
+            }
+        }
+    }
+}

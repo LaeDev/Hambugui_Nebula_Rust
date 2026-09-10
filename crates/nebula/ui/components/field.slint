@@ -1,0 +1,89 @@
+import { Theme } from "../tokens.slint";
+
+export component Field inherits VerticalLayout {
+    in property <string> label;
+    in property <string> helper;
+    in property <string> error;
+    in property <string> suffix;
+    in property <string> a11y-label;
+    in property <bool> enabled: true;
+    in property <bool> password: false;
+    in-out property <string> text;
+    callback edited(string);
+    callback accepted(string);
+
+    private property <bool> ring: input.has-focus || Theme.focus-demo;
+
+    spacing: 4px;
+
+    Text {
+        text: root.label;
+        color: Theme.muted;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    Rectangle {
+        height: 44px;
+        background: root.enabled ? Theme.surface : Theme.raised;
+        border-radius: Theme.radius-field;
+        border-width: root.ring ? 2px : 1px;
+        border-color: root.ring
+            ? Theme.focus
+            : (root.error == "" ? Theme.line : Theme.danger);
+
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            spacing: 4px;
+
+            input := TextInput {
+                text <=> root.text;
+                enabled: root.enabled;
+                input-type: root.password ? InputType.password : InputType.text;
+                color: Theme.text;
+                font-size: 14px;
+                selection-background-color: Theme.primary;
+                selection-foreground-color: Theme.on-primary;
+                single-line: true;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                accessible-role: text-input;
+                accessible-label: root.a11y-label;
+                accessible-enabled: root.enabled;
+                edited => {
+                    root.edited(self.text);
+                }
+                accepted => {
+                    root.accepted(self.text);
+                }
+            }
+
+            if root.suffix != "" : Text {
+                text: root.suffix;
+                color: Theme.muted;
+                font-family: Theme.mono;
+                font-size: 13px;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+        }
+
+    }
+
+    if root.error != "" : Text {
+        text: "오류: " + root.error;
+        color: Theme.danger;
+        font-size: 12px;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
+    }
+
+    if root.error == "" && root.helper != "" : Text {
+        text: root.helper;
+        color: Theme.muted;
+        font-size: 12px;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
+    }
+}

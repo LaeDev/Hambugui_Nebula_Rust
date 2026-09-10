@@ -1,0 +1,41 @@
+import { Theme, FindingRowData } from "../tokens.slint";
+
+export component FindingRow inherits HorizontalLayout {
+    in property <FindingRowData> data;
+
+    spacing: 8px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+
+    Text {
+        text: root.data.severity;
+        color: root.data.is-error ? Theme.danger : Theme.warning;
+        font-size: 12px;
+        font-weight: 600;
+        width: 34px;
+        horizontal-stretch: 0;
+        vertical-alignment: top;
+    }
+
+    VerticalLayout {
+        spacing: 2px;
+        horizontal-stretch: 1;
+
+        Text {
+            text: root.data.location;
+            color: Theme.muted;
+            font-family: Theme.mono;
+            font-size: 12px;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+
+        Text {
+            text: root.data.message;
+            color: Theme.text;
+            font-size: 13px;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+    }
+}

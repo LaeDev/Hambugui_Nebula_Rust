@@ -1,0 +1,47 @@
+[graph]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+]
+all-features = false
+no-default-features = false
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+    { id = "RUSTSEC-2024-0436", reason = "unmaintained-only advisory; pinned Slint 1.17.1 transitive via image/exr/pulp; review by 2026-11-24 or on Slint upgrade" },
+    { id = "RUSTSEC-2026-0206", reason = "unmaintained-only advisory; pinned Slint 1.17.1 transitive via resvg/usvg font stack; review by 2026-11-24 or on Slint upgrade" },
+    { id = "RUSTSEC-2026-0192", reason = "unmaintained-only advisory; pinned Slint 1.17.1 transitive via resvg/usvg/fontdb font stack; review by 2026-11-24 or on Slint upgrade" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.8
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "GPL-3.0-only",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "Unicode-3.0",
+    "Zlib",
+]
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

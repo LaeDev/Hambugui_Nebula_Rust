@@ -1,0 +1,135 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme, AppPage, ButtonKind, SheetData, SheetActions } from "tokens.slint";
+import { SheetButton } from "components/button.slint";
+import { Sheet } from "screens/sheet.slint";
+import { NewServer } from "screens/new-server.slint";
+import { Import } from "screens/import.slint";
+import { Settings } from "screens/settings.slint";
+
+export {
+    Theme,
+    ThemePreference,
+    AppPage,
+    ButtonKind,
+    Loader,
+    PublishTarget,
+    ServerRowData,
+    FindingRowData,
+    LogRowData,
+    ReadinessRowData,
+    ManualDownloadData,
+    ImportRowData,
+    SheetData,
+    SheetActions,
+    PublishData,
+    NewServerData,
+    ImportData,
+    SettingsData,
+} from "tokens.slint";
+
+export component App inherits Window {
+    title: "Nebula";
+    preferred-width: 720px;
+    preferred-height: 960px;
+    min-width: 600px;
+    min-height: 800px;
+    background: Theme.bg;
+    default-font-size: 14px;
+
+    function back-to-sheet() {
+        if (!SheetData.busy) {
+            SheetData.page = AppPage.sheet;
+            SheetActions.navigate(AppPage.sheet);
+        }
+    }
+
+    keys := FocusScope {
+        init => {
+            self.focus();
+        }
+        key-pressed(event) => {
+            if (event.text == Key.Escape && SheetData.page != AppPage.sheet) {
+                root.back-to-sheet();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        ScrollView {
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+
+                // ── Header ───────────────────────────────────────────────────
+                HorizontalLayout {
+                    spacing: 12px;
+                    vertical-stretch: 0;
+
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        horizontal-stretch: 1;
+
+                        Text {
+                            text: "Nebula";
+                            color: Theme.text;
+                            font-size: 22px;
+                            font-weight: 700;
+                        }
+
+                        Text {
+                            text: "배포본 빌드 시트";
+                            color: Theme.muted;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                    }
+
+                    SheetButton {
+                        kind: ButtonKind.ghost;
+                        text: "설정";
+                        a11y-label: "설정 화면 열기";
+                        enabled: !SheetData.busy;
+                        selected: SheetData.page == AppPage.settings;
+                        activated => {
+                            SheetData.page = AppPage.settings;
+                            SheetActions.navigate(AppPage.settings);
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    vertical-stretch: 0;
+                    background: Theme.line;
+                }
+
+                if SheetData.page != AppPage.sheet : HorizontalLayout {
+                    alignment: start;
+                    vertical-stretch: 0;
+                    height: 44px;
+
+                    SheetButton {
+                        kind: ButtonKind.ghost;
+                        text: "시트로 돌아가기";
+                        a11y-label: "빌드 시트로 돌아가기";
+                        enabled: !SheetData.busy;
+                        activated => {
+                            root.back-to-sheet();
+                        }
+                    }
+                }
+
+                // ── Page ─────────────────────────────────────────────────────
+                if SheetData.page == AppPage.sheet : Sheet { }
+
+                if SheetData.page == AppPage.new-server : NewServer { }
+
+                if SheetData.page == AppPage.import : Import { }
+
+                if SheetData.page == AppPage.settings : Settings { }
+            }
+        }
+    }
+}

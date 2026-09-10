@@ -1,0 +1,23 @@
+[package]
+name = "nebula"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+default-run = "nebula"
+
+[[bin]]
+name = "nebula"
+path = "src/main.rs"
+
+[dependencies]
+nebula-core = { path = "../nebula-core" }
+clap = { version = "4.6.6", features = ["derive"] }
+log.workspace = true
+env_logger = "0.11.11"
+serde.workspace = true
+serde_json.workspace = true
+slint = { version = "=1.17.1", default-features = false, features = ["std", "backend-default", "renderer-software", "accessibility", "compat-1-2"] }
+
+[build-dependencies]
+slint-build = "=1.17.1"

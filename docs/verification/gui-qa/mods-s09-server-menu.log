@@ -1,0 +1,107 @@
+﻿# s09-server-menu  2026-09-11 11:30:45
+[PASS] on 서버 -- 서버
+  ids: servers-refresh|Button|서버 목록 새로 고침 ; servers-import|Button|모드팩 가져오기 화면 열기 ; servers-new|Button|새 서버 만들기 ; server-row-QAfab-1.20.1|ListItem|QAfab-1.20.1, Fabric 0.19.5, 모드 4 · 파일 0 · 라이브러리 0 ; servers-menu-QAfab-1.20.1|Button|QAfab-1.20.1 메뉴 ; server-row-QAneo-1.21.1|ListItem|QAneo-1.21.1, NeoForge 21.1.250, 모드 1 · 파일 0 · 라이브러리 0 ; servers-menu-QAneo-1.21.1|Button|QAneo-1.21.1 메뉴
+  shot -> mods-09-servers.png  (736 x 999)
+--- 9 server-menu ---
+  chevron: 'QAneo-1.21.1 메뉴' role=ControlType.Button
+[PASS] the row trailing control is the menu chevron -- QAneo-1.21.1 메뉴
+  menu ids: server-menu-dialog|Group|QAneo-1.21.1 ; server-menu-dialog-close|Button|닫기 ; server-menu-mods|Button|이 서버의 모드 관리 ; server-menu-open-folder|Button|서버 폴더 열기 ; server-menu-duplicate|Button|서버 복제 ; server-menu-delete|Button|서버 삭제 ; server-menu-cancel|Button|메뉴 닫기
+    서버
+    서버
+    2개
+    새로 고침
+    모드팩 가져오기
+    새 서버
+    QA
+    QAfab-1.20.1
+    모드 4 · 파일 0 · 라이브러리 0
+    Fabric 0.19.5
+    QA
+    QAneo-1.21.1
+    모드 1 · 파일 0 · 라이브러리 0
+    NeoForge 21.1.250
+    QAneo-1.21.1
+    모드 관리
+    폴더 열기
+    복제
+    삭제
+    취소
+[PASS] the menu offers 모드 관리 / 폴더 열기 / 복제 / 삭제
+  shot -> mods-09-server-menu.png  (736 x 999)
+--- 9 복제 ---
+[PASS] server-duplicate opened
+    서버
+    서버
+    2개
+    새로 고침
+    모드팩 가져오기
+    새 서버
+    QA
+    QAfab-1.20.1
+    모드 4 · 파일 0 · 라이브러리 0
+    Fabric 0.19.5
+    QA
+    QAneo-1.21.1
+    모드 1 · 파일 0 · 라이브러리 0
+    NeoForge 21.1.250
+    서버 복제 — QAneo-1.21.1
+    새 서버 ID
+    my-server
+    폴더 이름은 <ID>-<버전>이 됩니다
+    취소
+    복제
+  initial focus: Edit / 새 서버 ID / server-duplicate-id
+[PASS] the field has the initial focus -- server-duplicate-id
+  shot -> mods-09-duplicate.png  (736 x 999)
+  pill=False toast=서버를 복제했습니다: QAcopy-1.21.1  0.9s
+[FAIL] the 복제 pill names the job
+  disk servers: QAcopy-1.21.1, QAfab-1.20.1, QAneo-1.21.1
+[PASS] the copy is on disk
+[PASS] the copy has a row
+  shot -> mods-09-duplicated.png  (736 x 999)
+--- 9 삭제 ---
+[PASS] server-delete opened
+    서버
+    서버
+    3개
+    새로 고침
+    모드팩 가져오기
+    새 서버
+    QA
+    QAcopy-1.21.1
+    모드 1 · 파일 0 · 라이브러리 0
+    NeoForge 21.1.250
+    QA
+    QAfab-1.20.1
+    모드 4 · 파일 0 · 라이브러리 0
+    Fabric 0.19.5
+    QA
+    QAneo-1.21.1
+    모드 1 · 파일 0 · 라이브러리 0
+    NeoForge 21.1.250
+    서버 삭제 — QAcopy-1.21.1
+    이 폴더가 영구 삭제됩니다: C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\root\servers\QAcopy-1.21.1
+    배포본을 다시 생성하면 이 서버가 사라집니다.. 
+    배포본을 다시 생성하면 이 서버가 사라집니다.
+    삭제하려면 서버 ID를 입력하세요
+    QAcopy-1.21.1
+    취소
+    삭제
+  initial focus: Edit / 삭제 확인용 서버 ID / server-delete-confirm
+[PASS] 삭제 starts disabled
+  shot -> mods-09-delete-empty.png  (736 x 999)
+[PASS] 삭제 stays disabled for a partial id
+  with a trailing space: 삭제 enabled=False  value=[QAcopy-1.21.1 ]
+[PASS] 삭제 stays disabled with a trailing space
+  shot -> mods-09-delete-trailing-space.png  (736 x 999)
+[PASS] Enter does nothing while 삭제 is disabled
+[PASS] the server is still on disk
+  exact id: 삭제 enabled=True
+[PASS] 삭제 enables on the exact directory name
+  shot -> mods-09-delete-armed.png  (736 x 999)
+  toast: 서버를 삭제했습니다: QAcopy-1.21.1
+  disk servers: QAfab-1.20.1, QAneo-1.21.1
+[PASS] the server directory is gone
+[PASS] its row is gone
+  shot -> mods-09-deleted.png  (736 x 999)
+RESULT: 1 failed check(s): the 복제 pill names the job

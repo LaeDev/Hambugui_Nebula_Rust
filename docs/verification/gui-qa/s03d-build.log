@@ -1,0 +1,41 @@
+﻿# s03d-build  2026-09-10 18:58:19
+distribution.json mtime before = 2026-09-10T08:17:37.3946871Z
+--- 3c. start the job ---
+[PASS] busy status pill appears -- [작업 중: 배포본 생성] after 0.09 s
+[PASS] both build buttons disabled while busy
+[PASS] navigation stays enabled while busy (DESIGN-v2 §5)
+ProgressBars while busy=2; top-bar strip at y=87 h=4
+  shot -> 03-busy-a.png  (736 x 999)
+  shot -> 03-busy-b.png  (736 x 999)
+pill: [작업 중: 배포본 생성 · 0초] -> [작업 중: 배포본 생성 · 2초]
+[PASS] elapsed time in the busy pill advances
+diff: progress strip=24.03  whole window=0.097
+[PASS] the indeterminate bar strip changes over 2 s -- diff=24.03
+--- 3e. wait for completion ---
+job finished after 3.9 s (done=True)
+[PASS] the build finishes within 180 s
+--- 3f. toast (4 s lifetime) ---
+[PASS] a toast appears when the job ends -- [배포본을 검증했습니다]
+  shot -> 03-toast.png  (736 x 999)
+[PASS] the toast exposes a 알림 닫기 button
+toast [배포본을 검증했습니다] auto-dismissed within 8 s = True
+[PASS] the toast auto-dismisses (4 s TOAST_LIFETIME)
+--- 3g. verdict banner, chips, findings (needs scrolling) ---
+verdict banner = [런처 검증 통과]
+[PASS] verdict banner reads 런처 검증 통과
+verdict detail = [런처 검증 통과. distribution.json · SHA-256 2b6317bd · 파일 215]
+[PASS] verdict detail names file, hash prefix and file count
+summary chips: 파일 215 | SHA-256 215 | 오류 0 | 경고 1
+[PASS] four summary chips are shown -- 4
+summary a11y label = [파일 215 · SHA-256 215 · 오류 0 · 경고 1]
+[PASS] the previous failure callout is cleared by a successful run
+  shot -> 03-verdict.png  (736 x 999)
+--- 3h. log rows ---
+visible +MM:SS rows = 7: +09:54, +09:54, +09:54, +09:54, +09:54, +09:54, +09:54
+[PASS] the log view shows +MM:SS rows
+log counter = [400줄]
+  shot -> 03-log.png  (736 x 999)
+--- 3i. the file was rewritten ---
+distribution.json mtime after = 2026-09-10T09:58:25.3927760Z
+[PASS] distribution.json mtime advanced
+RESULT: all checks passed

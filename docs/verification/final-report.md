@@ -54,3 +54,55 @@ target\release\nebula.exe --help     # CLI
 NEBULA_NET_TESTS=1 JAVA_EXECUTABLE=... cargo test -p nebula-core --test resolver_net -- --test-threads=1
 pwsh scripts\verify-launcher-contract.ps1 -Distribution <root>\distribution.json -Runtime
 ```
+
+## 2026-09-12 — 모드 카탈로그
+
+이 최종 보고서 작성(2026-09-10) 이후 추가된 기능. 별도 계획/QA 문서 체인으로
+진행했으며, 이 섹션은 그 요약이다.
+
+### 범위
+
+Prism Launcher류 모드 브라우저를 GUI 모드 페이지와 CLI `mods`/`server` 명령으로
+추가했다. 제공자는 Modrinth(키 불필요)와 CurseForge(사용자 자신의 API 키 필요).
+설치/업데이트/삭제/네임스페이스 이동을 관리 색인(`modindex.json`)으로 추적하며,
+`distribution.json` 생성에는 전혀 관여하지 않는다.
+
+### 검증 체인
+
+1. Critic 패널의 병합 설계 검토(`docs/plans/2026-09-11-mod-catalog-design-review.md`,
+   P0 2건 + P1 14건) → 구현.
+2. 코드 리뷰 12건(F1–F12) — 전부 수정(`docs/plans/2026-09-11-mod-catalog.md` "Fix notes").
+3. CLI 실전 QA 63단계, 결함 7건 → GUI 실전 QA 14 시나리오, 결함 7건.
+4. 두 QA 레인의 결함을 전부 수정 → 재-QA 18개 항목 전부 PASS(18/18), 회귀 없음
+   (`docs/verification/2026-09-11-mods-reqa.md`).
+5. CurseForge 전용 QA — CLI 34단계 + GUI 6 시나리오, 결함 8건(high 1·medium 4·low 3).
+6. 여덟 결함을 전부 수정 → 재검증 8건 전부 PASS(8/8), 새로 발견된 결함 없음
+   (`docs/verification/2026-09-12-mods-curseforge-reqa.md`).
+
+### 최종 수치 (master `71cb52e`)
+
+| 게이트 | 결과 |
+|---|---|
+| `cargo test --workspace` | 348 통과 / 0 실패 / 1 ignored |
+| `cargo clippy --workspace --all-targets -- -D warnings` | 통과 |
+| `cargo fmt --all -- --check` | 통과 |
+| `cargo deny check licenses bans sources advisories` | 모두 ok |
+| `distribution.json` 불변 | 카탈로그 파일(`modindex.json`/`.nebula-lock`/`.nebula-tmp`) 유무와 무관하게 바이트 동일(SHA-256 일치, `golden.rs` 회귀 테스트로 고정) |
+
+### 보고서 링크
+
+- CLI QA: [`docs/verification/2026-09-11-mods-cli-qa.md`](2026-09-11-mods-cli-qa.md)
+- GUI QA: [`docs/verification/2026-09-11-mods-gui-qa.md`](2026-09-11-mods-gui-qa.md)
+- 재-QA: [`docs/verification/2026-09-11-mods-reqa.md`](2026-09-11-mods-reqa.md)
+- CurseForge QA: [`docs/verification/2026-09-11-mods-curseforge-qa.md`](2026-09-11-mods-curseforge-qa.md)
+- CurseForge 재-QA: [`docs/verification/2026-09-12-mods-curseforge-reqa.md`](2026-09-12-mods-curseforge-reqa.md)
+
+### 수용된 한계 / 미검증
+
+- 429 응답 시 사용자에게 보이는 안내 문구 경로.
+- 의존성이 걸린, 원저작자가 제3자 배포를 막은 CurseForge 파일(차단 파일)의 실다운로드
+  경로.
+- 베타/알파 경고 `Callout`.
+- `PillStrip`의 로빙 포커스가 UIA에 노출되지 않는 것 — 접근성 상 받아들인 한계
+  (§8.5의 `Group`+`SelectionPattern` 매핑은 정상이지만, 어느 pill에 링이 있는지
+  알리는 UIA 신호는 없다).

@@ -1,0 +1,57 @@
+﻿# s10-11-settings  2026-09-10 19:15:15
+[PASS] navigate to 설정
+=== Scenario 10: 설정 ===
+--- 10a. an invalid 기본 URL raises an inline error after the 300 ms debounce ---
+기본 URL before = [https://cdn.example.invalid/]
+inline error after ~5150 ms = [NONE]
+[FAIL] an invalid 기본 URL shows an inline error
+[FAIL] the error arrives within a second of typing (300 ms debounce) -- 5150 ms
+caption = [저장되지 않은 변경]
+  shot -> 10a-baseurl-error.png  (736 x 999)
+--- 10b. fixing the value clears the error ---
+기본 URL now = [https://cdn.example.invalid/]; error cleared = True
+[PASS] correcting the value clears the inline error
+  shot -> 10b-baseurl-fixed.png  (736 x 999)
+--- 10c. theme SegmentedControl applies immediately ---
+  shot -> 10c-theme-system-dark.png  (736 x 999)
+  shot -> 10d-theme-light.png  (736 x 999)
+system(dark) -> 라이트 whole-window diff = 202.637
+[PASS] choosing 라이트 repaints the whole window immediately -- diff=202.637
+[PASS] the top-bar toggle now offers 다크 테마로 전환
+  shot -> 10e-theme-dark.png  (736 x 999)
+라이트 -> 다크 whole-window diff = 202.623
+[PASS] choosing 다크 repaints the whole window immediately -- diff=202.623
+back to 시스템; theme toggle label = [라이트 테마로 전환]
+settings.json theme = [system] reduced_motion=[]
+[PASS] the theme choice is persisted immediately (no 저장 needed)
+--- 10d. 모션 줄이기 ---
+모션 줄이기 before = Off
+모션 줄이기 after  = On
+[FAIL] 모션 줄이기 toggles
+settings.json reduced_motion = []
+[FAIL] 모션 줄이기 persists immediately
+  shot -> 10f-reduced-motion.png  (736 x 999)
+--- 10e. Enter in a field saves ---
+caption after typing = [저장되지 않은 변경]
+[PASS] the caption reports 저장되지 않은 변경
+toast after Enter = [설정을 저장했습니다]
+[PASS] Enter in a settings field saves the form
+caption after Enter = [변경 사항 없음]
+[PASS] the caption returns to 변경 사항 없음 after saving
+settings.json helios = []
+[FAIL] the value typed reached settings.json
+helios error (folder does not exist) = [폴더가 없습니다 — 경로를 확인하세요]
+  shot -> 10g-enter-saves.png  (736 x 999)
+
+=== Scenario 11: Google 계정 연결 without a client id ===
+browser processes before = 28
+client id = []
+[PASS] the Google Drive client id is empty
+connection chip = [연결되지 않음]
+status next to the button = [클라이언트 ID]
+[PASS] an error status appears next to Google 계정 연결
+[PASS] no job is started (the app does not hang on an OAuth wait)
+browser processes after = 28
+[PASS] no browser was launched
+  shot -> 11-gdrive-no-client-id.png  (736 x 999)
+RESULT: 5 failed check(s): an invalid 기본 URL shows an inline error | the error arrives within a second of typing (300 ms debounce) | 모션 줄이기 toggles | 모션 줄이기 persists immediately | the value typed reached settings.json

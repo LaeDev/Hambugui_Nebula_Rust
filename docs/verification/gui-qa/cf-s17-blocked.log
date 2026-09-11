@@ -1,0 +1,25 @@
+﻿# cf-s17-blocked  2026-09-12 00:23:11
+[PASS] 검색어 입력
+  pass 0 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 1 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 2 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 3 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 4 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 5 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 6 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 7 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 8 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 9 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 10 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 11 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 12 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 13 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 14 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 15 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 16 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 17 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 18 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+  pass 19 version rows: version-row-idDIE0HV ; version-row-w0FqVEfq ; version-row-ANPjECTz ; version-row-GTVSQ5eG ; version-row-NIE2RNxp
+[FAIL] 버전 목록에서 차단된 1.0 파일을 찾음
+  shot -> cf-14-version-list.png  (736 x 999)
+RESULT: 1 failed check(s): 버전 목록에서 차단된 1.0 파일을 찾음

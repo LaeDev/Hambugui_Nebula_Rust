@@ -1,0 +1,26 @@
+﻿# s15-startup  2026-09-10 19:43:19
+=== D1: does the STARTUP path lie too? (no button is pressed) ===
+servers\Fab-1.20.1\servermeta.json first bytes = 239,187,191 (BOM added)
+server directories on disk = 10
+--- observable 1: the startup log line ---
+  [+00:00] [ERROR] [nebula::gui]: 서버 목록을 읽지 못했습니다: C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-root\servers\Fab-1.20.1\servermeta.json is not a valid servermeta.json: expected value at line 1 column 1
+[FAIL] the startup scan reports 서버 0개 even though 10 directories exist
+--- observable 2: the 서버 page on first paint (only navigation, no refresh) ---
+[PASS] navigate to 서버
+  ListItem rows on the page = 0
+  card subtitle = [0개]
+  empty state = [아직 서버가 없습니다. 새 서버를 만들거나 모드팩을 가져오세요.]
+[PASS] the first paint already shows 0개 -- [0개]
+[PASS] it is the 아직 서버가 없습니다 empty state, not the 루트 미설정 one
+  error toasts / callouts on the page = 0
+[PASS] no error is surfaced anywhere on the 서버 page at startup
+  shot -> 06e-defect-empty-at-startup.png  (736 x 999)
+--- for contrast: the 빌드 page readiness still says the root is 확인됨 ---
+[PASS] navigate to 빌드
+  루트 readiness row = 루트 | … | 확인됨
+[PASS] the readiness row still claims the root is 확인됨
+  shot -> 06f-defect-startup-build-page.png  (736 x 999)
+closed, exit code = 0
+restored servermeta.json, first bytes = 123,10,32
+[PASS] the test fixture was restored (no BOM)
+RESULT: 1 failed check(s): the startup scan reports 서버 0개 even though 10 directories exist

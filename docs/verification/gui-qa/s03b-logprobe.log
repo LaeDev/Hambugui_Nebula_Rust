@@ -1,0 +1,11 @@
+﻿# s03b-logprobe  2026-09-10 18:55:19
+total descendants = 63
+LogView element: found, rect=1037 h=180
+LogView descendants exposed to UIA = 0
+log counter text = [NONE]
+elements named +MM:SS anywhere in the window = 0
+IsOffscreen elements = 0
+--- failure card ---
+  [생성 실패] -> Text name=[생성 실패. invalid Zip archive: Could not find EOCD]
+  [실패한 작업 다시 시도] -> Button name=[실패한 작업 다시 시도]
+RESULT: all checks passed

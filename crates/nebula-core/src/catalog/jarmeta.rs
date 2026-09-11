@@ -42,7 +42,6 @@ pub enum LocalFile {
 /// [`hash::sha512_hex_of_file`] / [`hash::curseforge_fingerprint_of_file`].
 #[derive(Debug, Clone)]
 pub struct LocalMod {
-    pub file_name: String,
     pub name: String,
     pub version: String,
     pub mod_id: String,
@@ -87,7 +86,6 @@ pub fn read(path: &Path) -> Result<LocalFile, CatalogError> {
 
     let digests = hash::digests_of_file(path)?;
     Ok(LocalFile::Mod(LocalMod {
-        file_name,
         name: meta.name,
         version: meta.version,
         mod_id: meta.mod_id,

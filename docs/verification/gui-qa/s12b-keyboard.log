@@ -1,0 +1,34 @@
+﻿# s12b-keyboard  2026-09-10 19:19:34
+[PASS] navigate to 빌드
+--- full Tab cycle on the 빌드 page ---
+   0: Edit / 배포본 파일 이름
+   1: CheckBox / Forge 설치 캐시 무효화
+   2: CheckBox / 설치 출력 삭제
+   3: Button / 배포본 생성
+   4: Button / 이미 저장된 배포본 파일 검증
+   5: Button / 로그 지우기
+   6: Window / Nebula
+   7: TabItem / 빌드
+   8: TabItem / 서버
+   9: TabItem / 가져오기
+  10: TabItem / 배포
+  11: TabItem / 설정
+[FAIL] the readiness card 설정 열기 button is in the Tab cycle
+Tab stops where no control holds focus (the root FocusScope) = 1
+
+--- Enter activates the focused button ---
+tabbed onto 기존 파일 검증 = True
+[PASS] the 기존 파일 검증 button is reachable by Tab
+  shot -> 12-focus-on-button.png  (736 x 999)
+job started by Enter = True; toast = [배포본을 검증했습니다]
+verdict after Enter = [런처 검증 통과]
+[PASS] Enter activates the focused button
+[PASS] the Enter-triggered validate produced a verdict
+[PASS] Enter-triggered 기존 파일 검증 did not rewrite the file
+  shot -> 12-enter-activated.png  (736 x 999)
+
+--- Space activates a focused Switch ---
+switch Off -> On
+[PASS] Space toggles the focused Switch
+restored to Off
+RESULT: 1 failed check(s): the readiness card 설정 열기 button is in the Tab cycle

@@ -1,0 +1,54 @@
+﻿# s13-restart  2026-09-11 11:33:36
+settings.json: {
+  "root": "C:\\Users\\Lae_\\AppData\\Local\\Temp\\nebula-qa\\gui-qa\\root",
+  "base-url": "https://cdn.example.invalid/",
+  "java-executable": "",
+  "helios-data-folder": "",
+  "theme": "dark",
+  "reduced-motion": false,
+  "webdav-url": "",
+  "webdav-user": "",
+  "webdav-password": "",
+  "webdav-public-url": "",
+  "gdrive-client-id": "",
+  "gdrive-client-secret": "",
+  "gdrive-folder-id": "",
+  "curseforge-api-key": "",
+  "last-mods-server": "QAneo-1.21.1"
+}
+  scope after restart: QAneo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+  selected: mods-server-0='QAfab-1.20.1' sel=False ; mods-server-1='QAneo-1.21.1' sel=True
+[PASS] the last server selection survived the restart -- QAneo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+  shot -> mods-13-restart-persisted.png  (736 x 999)
+--- 14 SegmentedControl state carriers ---
+  mods-view-0: role=TabItem patterns=[TogglePatternIdentifiers.Pattern] toggle=On selected= enabled=True
+  mods-view-1: role=TabItem patterns=[TogglePatternIdentifiers.Pattern] toggle=Off selected= enabled=True
+  mods-view: role=ControlType.Tab patterns=[SelectionPatternIdentifiers.Pattern]
+--- 14 the full id map of the 모드 page ---
+  tree -> mods-tree-final.txt  (32 nodes)
+    nav-build|TabItem|빌드
+    nav-servers|TabItem|서버
+    nav-mods|TabItem|모드
+    nav-import|TabItem|가져오기
+    nav-publish|TabItem|배포
+    nav-settings|TabItem|설정
+    theme-toggle|Button|라이트 테마로 전환
+    mods-server|Group|서버
+    mods-server-0|RadioButton|QAfab-1.20.1
+    mods-server-1|RadioButton|QAneo-1.21.1
+    mods-view|Tab|모드 보기
+    mods-view-0|TabItem|모드 보기 설치됨
+    mods-view-1|TabItem|모드 보기 찾기
+    mods-check-updates|Button|설치된 모드 업데이트 확인
+    mods-row-cloth-config-15.0.140-neoforge.jar|Button|Cloth Config API 자세히
+[PASS] mods-view is in the tree
+[PASS] mods-server is in the tree
+[PASS] mods-check-updates is in the tree
+[FAIL] mods-search is in the tree
+[FAIL] mods-provider is in the tree
+[FAIL] mods-sort is in the tree
+[PASS] mods-row-<file> is in the tree
+[PASS] servers-menu-<id> is in the tree
+[PASS] settings-curseforge-key is in the tree
+[PASS] mods-install-modrinth-<id> is built by the host -- observed in s04/s05 as mods-install-modrinth-AANobbMI
+RESULT: 3 failed check(s): mods-search is in the tree | mods-provider is in the tree | mods-sort is in the tree

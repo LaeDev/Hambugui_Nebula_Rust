@@ -85,6 +85,23 @@ impl Loader {
             Loader::Fabric => "fabric",
         }
     }
+
+    /// How a loader is spelled to the user, in both the GUI and the core's own
+    /// sentences — one spelling, so `1.20.1 Forge용 버전이 없습니다` reads the
+    /// same wherever it is produced.
+    pub fn label(self) -> &'static str {
+        match self {
+            Loader::Forge => "Forge",
+            Loader::NeoForge => "NeoForge",
+            Loader::Fabric => "Fabric",
+        }
+    }
+}
+
+impl std::fmt::Display for Loader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
 }
 
 impl From<LoaderKind> for Loader {
@@ -109,17 +126,6 @@ pub enum ReleaseType {
     Release,
     Beta,
     Alpha,
-}
-
-impl ReleaseType {
-    /// The Modrinth spelling, which is also what the update filter sends.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ReleaseType::Release => "release",
-            ReleaseType::Beta => "beta",
-            ReleaseType::Alpha => "alpha",
-        }
-    }
 }
 
 /// How one version depends on another project (D6).
@@ -333,6 +339,11 @@ pub struct PlannedFile {
     /// always `provider`: a blocked CurseForge file downloaded from Modrinth's
     /// mirror keeps CurseForge's text, and D2 forbids writing that to disk.
     pub text_provider: ProviderId,
+    /// The project id `text_provider` knows this mod by, when it is not
+    /// `project_id`: the R3 mirror rewrites both `provider` and `project_id` to
+    /// Modrinth's, so the pair the user actually picked would otherwise be lost
+    /// (CF-03). `None` means `project_id` is already that id.
+    pub source_project_id: Option<String>,
     pub version_id: String,
     pub version_name: String,
     /// The provider's version *number* (`0.92.0`), which §8.4's line shows —
@@ -342,6 +353,23 @@ pub struct PlannedFile {
     pub published: String,
     pub release: ReleaseType,
     pub file: VersionFile,
+}
+
+impl PlannedFile {
+    /// The provider and project **the user picked**, which is not always what
+    /// the bytes come from: the R3 mirror downloads a blocked CurseForge file
+    /// from Modrinth and rewrites `provider`/`project_id` with it. Anything
+    /// that asks a provider about this mod again — the version picker, a
+    /// re-plan — has to use this pair or it sends one provider's id to the
+    /// other (CF-03).
+    pub fn source(&self) -> (ProviderId, &str) {
+        (
+            self.text_provider,
+            self.source_project_id
+                .as_deref()
+                .unwrap_or(&self.project_id),
+        )
+    }
 }
 
 /// A dependency of the root install, and whether it is already present.
@@ -464,11 +492,6 @@ impl Catalog {
         self.providers.iter().map(std::convert::AsRef::as_ref)
     }
 
-    /// The API roots this catalog was built with.
-    pub fn endpoints(&self) -> &Endpoints {
-        &self.endpoints
-    }
-
     /// The user's CurseForge key, for the download path that must send it too.
     pub fn curseforge_key(&self) -> Option<&str> {
         self.cf_key.as_deref()
@@ -535,6 +558,16 @@ pub enum CatalogError {
     RateLimited { retry_after_secs: u32 },
     #[error("not found")]
     NotFound,
+    /// The project exists but has no file for this server's Minecraft version
+    /// and loader — a different answer from [`CatalogError::NotFound`], and the
+    /// only one §8.4 has a sentence for (CF-05).
+    #[error("{mc} {loader}용 버전이 없습니다")]
+    NoVersion { mc: String, loader: Loader },
+    /// CurseForge answered 401/403: the key is missing, wrong or revoked. Not
+    /// a network failure, and the prescription is the key, not the connection
+    /// (CF-04).
+    #[error("CurseForge API 키가 거부되었습니다 — 설정의 키를 확인하세요")]
+    Unauthorized,
     #[error("{file}: expected {expected}, downloaded {got}")]
     HashMismatch {
         file: String,
@@ -687,6 +720,39 @@ mod tests {
         assert!(preferred_version(&[]).is_none());
     }
 
+    /// CF-03's pure decision: which (provider, project) a second question about
+    /// this file goes to. The mirror branch is the only place the two pairs
+    /// differ, and getting it wrong sends one provider's id to the other.
+    #[test]
+    fn the_source_pair_survives_the_mirror_rewrite() {
+        let plain = PlannedFile {
+            provider: ProviderId::Modrinth,
+            project_id: "P7dR8mSH".into(),
+            slug: Some("fabric-api".into()),
+            title: "Fabric API".into(),
+            text_provider: ProviderId::Modrinth,
+            source_project_id: None,
+            version_id: "v".into(),
+            version_name: "n".into(),
+            version_number: "0.92.0".into(),
+            published: String::new(),
+            release: ReleaseType::Release,
+            file: file("fabric-api.jar", true),
+        };
+        assert_eq!(plain.source(), (ProviderId::Modrinth, "P7dR8mSH"));
+
+        // R3: downloaded from Modrinth, picked from CurseForge.
+        let mirrored = PlannedFile {
+            provider: ProviderId::Modrinth,
+            project_id: "mirror".into(),
+            slug: None,
+            text_provider: ProviderId::CurseForge,
+            source_project_id: Some("238222".into()),
+            ..plain
+        };
+        assert_eq!(mirrored.source(), (ProviderId::CurseForge, "238222"));
+    }
+
     #[test]
     fn reads_the_algorithm_off_the_hash_length() {
         assert_eq!(HashAlgo::for_hex(&"a".repeat(40)), HashAlgo::Sha1);
@@ -720,8 +786,27 @@ mod tests {
             message(CatalogError::ServerChanged),
             "서버가 바뀌었습니다 — 다시 검색하세요"
         );
+        // CF-05: a project with no build for this server is not "not found".
+        assert_eq!(
+            message(CatalogError::NoVersion {
+                mc: "1.20.1".into(),
+                loader: Loader::Forge,
+            }),
+            "1.20.1 Forge용 버전이 없습니다"
+        );
+        // CF-04: a rejected key never reads as a network failure, and never as
+        // a bare status code.
+        assert_eq!(
+            message(CatalogError::Unauthorized),
+            "CurseForge API 키가 거부되었습니다 — 설정의 키를 확인하세요"
+        );
         for error in [
             CatalogError::Network("https://api.invalid/x: timed out".into()),
+            CatalogError::Unauthorized,
+            CatalogError::NoVersion {
+                mc: "1.21.1".into(),
+                loader: Loader::NeoForge,
+            },
             CatalogError::Blocked(ManualDownload {
                 name: "JEI".into(),
                 file_name: "jei.jar".into(),

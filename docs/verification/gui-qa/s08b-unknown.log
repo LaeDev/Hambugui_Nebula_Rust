@@ -1,0 +1,18 @@
+﻿# s08b-unknown  2026-09-10 19:10:38
+--- 8d. an unrecognised zip must be listed as 알 수 없음 and be unselectable ---
+created C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-root\modpacks\qa-unknown.zip (136 B)
+[PASS] navigate to 서버
+[PASS] navigate to 가져오기
+pack rows = 5
+  [qa-curseforge.zip, CurseForge, 423 B] enabled=True
+  [qa-prism.zip, Prism 인스턴스, 1001 B] enabled=True
+  [qa-fabric.mrpack, Modrinth, 556 B] enabled=True
+  [qa-neo-bad.mrpack, Modrinth, 268 B] enabled=True
+  [qa-unknown.zip, 알 수 없음, 136 B] enabled=True
+[PASS] format chip 「알 수 없음」 appears for an unrecognised zip -- 1
+[FAIL] the 알 수 없음 row is not selectable -- [qa-unknown.zip, 알 수 없음, 136 B] enabled=True
+helper under the unselectable row = [manifest.json, modrinth.index.json, mmc-pack.json 중 하나가 없습니다.]
+[PASS] the unselectable row explains why
+  shot -> 08e-unknown-format.png  (736 x 999)
+removed the fixture zip
+RESULT: 1 failed check(s): the 알 수 없음 row is not selectable

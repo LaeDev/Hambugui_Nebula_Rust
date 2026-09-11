@@ -328,26 +328,40 @@ pub fn replace_file(
     let planned = planned_from(&index, old_file_name, new)?;
 
     progress(1, 1, &planned.file.file_name);
-    let staging = install::staging_dir(server)?;
+    replace_staged(catalog, &ctx, server, &mut index, old_file_name, &planned)?;
+    index.save(server)?;
+    drop(lock);
+    Ok(())
+}
+
+/// Stages one [`replace_file_locked`] and clears the staging directory
+/// afterwards, whichever way it went. The index is left for the caller to save:
+/// [`apply_updates`] saves after every mod, [`replace_file`] once at the end.
+fn replace_staged(
+    catalog: &Catalog,
+    ctx: &ServerContext,
+    server: &ServerDir,
+    index: &mut ModIndex,
+    old_file_name: &str,
+    new: &PlannedFile,
+) -> Result<(), CatalogError> {
     let dependencies = index
         .mods
         .get(old_file_name)
         .map(|entry| entry.dependencies.clone())
         .unwrap_or_default();
+    let staging = install::staging_dir(server)?;
     let outcome = replace_file_locked(
         catalog,
-        &ctx,
+        ctx,
         &staging,
-        &mut index,
+        index,
         old_file_name,
-        &planned,
+        new,
         dependencies,
     );
     install::discard(&staging);
-    outcome?;
-    index.save(server)?;
-    drop(lock);
-    Ok(())
+    outcome
 }
 
 /// [`replace_file`] for a caller that already holds the lock and the index.
@@ -365,16 +379,7 @@ pub(crate) fn replace_file_locked(
     new: &PlannedFile,
     dependencies: Vec<String>,
 ) -> Result<(), CatalogError> {
-    let entry = index
-        .mods
-        .get(old_file_name)
-        .ok_or_else(|| {
-            Error::Invalid(format!(
-                "{old_file_name}은 Nebula가 설치한 모드가 아닙니다 — 교체하려면 먼저 지우고 \
-                 다시 설치하세요"
-            ))
-        })?
-        .clone();
+    let entry = managed_entry(index, old_file_name)?.clone();
     install::check_file_name(&new.file.file_name)?;
     install::check_name_free(
         index,
@@ -458,23 +463,14 @@ pub fn apply_updates(
 
         let outcome = (|| {
             let planned = planned_from(&index, &candidate.file_name, &candidate.to)?;
-            let dependencies = index
-                .mods
-                .get(&candidate.file_name)
-                .map(|entry| entry.dependencies.clone())
-                .unwrap_or_default();
-            let staging = install::staging_dir(server)?;
-            let outcome = replace_file_locked(
+            replace_staged(
                 catalog,
                 &ctx,
-                &staging,
+                server,
                 &mut index,
                 &candidate.file_name,
                 &planned,
-                dependencies,
-            );
-            install::discard(&staging);
-            outcome?;
+            )?;
             // Saved per mod: a crash halfway leaves the index describing
             // exactly what is on disk.
             index.save(server)
@@ -485,6 +481,21 @@ pub fn apply_updates(
     Ok(results)
 }
 
+/// The index entry a replace is about, and the one refusal both halves of a
+/// replace give for a file Nebula never installed — one sentence, one place.
+fn managed_entry<'a>(
+    index: &'a ModIndex,
+    old_file_name: &str,
+) -> Result<&'a IndexEntry, CatalogError> {
+    index.mods.get(old_file_name).ok_or_else(|| {
+        Error::Invalid(format!(
+            "{old_file_name}은 Nebula가 설치한 모드가 아닙니다 — 교체하려면 먼저 지우고 \
+             다시 설치하세요"
+        ))
+        .into()
+    })
+}
+
 /// The provenance a replacement is written with: the provider comes from the
 /// entry being replaced, because a `Version` does not carry one.
 fn planned_from(
@@ -492,12 +503,7 @@ fn planned_from(
     old_file_name: &str,
     new: &Version,
 ) -> Result<PlannedFile, CatalogError> {
-    let entry = index.mods.get(old_file_name).ok_or_else(|| {
-        Error::Invalid(format!(
-            "{old_file_name}은 Nebula가 설치한 모드가 아닙니다 — 교체하려면 먼저 지우고 \
-             다시 설치하세요"
-        ))
-    })?;
+    let entry = managed_entry(index, old_file_name)?;
     let file = new.primary_file().ok_or(CatalogError::NotFound)?.clone();
     Ok(PlannedFile {
         provider: entry.provider,
@@ -510,6 +516,9 @@ fn planned_from(
         // The text is whatever the entry already carries, so it obeys the same
         // provider rule the entry was written under.
         text_provider: entry.provider,
+        // The entry's provider and project id are already the pair it was
+        // installed under; nothing was rewritten here.
+        source_project_id: None,
         version_id: new.version_id.clone(),
         version_name: new.name.clone(),
         version_number: new.number.clone(),

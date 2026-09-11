@@ -1,0 +1,158 @@
+﻿# cf-reqa-03  2026-09-12 01:26:31
+scope: Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+--- 찾기 tab ---
+--- provider = CurseForge ---
+  segment: name='제공자 CurseForge' enabled=True
+  attempt 0 field value = 'jei'
+[PASS] search field carries jei -- value='jei'
+[PASS] CurseForge search returned rows
+  install buttons: mods-install-curseforge-238222 ; mods-install-curseforge-240630 ; mods-install-curseforge-417645 ; mods-install-curseforge-899386 ; mods-install-curseforge-580555 ; mods-install-curseforge-391382
+[PASS] results are CurseForge rows
+  shot -> cf-reqa-03-search.png  (736 x 999)
+  --- row captions (CF-02 GUI side) ---
+    모드
+    서버
+    Neo-1.21.1
+    설치됨
+    찾기
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    Just Enough Items (JEI)
+    mezz · 다운로드 6.2억 · 수정 1시간 전
+    View Items and Recipes
+    설치
+    Just Enough Resources (JER)
+    way2muchnoise · 다운로드 2.4억 · 수정 39일 전
+    A JEI addon that adds mob drops, ore gen, ..
+    설치
+    Just Enough Professions (JEP)
+    Mrbysco · 다운로드 1.1억 · 수정 83일 전
+    A JEI addon that adds profession workstations
+    설치
+    Just Enough Breeding (JEBr)
+    Christofmeg · 다운로드 5250만 · 수정 18일 전
+    JEI/REI/EMI plugin that displays breeding information
+    설치
+    EMI
+    EmilyPloszaj · 다운로드 4733만 · 수정 121일 전
+    Featureful and accessible modern item and recipe viewer with JEI compatibility
+    설치
+    More Overlays Updated
+    RiDGo8 · 다운로드 5461만 · 수정 58일 전
+    Adds NEI-like light overlay for mob spawns, a chunk border overlay and a JEI item search overlay. (updated for 1.16.5, 1.19, 1.21, 26.1) NEW: light level number overlay
+    설치
+--- install-confirm for mods-install-curseforge-238222 ---
+    모드
+    서버
+    Neo-1.21.1
+    설치됨
+    찾기
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    Just Enough Items (JEI)
+    mezz · 다운로드 6.2억 · 수정 1시간 전
+    View Items and Recipes
+    설치
+    Just Enough Resources (JER)
+    way2muchnoise · 다운로드 2.4억 · 수정 39일 전
+    A JEI addon that adds mob drops, ore gen, ..
+    설치
+    Just Enough Professions (JEP)
+    Mrbysco · 다운로드 1.1억 · 수정 83일 전
+    A JEI addon that adds profession workstations
+    설치
+    Just Enough Breeding (JEBr)
+    Christofmeg · 다운로드 5250만 · 수정 18일 전
+    JEI/REI/EMI plugin that displays breeding information
+    설치
+    EMI
+    EmilyPloszaj · 다운로드 4733만 · 수정 121일 전
+    Featureful and accessible modern item and recipe viewer with JEI compatibility
+    설치
+    More Overlays Updated
+    RiDGo8 · 다운로드 5461만 · 수정 58일 전
+    Adds NEI-like light overlay for mob spawns, a chunk border overlay and a JEI item search overlay. (updated for 1.16.5, 1.19, 1.21, 26.1) NEW: light level number overlay
+    설치
+    Neo-1.21.1에 설치
+    Just Enough Items (JEI) 19.51.0.418 for NeoForge 1.21.1 · 정식 · 1.7 MB · 2026-09-02
+    다른 버전…
+    네임스페이스
+    필수
+    선택 켜짐
+    선택 꺼짐
+    1개 · 1.7 MB
+    취소
+    1개 설치
+  shot -> cf-reqa-03-confirm.png  (736 x 999)
+--- 다른 버전... ---
+  button name='다른 버전 고르기'
+  version rows: version-row-8857687 ; version-row-8850347 ; version-row-8829744 ; version-row-8815666 ; version-row-8811159
+  --- version picker texts ---
+    모드
+    서버
+    Neo-1.21.1
+    설치됨
+    찾기
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    Just Enough Items (JEI)
+    mezz · 다운로드 6.2억 · 수정 1시간 전
+    View Items and Recipes
+    설치
+    Just Enough Resources (JER)
+    way2muchnoise · 다운로드 2.4억 · 수정 39일 전
+    A JEI addon that adds mob drops, ore gen, ..
+    설치
+    Just Enough Professions (JEP)
+    Mrbysco · 다운로드 1.1억 · 수정 83일 전
+    A JEI addon that adds profession workstations
+    설치
+    Just Enough Breeding (JEBr)
+    Christofmeg · 다운로드 5250만 · 수정 18일 전
+    JEI/REI/EMI plugin that displays breeding information
+    설치
+    EMI
+    EmilyPloszaj · 다운로드 4733만 · 수정 121일 전
+    Featureful and accessible modern item and recipe viewer with JEI compatibility
+    설치
+    More Overlays Updated
+    RiDGo8 · 다운로드 5461만 · 수정 58일 전
+    Adds NEI-like light overlay for mob spawns, a chunk border overlay and a JEI item search overlay. (updated for 1.16.5, 1.19, 1.21, 26.1) NEW: light level number overlay
+    설치
+    Just Enough Items (JEI) 버전 — Neo-1.21.1
+    19.54.0.429 for NeoForge 1.21.1
+    1.21, 1.21.1 · 2026-09-11 · 1.8 MB
+    베타
+    설치
+    19.54.0.427 for NeoForge 1.21.1
+    1.21, 1.21.1 · 2026-09-10 · 1.8 MB
+    베타
+    설치
+    19.53.0.426 for NeoForge 1.21.1
+    1.21, 1.21.1 · 2026-09-07 · 1.8 MB
+    베타
+    설치
+    19.53.0.425 for NeoForge 1.21.1
+    1.21, 1.21.1 · 2026-09-05 · 1.8 MB
+    베타
+    설치
+    19.52.0.424 for NeoForge 1.21.1
+    1.21, 1.21.1 · 2026-09-05 · 1.8 MB
+    베타
+    설치
+    취소
+  shot -> cf-reqa-03-versions.png  (736 x 999)
+[PASS] every version row id is a CurseForge file id (numeric) -- numeric=5 of 5
+RESULT: all checks passed

@@ -1,0 +1,31 @@
+﻿# s06c-refresh  2026-09-10 19:05:15
+[PASS] navigate to 서버
+--- DEFECT evidence: an unparsable servermeta.json empties the whole list ---
+empty state on screen right now = [아직 서버가 없습니다. 새 서버를 만들거나 모드팩을 가져오세요.]
+card subtitle = [0개]
+any error toast / callout on the 서버 page = 0
+[PASS] DEFECT: no error is surfaced on the page when the server scan fails -- expected 0 == the page stays silent, which is the bug
+  on-disk server directories = 9, but the page says 0
+  shot -> 06c-defect-empty-on-scan-error.png  (736 x 999)
+
+--- 6c (positive path): rewrite the file without a BOM and refresh ---
+servermeta.json first bytes = 123,13,10 (no BOM)
+rows after refresh = 9
+  Ancient-1.7.10, Forge 10.13.4.1614, 모드 1 · 파일 1 · 라이브러리 0
+  CfQA-1.20.1, Forge 47.3.0, 모드 0 · 파일 1 · 라이브러리 0
+  Fab-1.20.1, Fabric 0.19.5, 모드 1 · 파일 1 · 라이브러리 1
+  Fake-1.20.1, Fabric 0.19.5, 모드 0 · 파일 0 · 라이브러리 0
+  MrQA-1.20.1, Fabric 0.16.9, 모드 1 · 파일 1 · 라이브러리 0
+  Neo-1.21.1, NeoForge 21.1.250, 모드 1 · 파일 1 · 라이브러리 0
+  New-1.20.1, Forge 47.4.10, 모드 1 · 파일 1 · 라이브러리 0
+  Old-1.12.2, Forge 14.23.5.2860, 모드 1 · 파일 1 · 라이브러리 0
+  PrismQA-1.20.1, Fabric 0.16.9, 모드 2 · 파일 1 · 라이브러리 0
+[PASS] 새로 고침 lists the server that was added on disk
+[PASS] the list is back to 9 rows (8 + Fake) -- 9
+card subtitle = [9개]
+  shot -> 06d-servers-refreshed.png  (736 x 999)
+
+--- clean up the fake server ---
+rows after removing it = 8
+[PASS] 새로 고침 also drops a server removed from disk -- 8
+RESULT: all checks passed

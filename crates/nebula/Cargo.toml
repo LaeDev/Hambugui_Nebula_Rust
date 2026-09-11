@@ -6,9 +6,19 @@ license.workspace = true
 rust-version.workspace = true
 default-run = "nebula"
 
+[lib]
+name = "nebula"
+path = "src/lib.rs"
+
 [[bin]]
 name = "nebula"
 path = "src/main.rs"
+
+# The same GUI with `windows_subsystem = "windows"`: no console window, so a
+# double-click does not open a terminal behind the app.
+[[bin]]
+name = "nebula-gui"
+path = "src/bin/nebula-gui.rs"
 
 [dependencies]
 nebula-core = { path = "../nebula-core", version = "1.0.0" }

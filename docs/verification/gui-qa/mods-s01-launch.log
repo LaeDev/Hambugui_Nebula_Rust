@@ -1,0 +1,68 @@
+﻿# s01-launch  2026-09-11 11:12:41
+--- 1 launch ---
+title: 빌드
+  shot -> mods-01-launch.png  (736 x 999)
+[PASS] Ctrl+3 reaches the 모드 page -- title=모드
+  shot -> mods-01-ctrl3.png  (736 x 999)
+--- pill strip ---
+[PASS] mods-server exists
+  role: ControlType.Group
+  name: 서버
+  pills: mods-server-0='QAfab-1.20.1' role=RadioButton checked= ; mods-server-1='QAneo-1.21.1' role=RadioButton checked=
+[PASS] two pills, one per server -- count=2
+--- tab order on 모드 ---
+   0: TabItem / 빌드 / nav-build
+   1: TabItem / 서버 / nav-servers
+   2: TabItem / 모드 / nav-mods
+   3: TabItem / 가져오기 / nav-import
+   4: TabItem / 배포 / nav-publish
+   5: TabItem / 설정 / nav-settings
+   6: Button / 라이트 테마로 전환 / theme-toggle
+   7: Group / 서버 / mods-server
+   8: Tab / 모드 보기 / mods-view
+   9: Button / 설치된 모드 업데이트 확인 / mods-check-updates
+  10: Button / Cloth Config v15 API 자세히 / mods-row-cloth-config-15.0.140-neoforge.jar
+  11: Button / notes.txt 자세히 / mods-row-notes.txt
+  12: TabItem / 빌드 / nav-build
+  13: TabItem / 서버 / nav-servers
+  14: TabItem / 모드 / nav-mods
+  15: TabItem / 가져오기 / nav-import
+  stops mentioning mods-server: 1
+--- Right/Left move the ring without selecting ---
+  checked before: mods-server-0= mods-server-1=
+  shot -> mods-01-pill-ring-a.png  (736 x 999)
+  checked after Right: mods-server-0= mods-server-1=
+[PASS] Right does not change the selection -- mods-server-0= mods-server-1= -> mods-server-0= mods-server-1=
+  UIA focus after Right: Group / 서버 / mods-server
+  shot -> mods-01-pill-ring-b.png  (736 x 999)
+  ring pixels: pill0 diff=13.269  pill1 diff=13.269
+[PASS] the ring visibly moved off pill 0 onto pill 1 -- d0=13.269 d1=13.269
+[PASS] Left does not change the selection either -- mods-server-0= mods-server-1=
+--- Enter selects the focused pill ---
+  scope before: QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+  checked after Enter: mods-server-0= mods-server-1=
+  scope after: QAneo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+[FAIL] Enter moved the selection to pill 1 -- mods-server-0= mods-server-1=
+[PASS] the scope line followed the server -- QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5 -> QAneo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+  shot -> mods-01-pillstrip.png  (736 x 999)
+  back to: QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+--- 14 AutomationIds on 모드 ---
+  tree -> mods-tree-modspage.txt  (40 nodes)
+  ids: 16
+    nav-build|TabItem|빌드
+    nav-servers|TabItem|서버
+    nav-mods|TabItem|모드
+    nav-import|TabItem|가져오기
+    nav-publish|TabItem|배포
+    nav-settings|TabItem|설정
+    theme-toggle|Button|라이트 테마로 전환
+    mods-server|Group|서버
+    mods-server-0|RadioButton|QAfab-1.20.1
+    mods-server-1|RadioButton|QAneo-1.21.1
+    mods-view|Tab|모드 보기
+    mods-view-0|TabItem|모드 보기 설치됨
+    mods-view-1|TabItem|모드 보기 찾기
+    mods-check-updates|Button|설치된 모드 업데이트 확인
+    mods-row-cloth-config-15.0.140-neoforge.jar|Button|Cloth Config v15 API 자세히
+    mods-row-notes.txt|Button|notes.txt 자세히
+RESULT: 1 failed check(s): Enter moved the selection to pill 1

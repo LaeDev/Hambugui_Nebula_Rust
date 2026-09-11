@@ -105,7 +105,7 @@ All items of v0.9 are resolved in the facts document and the tables below (endpo
 | R3/R4 | Blocked CurseForge files (`downloadUrl == null`): call `GET /v1/mods/{modId}/files/{fileId}/download-info` (returns 200 with `downloadUrl: ""` plus sha1/md5 for blocked files, where `/download-url` is a bare 403), then try Modrinth by that sha1 (`POST /v2/version_files`), else return `ManualDownload { name, file, url: links.websiteUrl + "/files/" + fileId }` and the UI shows the link; **CDN URL reconstruction is forbidden** (code comment + CONTRIBUTING line). Never report success without bytes on disk. | |
 | R5 | Every provider struct field is `Option` or defaulted; unknown fields ignored; base URLs and API version constants injectable for tests and for the v2→v3 move. | |
 | R6 | Modrinth `url` is requested verbatim; the provider `filename` is written verbatim **only after** a single-segment check stricter than `paths::is_single_segment`: non-empty, not `.`/`..`, no `/ \\ : \0`, no leading/trailing space or dot, not a Windows reserved device name, not in `FILE_NAME_BLACKLIST`, ends with `.jar`. A failing name is a hard failure `CatalogError::BadFileName` (`제공자가 보낸 파일 이름을 쓸 수 없습니다: {name}`) — never sanitised, because the name is the index key. Unit tests: the Sodium `%2B`/`+` pair, `../../../servermeta.json`, `a/b.jar`, `CON.jar`, `""`. | |
-| R7 | CurseForge client-side throttle: ≥ 250 ms between requests, search results reuse `latestFilesIndexes` instead of per-mod `/files` calls; Modrinth honours `X-Ratelimit-*` and sleeps on 429. | |
+| R7 | CurseForge client-side throttle: ≥ 250 ms between requests **within one process** (a `static` reservation; two back-to-back CLI runs can be ~119 ms apart — see the `ponytail:` note in `catalog/http.rs`), search results reuse `latestFilesIndexes` instead of per-mod `/files` calls; Modrinth honours `X-Ratelimit-*` and sleeps on 429. | |
 | R9 | Every jar parse is a per-file `Result`; a corrupt jar becomes a row `메타데이터 없음` with the file name, never a crash; tests include corrupt/truncated jars and a toml with `$` in a key. This hardens `jarmeta.rs` only: the distribution scanners still abort the whole build on a non-jar in a namespace dir, so the installed list flags such files as `배포 불가` with the fix (§8.3) and the manual-download callout repeats the rule (§8.4). | |
 | D9 | GUI busy model as in DESIGN-v2 §8.6: mutating jobs take the global lock, read-only catalog calls are quiet jobs, single-flight per kind, with stale-result dropping by sequence number (`Ui.search_seq` / `list_seq`, incremented at spawn and compared in the applier). A dialog that is open when a mutating job starts stays open with its controls disabled until the job ends; dialog controls therefore stage changes and a primary applies them (§8.6). | One mutating job at a time keeps the index and the directories consistent; read-only calls must never block each other or the UI. |
 | D10 | Destructive actions (mod delete, server delete, server duplicate) confirm through dialogs; server delete requires typing the exact directory name; no timed inline confirmations. | Consistent with the existing dialog kit; screen-reader and keyboard predictable. |
@@ -165,7 +165,7 @@ Phase A shipped `catalog/{mod,http,modrinth,curseforge,jarmeta,index,lock}.rs`, 
 **jarmeta / index / lock**
 - `jarmeta::read(path)` takes no `LoaderKind` or `ForgeFlavour`: a hand-placed jar may be anything, so it probes `fabric.mod.json` → `quilt.mod.json` → `neoforge.mods.toml` → `mods.toml` → `mcmod.info` → crude inference. Consequence: an OptiFine jar is always named the `Modern113` way (`OptiFine`), never the 1.7–1.12 changelog first line.
 - `LocalMod` also carries `file_name` and the four digests; a non-`.jar` name or a zip that will not open is `LocalFile::Unshippable { file_name, reason }`, not an error.
-- Each jar is read four times (zip, md5+sha1, sha512, fingerprint). The fingerprint alone needs two passes (the seed mixes the filtered length), and widening `Digests` was ruled out by the facts document; if the installed list ever feels slow, one combined pass in `hash.rs` is the fix.
+- *(superseded 2026-09-12: `jarmeta::read` now makes one pass — md5+sha1+sha256 — and sha512/fingerprint are computed on demand.)* Each jar was read four times (zip, md5+sha1, sha512, fingerprint). The fingerprint alone needs two passes (the seed mixes the filtered length), and widening `Digests` was ruled out by the facts document; if the installed list ever feels slow, one combined pass in `hash.rs` is the fix.
 - `IndexEntry::installed_at` is unix seconds (`u64`) — no date dependency.
 - The CurseForge free-text rule is enforced **in the constructor** (`IndexEntry::with_text` silently keeps nothing for CurseForge) plus plain `skip_serializing_if = "Option::is_none"`, because `skip_serializing_if` cannot see a sibling field.
 - `reconcile` returns `Reconciled { rows, persistable }`. It never writes, so the zero-files-vs-non-empty guard is a flag the caller must check before persisting anything derived from the pass.
@@ -205,7 +205,7 @@ Phase B shipped `catalog/{install,update,icons,manage}.rs`, the `catalog::http` 
 - The index `dependencies` of the **root** entry list every transitive required dependency the plan resolved; a dependency's own entry gets an empty list, because `PlannedDep`/`PlannedFile` carry no parent link and this plan freezes those types. The delete warning of §8.3 only reads the root direction, so nothing is lost there.
 - `plan_install` records the `index_sha1` through `install::index_sha1(&ServerDir)`, the sha1 of `modindex.json`'s bytes, or of nothing when the file does not exist yet. `apply` re-checks it with the same function, so there is one convention.
 - The R6 reserved-name test compares the segment **before the first dot**, so `CON.jar` is refused as `CON` is; `%2B` and `+` both pass and neither is ever decoded into the other.
-- `plan_install` reads jar mod ids for the D6 slug match **only on an index miss**, and once per plan. `jarmeta::read` hashes each jar four times; a `mod_id`-only reader is the noted upgrade if planning ever feels slow.
+- `plan_install` reads jar mod ids for the D6 slug match **only on an index miss**, and once per plan. `jarmeta::read` hashes each jar once (since 2026-09-12); a `mod_id`-only reader is the noted upgrade if planning ever feels slow.
 - `Installed::find` for a dependency whose `project_id` is absent (a Modrinth dependency that names only a `version_id`) pushes the version id onto `unresolvable` when it is required — no endpoint of ours resolves one, and silently dropping it is what D6 forbids.
 - `fetch_verified` hashes the downloaded file once with `digests_of_file` and writes those digests into the index, so an entry always describes the bytes on disk rather than what the provider claimed.
 
@@ -264,7 +264,7 @@ Phase C shipped the Rust host of the 모드 page: `crates/nebula/src/gui/mods.rs
 - The 429 retry is exactly one, waits `min(retry_after, 30 s)` on the worker and sets its message once — no ticking countdown. The message is written by the **retry**, not by the attempt that failed, because starting a job clears the Callout; the same line also stands in for the progress text while the worker sleeps. Note that `catalog::http` already absorbs sub-30 s 429 waits, so a `RateLimited` reaching the GUI is one core already declined to wait for; the retry is cheap insurance rather than the common path.
 - `mods.slint` routes the failure Callout's 다시 시도 to one callback for both owners, so the host keeps a `Retry` slot. A **quiet** failure always rewrites that slot — `Reload` for the installed list, `Check` for the update check, `None` for everything else — so 다시 시도 under a failed search can never re-run the last 삭제.
 - A downgrade in `version-picker` is a two-click confirmation: the first click writes `현재 X → Y로 내립니다` into the dialog, the same row clicked again applies it.
-- The installed list reloads on entering 모드, and from a snapshot only while that page is on screen: reading a two-hundred-mod list hashes every jar four times (`jarmeta::read`), and a snapshot fires on every visit to 서버 and 가져오기.
+- The installed list reloads on entering 모드, and from a snapshot only while that page is on screen: reading a two-hundred-mod list hashes every jar once (`jarmeta::read`, one pass since 2026-09-12), and a snapshot fires on every visit to 서버 and 가져오기.
 - Icons: a bounded queue of four, pumped on the event loop, keyed by file name / project id rather than row index, and already-decoded images are carried across a re-render so an update check does not re-hash every jar. `IconRef::Path` → `Image::load_from_path`, `IconRef::Rgba` → `Image::from_rgba8`, both on the event-loop thread.
 - `open_folder` and the new `open_external` share one spawn helper. They are kept apart because `open_folder` starts with `create_dir_all`, which on a URL would make a directory named after the address.
 - `show-all-installed` is a log line: the eight-row cap is the screen's own and the host already feeds it the whole list.
@@ -318,3 +318,87 @@ The review, CLI-QA and GUI-QA lanes' core findings, applied 2026-09-11. Only `ne
 - Workspace 314 → 329. New: hand-placed-jar collision (both namespaces), two planned files sharing a name, `version_number`/`published` on a plan, an incompatible hand-placed jar matched by mod id, the three CLI-QA-01 release-preference cases, a deleted CurseForge project not costing the other mods their check, both adoption paths, `remove_mod` refusing an unreadable container, `dependents_of`, the flattened-error sentences, and the CurseForge limiter being free while a request waits its turn.
 - Changed: the `Stale` assertions split into `ServerChanged` + `Stale`; the mirror test now asserts `!raw.contains("JEI")`; the duplicate test backdates its stale `.partial` and keeps a fresh one; the jarmeta test asks for the fingerprint per file.
 - `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` (329 passed, 1 ignored), `cargo deny check` (advisories/bans/licenses/sources ok) and `cargo tree -p nebula -e normal,no-proc-macro -i rav1e` (`warning: nothing to print.`) are all clean. No dependency was added.
+
+## Fix notes (CurseForge QA)
+
+The eight defects of `docs/verification/2026-09-11-mods-curseforge-qa.md`, applied 2026-09-12 against
+worktree HEAD `6ccdf44`. Seven were confirmed against the code and fixed; **CF-01's second half was
+rejected with evidence** (see below). `nebula-core/src/catalog/{mod,http,curseforge,install,update}.rs`,
+`nebula/src/{cli.rs,gui/mods.rs}`. No dependency was added and no signature outside the list below moved.
+
+**Types that moved**
+- `PlannedFile` gains `source_project_id: Option<String>` and the accessor `PlannedFile::source() -> (ProviderId, &str)`.
+  `text_provider` alone could not fix CF-03: the R3 mirror branch rewrites `provider` **and** `project_id`
+  to Modrinth's, so `(text_provider, project_id)` would have sent a Modrinth project id to CurseForge and
+  traded a silently-wrong list for a silent `NotFound`. `source()` is the pure decision, unit-tested on both shapes.
+- `CatalogError` gains `NoVersion { mc: String, loader: Loader }` (CF-05) and `Unauthorized` (CF-04).
+  Both flatten through the existing `rest =>` arm, so the CLI needed no change.
+- `Loader` gains `label()` + `Display` (`Forge`/`NeoForge`/`Fabric`). `as_str()` is untouched — it is
+  Modrinth's `categories:` facet value, not user copy. `gui::mods::loader_name` now delegates to `label()`,
+  so `{mc} {loader}용 버전이 없습니다` has exactly one spelling whether the core or the GUI writes it.
+- `http::classify` takes the provider (it has to know whose 403 it is); `http::Method` gains `as_str()`.
+
+**Behaviour**
+- **CF-01 (high, fixed).** `install::apply` no longer keys "already installed" on `(provider, project_id)`
+  alone. It builds the same `Installed` planning uses and calls `Installed::find(provider, project_id, slug)`,
+  so the D6 jar-`mod_id` fallback applies to the root as well: installing a mod the user already has from
+  the *other* provider is a replace through `update::replace_file_locked`, never a second jar.
+  A match found only through the jar's mod id whose file has **no index entry** (a hand-placed jar) is
+  refused as `NameTaken { file }` in the pre-flight loop — before `staging_dir`, so nothing is downloaded
+  and no rollback runs; `replace_file_locked` would otherwise have discovered it only after the fresh
+  dependencies were already on disk. Cost: one `discover_toggleable` + `jarmeta::read` pass per apply that
+  misses the index, computed lazily on the first slug miss (already the planning cost).
+- **CF-01 second half (rejected, evidence).** `update::adopt_unmanaged` already cannot rewrite a managed
+  entry: it filters `!index.mods.contains_key(&candidate.file_name)` (`update.rs:150-154`) and re-checks
+  `index.mods.contains_key(file_name)` after reloading the index under the lock (`update.rs:251-253`).
+  The QA's "그 항목이 조용히 `provider: modrinth`로 재기록됩니다" is inaccurate — a hand-placed jar has no
+  entry to rewrite; adoption *creates* the first one, and the QA's own step 7b shows exactly that. The
+  duplicate it leads to was entirely CF-01's first half, which is fixed. A regression test now locks the
+  invariant (a Modrinth bulk answer that claims a managed CurseForge jar and an unmanaged one adopts only
+  the unmanaged one).
+- **CF-02 (fixed).** `Version.number` for CurseForge is the human version: `displayName` when present,
+  else `fileName` minus a case-insensitive `.jar`. The file id keeps its two homes, `version_id` and
+  `VersionFile.file_id`. Deviation from the QA's proposal: `displayName` is used **verbatim** rather than
+  parsed — the three shapes seen live (`19.51.0.418 for NeoForge 1.21.1`, `Structory_1.20.x_v1.3.5`,
+  `Flashier Flashlights 1.2.0`) have no common grammar, and a parser that fails back to the file id would
+  reintroduce the defect for exactly the files it cannot read. D2 is unaffected: `version_number` has no
+  `IndexEntry` field, so `displayName` never reaches `modindex.json`. `cli.rs`'s stale `plan_line` comment
+  is corrected.
+- **CF-03 (fixed).** `gui/mods.rs`'s version picker reads `plan.root.source()` instead of
+  `plan.root.provider`/`project_id`, so 다른 버전… on a mirrored CurseForge hit lists CurseForge files.
+  `ui.mods.plan_source` deliberately keeps the **download** triple: it is re-resolved as a whole and its
+  `version_id` is the download provider's, so mixing the two pairs there would break the `Stale` re-plan.
+  That is commented at the site.
+- **CF-04 (fixed).** CurseForge 401/403 is `CatalogError::Unauthorized`
+  (`CurseForge API 키가 거부되었습니다 — 설정의 키를 확인하세요`), in both `http::send` and `http::classify`,
+  placed next to the 404 arm so a rejected key is not retried through the 3.5 s backoff. Modrinth needs no
+  key, so its 403 stays `Network`. §8.4's Callout branches on the new variant in `failure_copy`.
+- **CF-05 (fixed).** `plan_install` separates the two misses: an explicit `--version` that matches nothing
+  is still `NotFound`, while a D3-ladder miss is `NoVersion { mc, loader }`. `resolve_version` already
+  answered `Ok(None)` and collapsed nothing, so the GUI's existing sentence is unchanged;
+  `resolve_dependency` is left alone — D6 owns that path.
+- **CF-06 (fixed).** `install::require_provider` names both ways in: `설정 → CurseForge API 키` **and**
+  `환경 변수 NEBULA_CURSEFORGE_API_KEY`.
+- **CF-07 (fixed).** `CurseForge::project` refuses a non-numeric id locally — one guard covering every
+  caller rather than a CLI-only check — with `CurseForge는 숫자 프로젝트 id만 받습니다 … slug는 Modrinth에서만
+  쓸 수 있습니다`. `mods install --help` now reads `Project id, or a Modrinth slug — CurseForge accepts
+  numeric project ids only.` `search` is untouched: it legitimately takes free text.
+- **CF-08 (documented, by design).** R7's 250 ms spacing is **process-local** and stays that way: no
+  cross-process throttle was added. `CURSEFORGE_NEXT` carries a `ponytail:` comment naming the ceiling
+  (two back-to-back CLI runs measured 119 ms apart) and the upgrade path (a file-based reservation next to
+  `.nebula-lock`) if a scripted loop ever draws a 429. Instead every outgoing catalog request logs one
+  `log::trace!("{provider} {method} {url}")` line, emitted **after** `throttle` and immediately before
+  `send`, so the real spacing is measurable from `RUST_LOG=trace` — the QA's own "미수행" row asked for
+  exactly this. Headers are never logged: `x-api-key` travels in one.
+
+**Tests**
+- Workspace 338 → 348 (0 failed, 1 ignored). New: a second provider's install replacing the first jar
+  (CF-01), a hand-placed jar of the same mod refused before any download (CF-01), adoption leaving a
+  managed entry untouched (CF-01), CurseForge version numbers being human versions on both the
+  `displayName` and the `fileName` branch (CF-02), `PlannedFile::source()` across the mirror rewrite
+  (CF-03), a rejected key being `Unauthorized` on both HTTP paths and never retried (CF-04),
+  `NoVersion` vs `NotFound` (CF-05), the no-key refusal naming both ways in (CF-06), a slug refused with
+  **zero requests sent** (CF-07), and the `mods install` help text (CF-07).
+- Changed: the mirror test asserts `plan.root.source()`; the flattened-sentence test covers both new variants.
+- `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`
+  (348 passed, 1 ignored) and `cargo deny check` (advisories/bans/licenses/sources ok) are all clean.

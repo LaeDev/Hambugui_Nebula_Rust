@@ -64,10 +64,9 @@ enum VersionTarget {
     Installed {
         file_name: String,
         title: String,
-        /// The installed version's id and publication date, which is what
-        /// decides 교체 from 이전 버전으로 교체.
+        /// The installed version's id, which is what tells the row carrying it
+        /// apart from the ones 교체 and 이전 버전으로 교체 lead to.
         current_id: String,
-        current_published: String,
         current_number: String,
     },
     /// A search hit that is not installed yet: the pick re-plans the install.
@@ -442,15 +441,22 @@ pub(super) fn tick(ui: &Rc<Ui>, app: &super::App) {
     if let Some(checked) = ui.mods.last_check.get() {
         let minutes = checked.elapsed().as_secs() / 60;
         if ui.mods.shown_check.replace(minutes) != minutes {
-            data.set_check_caption(
-                format!(
-                    "{} · 마지막 업데이트 확인 {}",
-                    ui.mods.counts_prefix.borrow(),
-                    since_label(checked.elapsed())
-                )
-                .into(),
-            );
+            data.set_check_caption(check_caption(ui).into());
         }
+    }
+}
+
+/// The 설치됨 header's second line: the counts, then how long ago the last
+/// update check was. Written by both the list applier and the tick, so the two
+/// can never drift into different sentences.
+fn check_caption(ui: &Rc<Ui>) -> String {
+    let counts = ui.mods.counts_prefix.borrow();
+    match ui.mods.last_check.get() {
+        Some(at) => format!(
+            "{counts} · 마지막 업데이트 확인 {}",
+            since_label(at.elapsed())
+        ),
+        None => format!("{counts} · 확인 전"),
     }
 }
 
@@ -867,15 +873,7 @@ fn apply_installed(ui: &Rc<Ui>, rows: Vec<InstalledMod>, root: &Root, seq: u64) 
         .counts_prefix
         .replace(format!("관리 {managed} · 직접 추가 {manual}"));
     data.set_installed_count_line(format!("설치된 모드 {}", rows.len()).into());
-    let caption = match ui.mods.last_check.get() {
-        Some(at) => format!(
-            "{} · 마지막 업데이트 확인 {}",
-            ui.mods.counts_prefix.borrow(),
-            since_label(at.elapsed())
-        ),
-        None => format!("{} · 확인 전", ui.mods.counts_prefix.borrow()),
-    };
-    data.set_check_caption(caption.into());
+    data.set_check_caption(check_caption(ui).into());
     let available = rows
         .iter()
         .filter(|row| updated.contains(&row.file_name))
@@ -931,13 +929,7 @@ fn apply_installed(ui: &Rc<Ui>, rows: Vec<InstalledMod>, root: &Root, seq: u64) 
 
 fn installed_row(row: &InstalledMod, update_available: bool) -> InstalledModRowData {
     let title = row.title().to_owned();
-    let provider = match &row.entry {
-        Some(entry) => match entry.provider {
-            ProviderId::Modrinth => "Modrinth",
-            ProviderId::CurseForge => "CurseForge",
-        },
-        None => "직접 추가",
-    };
+    let provider = row_provider_label(row);
     let version = installed_version(row);
     InstalledModRowData {
         file_name: row.file_name.as_str().into(),
@@ -953,10 +945,31 @@ fn installed_row(row: &InstalledMod, update_available: bool) -> InstalledModRowD
     }
 }
 
+/// How a provider is named on screen. Not `ProviderId::as_str`, which is the
+/// lowercase key `modindex.json` is written with.
+fn provider_label(provider: ProviderId) -> &'static str {
+    match provider {
+        ProviderId::Modrinth => "Modrinth",
+        ProviderId::CurseForge => "CurseForge",
+    }
+}
+
+/// One installed row's 제공자: whoever installed it, or `직접 추가` for a jar
+/// the index has never heard of.
+fn row_provider_label(row: &InstalledMod) -> &'static str {
+    match &row.entry {
+        Some(entry) => provider_label(entry.provider),
+        None => "직접 추가",
+    }
+}
+
 /// The jar's own version is the honest answer for both a managed and a
 /// hand-placed file; the index stores a provider version **id**, which is a
 /// slug like `xK9Za2`, not a number.
-fn installed_version(row: &InstalledMod) -> String {
+///
+/// Shared with `cli.rs` because `mods list` and `mods update` print the same
+/// ladder; one copy, the way `config_dir` is one copy.
+pub(crate) fn installed_version(row: &InstalledMod) -> String {
     row.local
         .as_ref()
         .map(|local| local.version.clone())
@@ -1132,7 +1145,6 @@ fn rebuild_hits(ui: &Rc<Ui>, newest_first: bool) {
                 keys.contains(&(hit.provider, hit.project_id.clone())),
                 newest_first,
                 now,
-                "",
             )
         })
         .collect::<Vec<_>>();
@@ -1161,24 +1173,21 @@ fn refresh_hit_markers(ui: &Rc<Ui>) {
     }
 }
 
-fn hit_row(
-    hit: &ProjectHit,
-    installed: bool,
-    newest_first: bool,
-    now: i64,
-    no_version_suffix: &str,
-) -> ModHitRowData {
+/// A fresh row. `no-version` is set only by [`mark_no_version`], which is what
+/// writes both the flag and its caption suffix once a resolve has answered, and
+/// it is cleared again whenever the list is rebuilt from the hits.
+fn hit_row(hit: &ProjectHit, installed: bool, newest_first: bool, now: i64) -> ModHitRowData {
     ModHitRowData {
         provider: hit.provider.as_str().into(),
         project_id: hit.project_id.as_str().into(),
         title: hit.title.as_str().into(),
-        caption: format!("{}{no_version_suffix}", hit_caption(hit, newest_first, now)).into(),
+        caption: hit_caption(hit, newest_first, now).into(),
         description: hit.description.replace('\n', " ").trim().into(),
         initials: super::initials(&hit.title).into(),
         hue: super::hue_of(&hit.project_id),
         installed,
         resolving: false,
-        no_version: !no_version_suffix.is_empty(),
+        no_version: false,
         install_a11y_id: install_a11y_id(hit.provider, &hit.project_id).into(),
     }
 }
@@ -1345,7 +1354,9 @@ fn resolve_hit(ui: &Rc<Ui>, index: i32) {
         move || {
             let planned = (|| {
                 let ctx = catalog::server_context(&server)?;
-                let scope = format!("{} {}", ctx.mc, loader_name(ctx.loader));
+                // `Loader`'s own Display, which is what the core's
+                // `NoVersion` sentence uses too — one spelling (CF-05).
+                let scope = format!("{} {}", ctx.mc, ctx.loader);
                 let Some(version) = catalog::install::resolve_version(
                     &catalog,
                     provider,
@@ -1385,6 +1396,11 @@ fn resolve_hit(ui: &Rc<Ui>, index: i32) {
             set_row_resolving(ui, index, false);
             match outcome {
                 Ok((_, Some(plan))) => {
+                    // Deliberately NOT `plan.root.source()`: this triple is
+                    // re-resolved as a whole, and `version_id` is the *download*
+                    // provider's, so a mirrored plan must keep its Modrinth pair
+                    // or the re-plan would send a Modrinth version id to
+                    // CurseForge (CF-03).
                     ui.mods.plan_source.replace(Some((
                         plan.root.provider,
                         plan.root.project_id.clone(),
@@ -1784,16 +1800,7 @@ fn open_detail(ui: &Rc<Ui>, index: i32) {
     );
     data.set_detail_version(installed_version(row).into());
     data.set_detail_file(row.file_name.as_str().into());
-    data.set_detail_provider(
-        match &row.entry {
-            Some(entry) => match entry.provider {
-                ProviderId::Modrinth => "Modrinth",
-                ProviderId::CurseForge => "CurseForge",
-            },
-            None => "직접 추가",
-        }
-        .into(),
-    );
+    data.set_detail_provider(row_provider_label(row).into());
     data.set_detail_hash(short_hash(row).into());
     data.set_detail_namespace_index(namespace_index(row.namespace));
     data.set_detail_has_provider(row.entry.is_some());
@@ -1913,12 +1920,18 @@ fn open_version_picker(ui: &Rc<Ui>) {
         DialogKind::InstallConfirm => {
             let plan = ui.mods.plan.borrow();
             let Some(plan) = plan.as_ref() else { return };
+            // The provider the user picked, not the one the R3 mirror rewrote
+            // the download to: otherwise a CurseForge hit rescued from Modrinth
+            // silently lists Modrinth versions and its CurseForge files become
+            // unreachable (CF-03).
+            let (provider, project_id) = plan.root.source();
+            let project_id = project_id.to_owned();
             (
-                plan.root.provider,
-                plan.root.project_id.clone(),
+                provider,
+                project_id.clone(),
                 VersionTarget::Hit {
-                    provider: plan.root.provider,
-                    project_id: plan.root.project_id.clone(),
+                    provider,
+                    project_id,
                 },
             )
         }
@@ -1937,7 +1950,6 @@ fn open_version_picker(ui: &Rc<Ui>) {
                     file_name: row.file_name.clone(),
                     title: row.title().to_owned(),
                     current_id: entry.version_id.clone(),
-                    current_published: String::new(),
                     current_number: installed_version(&row),
                 },
             )
@@ -1995,24 +2007,22 @@ fn open_version_picker(ui: &Rc<Ui>) {
 }
 
 fn apply_versions(ui: &Rc<Ui>, versions: Vec<Version>) {
-    let current = match ui.mods.version_target.borrow().as_ref() {
-        Some(VersionTarget::Installed {
-            current_id,
-            current_published,
-            ..
-        }) => Some((current_id.clone(), current_published.clone())),
-        _ => None,
-    };
     // The installed entry stores no publication date, so the installed
     // version's own row supplies it: whichever row carries the current id is
-    // the anchor every other row is compared against.
-    let anchor = current.as_ref().and_then(|(id, _)| {
-        versions
-            .iter()
-            .find(|version| version.version_id == *id)
-            .map(|version| version.published.clone())
-    });
-    let current = current.map(|(id, published)| (id, anchor.unwrap_or(published)));
+    // the anchor every other row is compared against. A list that does not
+    // contain it at all anchors on the empty string, which reads as "older
+    // than everything" — so every row offers 교체.
+    let current = match ui.mods.version_target.borrow().as_ref() {
+        Some(VersionTarget::Installed { current_id, .. }) => {
+            let published = versions
+                .iter()
+                .find(|version| version.version_id == *current_id)
+                .map(|version| version.published.clone())
+                .unwrap_or_default();
+            Some((current_id.clone(), published))
+        }
+        _ => None,
+    };
 
     ui.mods.versions.set_vec(
         versions
@@ -2530,12 +2540,14 @@ fn confirm_server_delete(ui: &Rc<Ui>) {
 /// `spawn_job` speaks `nebula_core::Result`, but §8.4 chooses its copy by
 /// `CatalogError` variant, so the catalog's own result rides inside the success
 /// arm and the outer `Result` is never `Err`.
-fn spawn_catalog_job<T, W, A>(ui: &Rc<Ui>, label: &str, work: W, apply: A) -> bool
+fn spawn_catalog_job<T, W, A>(ui: &Rc<Ui>, label: &str, work: W, apply: A)
 where
     T: Send + 'static,
     W: FnOnce() -> Result<T, CatalogError> + Send + 'static,
     A: FnOnce(&Rc<Ui>, Result<T, CatalogError>) + Send + 'static,
 {
+    // `spawn_job`'s "did it start" answer has no reader here: a refused job
+    // leaves the dialog and its Callout exactly as they were.
     super::spawn_job(
         ui,
         label,
@@ -2546,7 +2558,7 @@ where
                 apply(ui, inner);
             }
         },
-    )
+    );
 }
 
 /// The progress callback every core entry point takes. It runs **on the
@@ -2818,19 +2830,13 @@ fn game_versions_label(versions: &[String]) -> String {
     }
 }
 
-fn release_label(release: ReleaseType) -> &'static str {
+/// §8.8's release chips. Shared with `cli.rs` because `nebula mods update`
+/// prints the same three words; one copy, the way `config_dir` is one copy.
+pub(crate) fn release_label(release: ReleaseType) -> &'static str {
     match release {
         ReleaseType::Release => "정식",
         ReleaseType::Beta => "베타",
         ReleaseType::Alpha => "알파",
-    }
-}
-
-fn loader_name(loader: catalog::Loader) -> &'static str {
-    match loader {
-        catalog::Loader::Forge => "Forge",
-        catalog::Loader::NeoForge => "NeoForge",
-        catalog::Loader::Fabric => "Fabric",
     }
 }
 
@@ -2881,10 +2887,7 @@ fn progress_line(done: usize, total: usize, file: &str, elapsed: Duration) -> St
 
 /// The 찾기 error Callout, chosen by variant and never by message text (§8.4).
 fn search_error(error: &CatalogError, provider: ProviderId) -> (String, String) {
-    let name = match provider {
-        ProviderId::Modrinth => "Modrinth",
-        ProviderId::CurseForge => "CurseForge",
-    };
+    let name = provider_label(provider);
     match error {
         CatalogError::RateLimited { retry_after_secs } => (
             format!("요청이 너무 많습니다 — {retry_after_secs}초 후 다시 시도하세요"),
@@ -2973,6 +2976,16 @@ fn failure_copy(error: &CatalogError) -> (String, String) {
         CatalogError::Stale => (
             "설치 계획이 오래되었습니다".to_owned(),
             "다시 시도를 눌러 새로 확인하세요.".to_owned(),
+        ),
+        // §8.4 branches on the variant, and this one's prescription is the key
+        // — not the connection the `Network` copy would blame (CF-04).
+        CatalogError::Unauthorized => (
+            "CurseForge가 API 키를 거부했습니다".to_owned(),
+            "설정의 CurseForge API 키를 확인하세요 (console.curseforge.com).".to_owned(),
+        ),
+        CatalogError::NoVersion { mc, loader } => (
+            format!("{mc} {loader}용 버전이 없습니다"),
+            "이 서버의 마인크래프트 버전과 로더에 맞는 파일이 없습니다.".to_owned(),
         ),
         // §8.4's own sentence: another process wrote to this server while the
         // dialog was open, and the answer is a fresh search — not a re-plan.
@@ -3154,6 +3167,7 @@ mod tests {
                     slug: None,
                     title: id.to_owned(),
                     text_provider: ProviderId::Modrinth,
+                    source_project_id: None,
                     version_id: "v".into(),
                     version_name: "1.0".into(),
                     version_number: "1.0".into(),
@@ -3233,6 +3247,7 @@ mod tests {
             slug: Some("fabric-api".into()),
             title: "fabric-api".into(),
             text_provider: ProviderId::Modrinth,
+            source_project_id: None,
             version_id: "xhLT3C5f".into(),
             // What D1 is about: Modrinth's version *name* repeats the title.
             version_name: "fabric-api 0.92.0 for Minecraft 1.20.1".into(),

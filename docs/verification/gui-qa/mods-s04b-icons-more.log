@@ -1,0 +1,24 @@
+﻿# s04b-icons-more  2026-09-11 11:19:31
+--- 4 icons arrive after the rows ---
+  shot -> mods-04b-frame-0.png  (736 x 999)
+  shot -> mods-04b-frame-1.png  (736 x 999)
+  shot -> mods-04b-frame-2.png  (736 x 999)
+  shot -> mods-04b-frame-3.png  (736 x 999)
+  shot -> mods-04b-frame-4.png  (736 x 999)
+  shot -> mods-04b-frame-5.png  (736 x 999)
+  shot -> mods-04b-frame-6.png  (736 x 999)
+  shot -> mods-04b-frame-7.png  (736 x 999)
+  frame 0 -> 1: diff 6.592
+  frame 0 -> 2: diff 6.592
+  frame 0 -> 3: diff 6.592
+  frame 0 -> 4: diff 6.592
+  frame 0 -> 5: diff 6.592
+  frame 0 -> 6: diff 6.592
+  frame 0 -> 7: diff 6.592
+  icon cache: 19 png
+[PASS] icons were fetched and cached -- 19 png
+[PASS] the rows visibly changed while the icons landed
+--- 4 더 보기 ---
+  visible rows before: 6
+[FAIL] 더 보기 is reachable by PageDown
+RESULT: 1 failed check(s): 더 보기 is reachable by PageDown

@@ -1,0 +1,7 @@
+﻿# cf-s16b-blocked  2026-09-12 00:19:30
+--- 14: 차단된 CurseForge 파일 (Fg-1.20.1) ---
+[PASS] 검색어 입력(2)
+[PASS] Flashier Flashlights 행 존재
+[PASS] 다른 버전… 존재
+[FAIL] 버전 목록에서 차단된 1.0 파일을 찾음
+RESULT: 1 failed check(s): 버전 목록에서 차단된 1.0 파일을 찾음

@@ -1,0 +1,131 @@
+﻿# cf-s14-search-install  2026-09-12 00:13:12
+  scope: Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250 | 검색어를 입력하세요. Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250에 맞는 모드만 표시됩니다. | Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250에 맞는 모드만 표시됩니다.
+--- 12: CurseForge 검색 결과 ---
+  cache/icons before: 23
+[PASS] 검색어 입력
+  rows: 6
+  install ids: mods-install-curseforge-238222 ; mods-install-curseforge-240630 ; mods-install-curseforge-417645 ; mods-install-curseforge-899386 ; mods-install-curseforge-580555 ; mods-install-curseforge-391382
+[PASS] id가 mods-install-curseforge-<project id>
+  captions: mezz · 다운로드 6.2억 · 수정 1시간 전 | way2muchnoise · 다운로드 2.4억 · 수정 38일 전 | Mrbysco · 다운로드 1.1억 · 수정 83일 전 | Christofmeg · 다운로드 5249만 · 수정 17일 전 | EmilyPloszaj · 다운로드 4733만 · 수정 121일 전 | RiDGo8 · 다운로드 5461만 · 수정 58일 전
+[PASS] 캡션에 다운로드 N만
+[PASS] 캡션에 수정 N
+  cache/icons after: 23
+[PASS] CurseForge 아이콘은 디스크에 쓰이지 않는다 (D2/D5) -- 23 -> 23
+  shot -> cf-12-search-curseforge.png  (736 x 999)
+--- 12b: 더 보기 ---
+[FAIL] 더 보기 버튼 존재 -- mods-search-more absent
+--- 12c: 정렬 전환 ---
+  first row (인기): mods-install-curseforge-238222
+  first row (다운로드): mods-install-curseforge-238222  rows=6
+[PASS] 정렬 변경이 offset을 초기화하고 다시 검색 -- rows=6
+  first row (최신): mods-install-curseforge-1642978
+  최신 captions: 수정 7시간 전 · StardustMINUS · 다운로드 881 | 수정 11시간 전 · Akkiruk · 다운로드 14만 | 수정 14시간 전 · minecraftdestined · 다운로드 765 | 수정 23시간 전 · Project8gbDeRam · 다운로드 505만 | 수정 1일 전 · Sixefyle · 다운로드 25 | 수정 23시간 전 · Nyanno · 다운로드 42
+  shot -> cf-12-sort-newest.png  (736 x 999)
+--- 13: CurseForge 모드 GUI 설치 ---
+[PASS] 검색어 입력(2)
+  installing: mods-install-curseforge-1556144 'Better Loot Zibura 설치'
+  --- install-confirm ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    BetterLooting
+    MoHuia · 다운로드 5.8만 · 수정 32일 전
+    Tired of being a walking vacuum? Try RPG-style immersive loot management.
+    설치
+    Better Loot Zibura
+    zibura · 다운로드 2498 · 수정 23분 전
+    Improve vanilla structure loot. Compatible with Ctov, Kaleidoscope Cookery, Farmers delight, Farm and Charm, and more
+    설치
+    GD BetterLoot
+    GabrielDja · 다운로드 2.3만 · 수정 32일 전
+    Improves vanilla loot generated in structures.
+    설치
+    Neo-1.21.1에 설치
+    Better Loot Zibura 8858195 · 정식 · 646.3 KB · 2026-09-11
+    다른 버전…
+    네임스페이스
+    필수
+    선택 켜짐
+    선택 꺼짐
+    Polymorph 8849478
+    필수 의존성을 빼면 게임이 시작되지 않을 수 있습니다
+    168.6 KB
+    2개 · 815 KB
+    취소
+    2개 설치
+  shot -> cf-13-install-confirm.png  (736 x 999)
+  primary: '2개 설치'
+  shot -> cf-13-progress.png  (736 x 999)
+  --- after install ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    BetterLooting
+    MoHuia · 다운로드 5.8만 · 수정 32일 전
+    Tired of being a walking vacuum? Try RPG-style immersive loot management.
+    설치
+    Better Loot Zibura
+    zibura · 다운로드 2498 · 수정 23분 전
+    Improve vanilla structure loot. Compatible with Ctov, Kaleidoscope Cookery, Farmers delight, Farm and Charm, and more
+    설치됨
+    GD BetterLoot
+    GabrielDja · 다운로드 2.3만 · 수정 32일 전
+    Improves vanilla loot generated in structures.
+    설치
+  shot -> cf-13-installed-toast.png  (736 x 999)
+  --- 설치됨 rows ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 7
+    관리 7 · 직접 추가 0 · 확인 전
+    업데이트 확인
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Block Jackpot: Casino Machines
+    0.4.0 · [NeoForge - 1.21.1] Block Jackpot - Casino Machines - 0.4.0.jar · CurseForge
+    필수
+    AxoChaos
+    3.0.2 · axochaos-3.0.2-neoforge-1.21.1.jar · CurseForge
+    필수
+    BE
+    Better_loot_zibura
+    2.0.1 · betterloot-zibura-neoforge-1.21.1-2.0.1.jar · CurseForge
+    필수
+    Curios API
+    9.5.1+1.21.1 · curios-neoforge-9.5.1+1.21.1.jar · CurseForge
+    필수
+    JU
+    Just Enough Items
+    19.50.0.414 · jei-1.21.1-neoforge-19.50.0.414.jar · CurseForge
+    필수
+    JU
+    Just Enough Items
+    19.51.0.418 · jei-1.21.1-neoforge-19.51.0.418.jar · Modrinth
+    필수
+    Polymorph
+    1.2.0+1.21.1 · polymorph-neoforge-1.2.0+1.21.1.jar · CurseForge
+    필수
+[PASS] 설치됨 행 부제에 CurseForge
+  shot -> cf-13-installed-row.png  (736 x 999)
+RESULT: 1 failed check(s): 더 보기 버튼 존재

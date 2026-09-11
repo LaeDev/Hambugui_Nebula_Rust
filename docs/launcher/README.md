@@ -1,5 +1,10 @@
 # Hambugui 런처 NeoForge 파서 패치
 
+> **2026-09-12: 업스트림에 병합됨.** 런처 `main`(`ec20e6f`, 커밋 `154bd2c`/`7e96d11`)이 이제 NeoForge
+> 모듈 타입을 네이티브로 포함합니다. 아래 패치들은 그 이전 체크아웃을 위한 참고용으로 남겨두며, 현재
+> `main`에는 적용하면 안 됩니다(더 이상 깔끔하게 적용되지 않습니다). `scripts\verify-launcher-contract.ps1`은
+> `-NoPatch`를 넘겨서 패치 없이 검증하세요.
+
 Nebula가 만드는 `distribution.json`에 NeoForge 모듈이 들어 있으면 Hambugui 런처의 `main`은 그 파일을
 **거부**합니다. `hambugui-distribution`의 `parse_module_type`은 모르는 `type` 값을 만나면
 `DISTRIBUTION_CONTRACT_INVALID`로 실패하도록 되어 있고, 여기에는 Nebula가 새로 정의한 두 타입
@@ -98,12 +103,14 @@ patch -p1 --dry-run < <nebula>/docs/launcher/hambugui-neoforge.patch
 `scripts\launcher-contract-harness`를 빌드해서 지정한 파일을 파싱합니다.
 
 ```powershell
-scripts\verify-launcher-contract.ps1 -Distribution fixtures\launcher\nebula-hardening-generated.json -Runtime
-scripts\verify-launcher-contract.ps1 -Distribution fixtures\launcher\nebula-valid.json -Runtime
+scripts\verify-launcher-contract.ps1 -Distribution fixtures\launcher\nebula-hardening-generated.json -Runtime -NoPatch
+scripts\verify-launcher-contract.ps1 -Distribution fixtures\launcher\nebula-valid.json -Runtime -NoPatch
 ```
 
-`-Patch`의 기본값은 `hambugui-neoforge-from-main.patch`입니다(런처 작업 트리가 `main`이라는 가정).
-WIP 브랜치를 체크아웃한 상태라면 `-Patch docs\launcher\hambugui-neoforge.patch`를 넘기세요.
+`main`이 `ec20e6f` 이상이면(2026-09-12부터 기본) `-NoPatch`가 정상 모드입니다. 패치 존재 확인과
+`git apply` 단계를 모두 건너뛰고, 런처 크레이트를 있는 그대로 빌드합니다. `ec20e6f` 이전의 오래된
+체크아웃을 검증할 때만 패치 모드(`-Patch` 생략 시 기본값 `hambugui-neoforge-from-main.patch`, WIP
+브랜치라면 `-Patch docs\launcher\hambugui-neoforge.patch`)를 쓰세요.
 `-Runtime`은 `parse_runtime_distribution`까지 호출합니다(대상 기본값 `windows-x86_64`,
 `-Target macos-aarch64`로 변경 가능).
 

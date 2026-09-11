@@ -1,0 +1,105 @@
+﻿# s07-version-picker  2026-09-11 11:25:55
+--- 7 version-picker on Fabric API ---
+[PASS] the Fabric API row is reachable
+  detail ids: mod-detail-dialog|Group|Fabric API — QAfab-1.20.1 ; mod-detail-dialog-close|Button|닫기 ; mod-detail-namespace|Tab|네임스페이스 ; mod-detail-namespace-0|TabItem|네임스페이스 필수 ; mod-detail-namespace-1|TabItem|네임스페이스 선택 켜짐 ; mod-detail-namespace-2|TabItem|네임스페이스 선택 꺼짐 ; mod-detail-versions|Button|다른 버전 고르기 ; mod-detail-project|Button|프로젝트 페이지 열기 ; mod-detail-delete|Button|이 모드 삭제 ; mod-detail-cancel|Button|모드 정보 닫기 ; mod-detail-apply|Button|선택한 네임스페이스로 이동
+[PASS] 다른 버전… is offered for a managed mod
+[PASS] 프로젝트 페이지 열기 is offered for a managed mod
+  shot -> mods-07-detail-managed.png  (736 x 999)
+[PASS] the version picker opened
+  --- dialog texts ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 3 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    Fabric API
+    0.92.12+1.20.1 · fabric-api-0.92.12+1.20.1.jar · Modrinth
+    필수
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium Extra
+    0.5.9+mc1.20.1 · sodium-extra-0.5.9+mc1.20.1.jar · Modrinth
+    필수
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+    Fabric API 버전 — QAfab-1.20.1
+    [1.20.1] Fabric API 0.92.12+1.20.1
+    1.20.1 · 2026-09-01 · 2 MB
+    정식
+    설치됨
+    [1.20.1] Fabric API 0.92.11+1.20.1
+    1.20.1 · 2026-07-16 · 2 MB
+    정식
+    이전 버전으로 교체
+    [1.20.1] Fabric API 0.92.9+1.20.1
+    1.20.1 · 2026-05-11 · 2 MB
+    정식
+    이전 버전으로 교체
+    [1.20.1] Fabric API 0.92.8+1.20.1
+    1.20.1 · 2026-04-15 · 2 MB
+    정식
+    이전 버전으로 교체
+    [1.20.1] Fabric API 0.92.7+1.20.1
+    1.20.1 · 2026-01-17 · 2 MB
+    정식
+    이전 버전으로 교체
+    취소
+  version rows: version-row-rvI2dfzR|'[1.20.1] Fabric API 0.92.12+1.20.1 설치됨'|enabled=False ; version-row-xhLT3C5f|'[1.20.1] Fabric API 0.92.11+1.20.1 이전 버전으로 교체'|enabled=True ; version-row-hu6gukgT|'[1.20.1] Fabric API 0.92.9+1.20.1 이전 버전으로 교체'|enabled=True ; version-row-aLxYjsiv|'[1.20.1] Fabric API 0.92.8+1.20.1 이전 버전으로 교체'|enabled=True ; version-row-L6LGItxd|'[1.20.1] Fabric API 0.92.7+1.20.1 이전 버전으로 교체'|enabled=True
+  shot -> mods-07-version-picker.png  (736 x 999)
+[PASS] the installed version is a disabled 설치됨 -- [1.20.1] Fabric API 0.92.12+1.20.1 설치됨 | [1.20.1] Fabric API 0.92.11+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.9+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.8+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.7+1.20.1 이전 버전으로 교체
+[PASS] an older version offers 이전 버전으로 교체 -- [1.20.1] Fabric API 0.92.12+1.20.1 설치됨 | [1.20.1] Fabric API 0.92.11+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.9+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.8+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.7+1.20.1 이전 버전으로 교체
+  교체 rows: 
+[PASS] a downgrade target exists
+  picking: version-row-xhLT3C5f  '[1.20.1] Fabric API 0.92.11+1.20.1 이전 버전으로 교체'
+  confirm line: 현재 0.92.12+1.20.1 → 0.92.11+1.20.1로 내립니다.  | 현재 0.92.12+1.20.1 → 0.92.11+1.20.1로 내립니다
+[PASS] the downgrade asks a one-line confirmation inside the dialog -- 현재 0.92.12+1.20.1 → 0.92.11+1.20.1로 내립니다.  | 현재 0.92.12+1.20.1 → 0.92.11+1.20.1로 내립니다
+  shot -> mods-07-downgrade-confirm.png  (736 x 999)
+  pill seen during the replace: False
+  toast: 모드를 교체했습니다
+  replace took 1.3s
+  shot -> mods-07-downgraded.png  (736 x 999)
+  --- list after the downgrade ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 3 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    Fabric API
+    0.92.11+1.20.1 · fabric-api-0.92.11+1.20.1.jar · Modrinth
+    필수
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium Extra
+    0.5.9+mc1.20.1 · sodium-extra-0.5.9+mc1.20.1.jar · Modrinth
+    필수
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+  disk required: fabric-api-0.92.11+1.20.1.jar, notes.txt, sodium-extra-0.5.9+mc1.20.1.jar, sodium-fabric-0.5.13+mc1.20.1.jar
+[PASS] exactly one fabric-api jar is on disk -- fabric-api-0.92.11+1.20.1.jar
+RESULT: all checks passed

@@ -10,6 +10,8 @@
 //! also what the reader actually wants from a build log.
 
 use std::io::Write;
+use std::path::Path;
+use std::sync::Mutex;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
@@ -35,6 +37,10 @@ struct UiLog {
     /// filters, but a `Log` is asked directly by `log_enabled!`, so the sink
     /// has to agree with it.
     level: LevelFilter,
+    /// Where the mirrored text goes: stderr when this is `None`, which is what
+    /// `nebula gui` wants, and the file `nebula-gui` opens when it is not,
+    /// because a windowless process has no console to mirror to.
+    file: Option<Mutex<std::fs::File>>,
 }
 
 impl log::Log for UiLog {
@@ -52,12 +58,26 @@ impl log::Log for UiLog {
         let body = record.args().to_string();
 
         // stderr keeps the CLI's shape so `nebula gui 2> log.txt` stays useful.
-        let _ = writeln!(
-            std::io::stderr(),
-            "[{time}] [{}] [{}]: {body}",
-            record.level(),
-            record.target()
-        );
+        match &self.file {
+            Some(file) => {
+                if let Ok(mut file) = file.lock() {
+                    let _ = writeln!(
+                        file,
+                        "[{time}] [{}] [{}]: {body}",
+                        record.level(),
+                        record.target()
+                    );
+                }
+            }
+            None => {
+                let _ = writeln!(
+                    std::io::stderr(),
+                    "[{time}] [{}] [{}]: {body}",
+                    record.level(),
+                    record.target()
+                );
+            }
+        }
 
         // Boxed warnings arrive as one multi-line record; the band is a table.
         for line in body.lines() {
@@ -71,7 +91,16 @@ impl log::Log for UiLog {
     }
 
     fn flush(&self) {
-        let _ = std::io::stderr().flush();
+        match &self.file {
+            Some(file) => {
+                if let Ok(mut file) = file.lock() {
+                    let _ = file.flush();
+                }
+            }
+            None => {
+                let _ = std::io::stderr().flush();
+            }
+        }
     }
 }
 
@@ -79,14 +108,18 @@ impl log::Log for UiLog {
 /// `nebula gui -v` shows debug lines in the band as well as on stderr — and
 /// returns the end the UI thread drains.
 ///
+/// `log_file` replaces the stderr mirror, for the windowless binary that has
+/// no console. A file that cannot be opened costs the mirror, not the band.
+///
 /// A second call is a no-op beyond returning a dead receiver: `log` only
 /// accepts one logger per process.
-pub fn install(level: LevelFilter) -> Receiver<LogLine> {
+pub fn install(level: LevelFilter, log_file: Option<&Path>) -> Receiver<LogLine> {
     let (tx, rx) = channel();
     let sink = UiLog {
         tx,
         start: Instant::now(),
         level,
+        file: log_file.and_then(open_log).map(Mutex::new),
     };
     match log::set_boxed_logger(Box::new(sink)) {
         Ok(()) => log::set_max_level(level),
@@ -97,6 +130,17 @@ pub fn install(level: LevelFilter) -> Receiver<LogLine> {
         }
     }
     rx
+}
+
+/// The log file of one run. The config directory may not exist yet on a first
+/// run, and the file is truncated rather than appended: what a user is asked
+/// for is the log of the run that just failed, and one file cannot then grow
+/// without bound.
+fn open_log(path: &Path) -> Option<std::fs::File> {
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::File::create(path).ok()
 }
 
 /// `+MM:SS` since launch. Past an hour the minutes simply keep counting: a
@@ -164,6 +208,7 @@ mod tests {
             tx,
             start: Instant::now(),
             level: LevelFilter::Info,
+            file: None,
         };
         log::Log::log(
             &sink,
@@ -191,6 +236,7 @@ mod tests {
             tx,
             start: Instant::now(),
             level: LevelFilter::Info,
+            file: None,
         };
         log::Log::log(
             &sink,

@@ -18,6 +18,7 @@ use super::{
     CatalogError, Dependency, DependencyKind, HashAlgo, Loader, ProjectHit, Provider, ProviderId,
     ReleaseType, SearchPage, SearchQuery, SortKey, Version, VersionFile, preferred_version,
 };
+use crate::error::Error;
 use crate::publish::with_query;
 use crate::version::MinecraftVersion;
 
@@ -222,6 +223,7 @@ impl Provider for CurseForge {
     }
 
     fn project(&self, id: &str) -> Result<ProjectHit, CatalogError> {
+        check_numeric_id(id)?;
         let response: ApiResponse<RawMod> = self.get(&self.endpoint(&format!("mods/{id}")))?;
         Ok(ProjectHit::from(response.data))
     }
@@ -583,6 +585,7 @@ impl RawFile {
         let game_versions = self.game_versions();
         let file_id = self.id.map(|id| id.to_string());
         let file_name = self.file_name.unwrap_or_default();
+        let display_name = self.display_name;
         let mut file = VersionFile {
             file_name: file_name.clone(),
             // Blocked when null, "" or absent — never rebuilt from the id.
@@ -601,9 +604,14 @@ impl RawFile {
         }
         Version {
             project_id: project_id.to_owned(),
-            version_id: file_id.clone().unwrap_or_default(),
-            name: self.display_name.unwrap_or_else(|| file_name.clone()),
-            number: file_id.unwrap_or_default(),
+            version_id: file_id.unwrap_or_default(),
+            name: display_name.clone().unwrap_or_else(|| file_name.clone()),
+            // The human version §8.4's line shows, never the file id — that
+            // stays in `version_id` / `VersionFile.file_id` (CF-02).
+            // CurseForge has no number field: `displayName` is the closest
+            // thing it has ("19.51.0.418 for NeoForge 1.21.1"), and a file
+            // without one falls back to its own name minus the `.jar`.
+            number: display_name.unwrap_or_else(|| strip_jar(&file_name)),
             release: release_type(self.release_type),
             published: self.file_date.unwrap_or_default(),
             game_versions,
@@ -632,6 +640,30 @@ impl From<RawFileDependency> for Dependency {
                 _ => DependencyKind::Optional,
             },
         }
+    }
+}
+
+/// `/v1/mods/{id}` takes a numeric project id and nothing else, so a slug is
+/// refused here rather than spent on a request that can only 404 — and the
+/// refusal says which provider slugs belong to (CF-07).
+fn check_numeric_id(id: &str) -> Result<(), CatalogError> {
+    let id = id.trim();
+    if !id.is_empty() && id.chars().all(|character| character.is_ascii_digit()) {
+        return Ok(());
+    }
+    Err(Error::Invalid(format!(
+        "CurseForge는 숫자 프로젝트 id만 받습니다 — {id}은(는) 숫자가 아닙니다. \
+         slug는 Modrinth에서만 쓸 수 있습니다"
+    ))
+    .into())
+}
+
+/// A file name without its `.jar`, matched the way
+/// [`super::install::check_file_name`] matches it: case-insensitively.
+fn strip_jar(file_name: &str) -> String {
+    match file_name.to_lowercase().ends_with(".jar") {
+        true => file_name[..file_name.len() - 4].to_owned(),
+        false => file_name.to_owned(),
     }
 }
 

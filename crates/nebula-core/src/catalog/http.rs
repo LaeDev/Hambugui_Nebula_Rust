@@ -33,6 +33,13 @@ const CURSEFORGE_SPACING: Duration = Duration::from_millis(250);
 /// rather than "the last request's instant", so a thread that is sleeping out
 /// its spacing has already claimed its slot and the one behind it queues
 /// after that instead of racing it.
+///
+/// ponytail: process-local by design (R7). Two `nebula mods … search` runs
+/// started back to back can hit CurseForge 119 ms apart, because a `static`
+/// does not cross a process boundary. A file-based reservation next to
+/// `.nebula-lock` is the upgrade if a scripted loop ever draws a 429; until
+/// then `RUST_LOG=trace` prints one line per request (`trace_request`) so the
+/// real spacing is measurable instead of assumed (CF-08).
 static CURSEFORGE_NEXT: Mutex<Option<Instant>> = Mutex::new(None);
 /// Modrinth's advertised budget: requests left and when the window resets.
 static MODRINTH_BUDGET: Mutex<Option<(u32, Instant)>> = Mutex::new(None);
@@ -69,8 +76,7 @@ pub(crate) fn get_bytes(
     url: &str,
     headers: &[(&str, &str)],
 ) -> Result<Vec<u8>, CatalogError> {
-    let response = raw_get(provider, url, headers)?;
-    response
+    raw_get(provider, url, headers)?
         .bytes()
         .map(|bytes| bytes.to_vec())
         .map_err(|error| network(url, error))
@@ -103,38 +109,13 @@ fn raw_get(
     url: &str,
     headers: &[(&str, &str)],
 ) -> Result<reqwest::blocking::Response, CatalogError> {
-    let client = crate::remote::client()?;
-    let mut backoff = FIRST_BACKOFF;
-
-    for attempt in 0..=RETRIES {
-        let last = attempt == RETRIES;
-        throttle(provider);
-
-        let mut request = client.get(url).header("user-agent", USER_AGENT);
-        for (name, value) in headers {
-            request = request.header(*name, *value);
-        }
-        let response = match request.send() {
-            Ok(response) => response,
-            Err(error) => {
-                if last || error.is_builder() || error.is_redirect() {
-                    return Err(network(url, error));
-                }
-                log::debug!("Retrying {url} after {error}");
-                std::thread::sleep(backoff);
-                backoff *= 2;
-                continue;
-            }
-        };
-        match classify(url, &response, backoff, last)? {
-            Retry::Wait(wait) => {
-                std::thread::sleep(wait);
-                backoff *= 2;
-            }
-            Retry::Done => return Ok(response),
-        }
+    let response = request(provider, Method::Get, url, headers, None, None, false)?;
+    match ok(&response) {
+        // The body is the file being streamed, so a failure names the status
+        // alone rather than eating the bytes to quote them.
+        false => Err(network(url, format!("HTTP {}", response.status().as_u16()))),
+        true => Ok(response),
     }
-    unreachable!("the loop returns on its last attempt")
 }
 
 /// Whether a response is usable or the request has to be repeated.
@@ -143,7 +124,18 @@ enum Retry {
     Done,
 }
 
+/// Whether the status is a 2xx, which is the only thing either caller treats
+/// as an answer.
+fn ok(response: &reqwest::blocking::Response) -> bool {
+    (200..300).contains(&response.status().as_u16())
+}
+
+/// The retry decision for one response. A status this cannot act on — any
+/// non-2xx that is neither a 429, a retryable 5xx, a 404 nor a rejected key —
+/// comes back as [`Retry::Done`], because what such a body is worth saying
+/// about is the caller's to decide.
 fn classify(
+    provider: ProviderId,
     url: &str,
     response: &reqwest::blocking::Response,
     backoff: Duration,
@@ -167,10 +159,28 @@ fn classify(
     if status == 404 {
         return Err(CatalogError::NotFound);
     }
-    if !(200..300).contains(&status) {
-        return Err(network(url, format!("HTTP {status}")));
+    if let Some(rejected) = key_rejected(provider, status) {
+        return Err(rejected);
     }
     Ok(Retry::Done)
+}
+
+/// CurseForge answers 401/403 when the user's key is missing, wrong or
+/// revoked. That is not a network failure and it is not retried: the key will
+/// not fix itself in 3.5 s, and the user needs the prescription, not a status
+/// code (CF-04). Modrinth needs no key, so its 403 stays a plain failure.
+fn key_rejected(provider: ProviderId, status: u16) -> Option<CatalogError> {
+    match provider == ProviderId::CurseForge && matches!(status, 401 | 403) {
+        true => Some(CatalogError::Unauthorized),
+        false => None,
+    }
+}
+
+/// One line per outgoing catalog request, logged **after** the throttle so the
+/// spacing R7 promises can be measured from `RUST_LOG=trace`. Headers are never
+/// logged: `x-api-key` travels in one (CF-08).
+fn trace_request(provider: ProviderId, method: &str, url: &str) {
+    log::trace!("{provider} {method} {url}");
 }
 
 fn parse<T: DeserializeOwned>(url: &str, body: &str) -> Result<T, CatalogError> {
@@ -184,12 +194,23 @@ enum Method {
     Post,
 }
 
+impl Method {
+    fn as_str(self) -> &'static str {
+        match self {
+            Method::Get => "GET",
+            Method::Post => "POST",
+        }
+    }
+}
+
 fn network(url: &str, message: impl std::fmt::Display) -> CatalogError {
     CatalogError::Network(format!("{url}: {message}"))
 }
 
-/// One request with the retry, backoff and 429 policy applied. Error bodies
-/// may be empty (§E.1.1), so nothing here requires one to build an error.
+/// One JSON request with the retry, backoff and 429 policy applied. Error
+/// bodies may be empty (§E.1.1), so nothing here requires one to build an
+/// error — but a body that is there is quoted, because on this path it is a
+/// provider's explanation rather than a file.
 fn send(
     provider: ProviderId,
     method: Method,
@@ -197,19 +218,55 @@ fn send(
     headers: &[(&str, &str)],
     body: Option<&[u8]>,
 ) -> Result<String, CatalogError> {
+    let response = request(
+        provider,
+        method,
+        url,
+        headers,
+        body,
+        Some(REQUEST_TIMEOUT),
+        true,
+    )?;
+    if !ok(&response) {
+        let status = response.status().as_u16();
+        let body = response.text().unwrap_or_default();
+        return Err(network(url, format!("{status} {}", excerpt(&body))));
+    }
+    response.text().map_err(|error| network(url, error))
+}
+
+/// The one attempt loop both paths share: throttle, send, [`classify`], sleep,
+/// repeat. The response comes back unread so a caller can stream it.
+///
+/// `timeout` overrides the shared client's download-friendly budget, which only
+/// the JSON path wants; `budget` is Modrinth's advertised-quota bookkeeping,
+/// which only its API host sends — a CDN response carries no such headers and
+/// must not be asked about them.
+fn request(
+    provider: ProviderId,
+    method: Method,
+    url: &str,
+    headers: &[(&str, &str)],
+    body: Option<&[u8]>,
+    timeout: Option<Duration>,
+    budget: bool,
+) -> Result<reqwest::blocking::Response, CatalogError> {
     let client = crate::remote::client()?;
     let mut backoff = FIRST_BACKOFF;
 
     for attempt in 0..=RETRIES {
         let last = attempt == RETRIES;
         throttle(provider);
+        trace_request(provider, method.as_str(), url);
 
         let mut request = match method {
             Method::Get => client.get(url),
             Method::Post => client.post(url),
+        };
+        if let Some(timeout) = timeout {
+            request = request.timeout(timeout);
         }
-        .timeout(REQUEST_TIMEOUT)
-        .header("user-agent", USER_AGENT);
+        request = request.header("user-agent", USER_AGENT);
         for (name, value) in headers {
             request = request.header(*name, *value);
         }
@@ -231,57 +288,39 @@ fn send(
                 continue;
             }
         };
-
-        let status = response.status().as_u16();
-        record_budget(provider, &response);
-
-        if status == 429 {
-            let wait = rate_limit_wait(&response).unwrap_or(backoff);
-            if wait > MAX_RATE_LIMIT_WAIT || last {
-                return Err(CatalogError::RateLimited {
-                    retry_after_secs: wait.as_secs().max(1) as u32,
-                });
+        if budget {
+            record_budget(provider, &response);
+        }
+        match classify(provider, url, &response, backoff, last)? {
+            Retry::Wait(wait) => {
+                std::thread::sleep(wait);
+                backoff *= 2;
             }
-            log::debug!("Rate limited by {url}; waiting {:?}", wait);
-            std::thread::sleep(wait);
-            backoff *= 2;
-            continue;
+            Retry::Done => return Ok(response),
         }
-        if (500..600).contains(&status) && !last {
-            log::debug!("Retrying {url} after HTTP {status}");
-            std::thread::sleep(backoff);
-            backoff *= 2;
-            continue;
-        }
-        if status == 404 {
-            return Err(CatalogError::NotFound);
-        }
-        if !(200..300).contains(&status) {
-            let body = response.text().unwrap_or_default();
-            return Err(network(url, format!("{status} {}", excerpt(&body))));
-        }
-        return response.text().map_err(|error| network(url, error));
     }
     unreachable!("the loop returns on its last attempt")
+}
+
+/// A numeric response header, or `None` when it is absent or unreadable.
+fn header_u64(response: &reqwest::blocking::Response, name: &str) -> Option<u64> {
+    response
+        .headers()
+        .get(name)?
+        .to_str()
+        .ok()?
+        .trim()
+        .parse()
+        .ok()
 }
 
 /// `Retry-After` first, then `X-Ratelimit-Reset` clamped to 1-60 s because it
 /// reads `0` on a fresh window; `None` falls back to the backoff schedule.
 fn rate_limit_wait(response: &reqwest::blocking::Response) -> Option<Duration> {
-    let header = |name: &str| -> Option<u64> {
-        response
-            .headers()
-            .get(name)?
-            .to_str()
-            .ok()?
-            .trim()
-            .parse()
-            .ok()
-    };
-    if let Some(seconds) = header("retry-after") {
+    if let Some(seconds) = header_u64(response, "retry-after") {
         return Some(Duration::from_secs(seconds));
     }
-    let reset = header("x-ratelimit-reset")?;
+    let reset = header_u64(response, "x-ratelimit-reset")?;
     Some(Duration::from_secs(reset).clamp(MIN_RESET_WAIT, MAX_RESET_WAIT))
 }
 
@@ -291,19 +330,10 @@ fn record_budget(provider: ProviderId, response: &reqwest::blocking::Response) {
     if provider != ProviderId::Modrinth {
         return;
     }
-    let header = |name: &str| -> Option<u64> {
-        response
-            .headers()
-            .get(name)?
-            .to_str()
-            .ok()?
-            .trim()
-            .parse()
-            .ok()
-    };
-    let (Some(remaining), Some(reset)) =
-        (header("x-ratelimit-remaining"), header("x-ratelimit-reset"))
-    else {
+    let (Some(remaining), Some(reset)) = (
+        header_u64(response, "x-ratelimit-remaining"),
+        header_u64(response, "x-ratelimit-reset"),
+    ) else {
         return;
     };
     let reset = Duration::from_secs(reset).clamp(MIN_RESET_WAIT, MAX_RESET_WAIT);

@@ -646,6 +646,11 @@ fn plan_falls_back_to_modrinths_copy_of_a_blocked_file() {
     assert!(plan.blocked.is_empty());
     assert_eq!(plan.root.provider, ProviderId::Modrinth);
     assert_eq!(plan.root.file.file_name, "jei-mirror.jar");
+    // CF-03: the download moved provider, the *hit* did not. Anything asking a
+    // provider about this mod again — 다른 버전… above all — has to use the
+    // pair the user picked, or it sends a Modrinth id to CurseForge.
+    assert_eq!(plan.root.source(), (ProviderId::CurseForge, "123"));
+    assert_eq!(plan.root.project_id, "mirror");
 
     install::apply(
         &catalog,
@@ -666,6 +671,185 @@ fn plan_falls_back_to_modrinths_copy_of_a_blocked_file() {
     let raw = std::fs::read_to_string(fixture.server.modindex_file()).unwrap();
     assert!(!raw.contains("JEI"), "CurseForge text reached disk:\n{raw}");
     assert!(!raw.contains("\"jei\""), "{raw}");
+}
+
+#[test]
+fn installing_from_a_second_provider_replaces_the_jar_instead_of_adding_one() {
+    let fixture = Fixture::new();
+    // JEI as Modrinth installed it, jar and index entry both.
+    write_jar(
+        &fixture.required("jei-modrinth.jar"),
+        &[(
+            "fabric.mod.json",
+            br#"{"id":"jei","version":"19.51","name":"Just Enough Items"}"#,
+        )],
+    );
+    fixture.write_index(&[(
+        "jei-modrinth.jar",
+        entry(ProviderId::Modrinth, "u6dRKJwZ", "aa"),
+    )]);
+
+    // The same mod, from CurseForge: a different (provider, project id) pair,
+    // and a different file name, so nothing but the mod id can see it (CF-01).
+    let (addr, _) = serve(curseforge_mod(true));
+    let catalog = catalog(addr);
+    let plan = install::plan_install(
+        &catalog,
+        &fixture.server,
+        ProviderId::CurseForge,
+        "123",
+        None,
+    )
+    .unwrap();
+    let report = install::apply(
+        &catalog,
+        &fixture.server,
+        &plan,
+        &InstallChoice::default(),
+        Namespace::Required,
+        &no_progress,
+    )
+    .unwrap();
+
+    // One jar, not two: the same mod id twice stops the game from starting.
+    assert_eq!(report.installed, ["jei.jar"]);
+    assert_eq!(jars(&fixture.namespace(Namespace::Required)), 1);
+    assert!(fixture.required("jei.jar").is_file());
+    assert!(!fixture.required("jei-modrinth.jar").exists());
+
+    let index = fixture.index();
+    assert_eq!(index.mods.len(), 1);
+    assert_eq!(index.mods["jei.jar"].provider, ProviderId::CurseForge);
+    assert_eq!(index.mods["jei.jar"].project_id, "123");
+}
+
+#[test]
+fn a_hand_placed_jar_of_the_same_mod_is_refused_before_anything_downloads() {
+    let fixture = Fixture::new();
+    // Same mod id, but nobody's index entry: there is nothing to replace, so
+    // the install is refused outright rather than left to fail mid-apply.
+    write_jar(
+        &fixture.required("jei-by-hand.jar"),
+        &[("fabric.mod.json", br#"{"id":"jei","version":"19.51"}"#)],
+    );
+
+    let (addr, calls) = serve(curseforge_mod(true));
+    let catalog = catalog(addr);
+    let plan = install::plan_install(
+        &catalog,
+        &fixture.server,
+        ProviderId::CurseForge,
+        "123",
+        None,
+    )
+    .unwrap();
+    let before = requests(&calls).len();
+    let error = install::apply(
+        &catalog,
+        &fixture.server,
+        &plan,
+        &InstallChoice::default(),
+        Namespace::Required,
+        &no_progress,
+    )
+    .unwrap_err();
+
+    assert!(
+        matches!(&error, CatalogError::NameTaken { file } if file == "jei-by-hand.jar"),
+        "{error:?}"
+    );
+    assert_eq!(jars(&fixture.namespace(Namespace::Required)), 1);
+    assert_eq!(requests(&calls).len(), before, "bytes were downloaded");
+}
+
+#[test]
+fn adoption_never_rewrites_a_managed_entry() {
+    let fixture = Fixture::new();
+    write_jar(
+        &fixture.required("managed.jar"),
+        &[("fabric.mod.json", br#"{"id":"managed","version":"1"}"#)],
+    );
+    write_jar(
+        &fixture.required("hand.jar"),
+        &[("fabric.mod.json", br#"{"id":"hand","version":"1"}"#)],
+    );
+    let managed_sha1 = sha1(&std::fs::read(fixture.required("managed.jar")).unwrap());
+    let hand_sha1 = sha1(&std::fs::read(fixture.required("hand.jar")).unwrap());
+    fixture.write_index(&[(
+        "managed.jar",
+        entry(ProviderId::CurseForge, "123", &managed_sha1),
+    )]);
+
+    // Modrinth would happily claim both jars; only the unmanaged one is its
+    // business (CF-01).
+    let (addr, calls) = serve(vec![
+        route(
+            "/v2/version_files",
+            format!(
+                "{{\"{managed_sha1}\": {}, \"{hand_sha1}\": {}}}",
+                version_body("stolen", "stolen-1", "managed.jar", &managed_sha1, ""),
+                version_body("handproj", "hand-1", "hand.jar", &hand_sha1, "")
+            ),
+        ),
+        route("/v2/version_files/update", "{}".to_owned()),
+        route("/v1/mods/123/files", r#"{"data":[]}"#.to_owned()),
+    ]);
+
+    let report = update::check_updates(&catalog(addr), &fixture.server).unwrap();
+    assert_eq!(report.adopted, ["hand.jar"]);
+
+    let index = fixture.index();
+    // The managed entry kept its provider, its project id and its version id.
+    let entry = &index.mods["managed.jar"];
+    assert_eq!(entry.provider, ProviderId::CurseForge);
+    assert_eq!(entry.project_id, "123");
+    assert_eq!(entry.version_id, "v1");
+    assert_eq!(index.mods["hand.jar"].provider, ProviderId::Modrinth);
+    // Sanity: the bulk lookup really did offer the managed jar too.
+    let asked = requests(&calls)
+        .iter()
+        .any(|request| request.target.contains("/v2/version_files"));
+    assert!(asked, "the adoption lookup never ran");
+}
+
+#[test]
+fn a_project_with_no_build_for_this_server_is_not_a_missing_project() {
+    let fixture = Fixture::new();
+    let mut table = curseforge_mod(true);
+    // The project exists; it simply has nothing for 1.20.1 + Fabric.
+    table.retain(|(path, _, _)| path != "/v1/mods/123/files");
+    table.push(route("/v1/mods/123/files", r#"{"data":[]}"#.to_owned()));
+    let (addr, _) = serve(table);
+    let catalog = catalog(addr);
+
+    let error = install::plan_install(
+        &catalog,
+        &fixture.server,
+        ProviderId::CurseForge,
+        "123",
+        None,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(&error, CatalogError::NoVersion { mc, loader }
+            if mc == "1.20.1" && *loader == Loader::Fabric),
+        "{error:?}"
+    );
+    assert_eq!(
+        nebula_core::Error::from(error).to_string(),
+        "1.20.1 Fabric용 버전이 없습니다"
+    );
+
+    // A project nobody has is still the other sentence (CF-05).
+    let missing = install::plan_install(
+        &catalog,
+        &fixture.server,
+        ProviderId::CurseForge,
+        "999",
+        None,
+    )
+    .unwrap_err();
+    assert!(matches!(missing, CatalogError::NotFound), "{missing:?}");
 }
 
 #[test]

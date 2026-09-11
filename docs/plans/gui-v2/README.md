@@ -200,6 +200,14 @@ message `danger` / `warning` / `text` from it.
 | — | `ImportData.result-line`, `SettingsData.dirty` | §4 asks for an import result and a save-bar caption. |
 | `ButtonKind` | `ButtonVariant` + `ButtonSize` | Four variants and two sizes. |
 
+**2026-09-11 update — the table above is v1→v2 only, not current.** `AppPage`
+has since gained `mods` (`build, servers, mods, import, publish, settings` —
+six pages, not five) and `DialogKind` has grown eight 모드/서버 kinds beyond
+`new-server` (`mod-detail`, `install-confirm`, `version-picker`,
+`update-preview`, `mod-delete`, `server-menu`, `server-delete`,
+`server-duplicate`, per §1 above). See `crates/nebula/ui/lib/data.slint` for
+the authoritative enums rather than this historical table.
+
 The shapes `2026-09-10-ux-fixes.md` decided all survive — one job at a time, a
 strict gate the displayed report cannot override, an elapsed-time busy pill,
 per-screen busy flags, debounced settings validation, `appearance-changed` and
@@ -438,7 +446,11 @@ and `mods-manual-folder` for the manual-download list. Dialog bodies:
 `server-menu-open-folder`, `server-menu-duplicate`, `server-menu-delete`,
 `server-menu-cancel`; `server-duplicate-id`, `server-duplicate-cancel`,
 `server-duplicate-submit`; `server-delete-confirm`, `server-delete-cancel`,
-`server-delete-submit`.
+`server-delete-submit`. Each of the eight dialogs also carries its own wrapper
+`Dialog` id (mirroring `new-server-dialog`, not derived from a body id):
+`mod-detail-dialog`, `install-confirm-dialog`, `version-picker-dialog`,
+`update-preview-dialog`, `mod-delete-dialog`, `server-menu-dialog`,
+`server-duplicate-dialog`, `server-delete-dialog`.
 
 **가져오기**
 

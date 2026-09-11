@@ -1,0 +1,25 @@
+﻿# s10b-busy  2026-09-11 11:41:26
+creating an 800 MB pad file
+pad: 838860800 B
+  [  0.0s] right after submit: dialog=True submit-enabled=False field-enabled=False pill=False
+  shot -> mods-10-busy-dialog-duplicate.png  (736 x 999)
+  [  1.2s] after Esc: dialog=False submit-enabled=n/a field-enabled=n/a pill=False
+  [  1.9s] after a scrim click: dialog=False submit-enabled=n/a field-enabled=n/a pill=False
+  [  2.5s] after Ctrl+1: title='빌드' 빌드 primary='배포본 생성' enabled=True
+  shot -> mods-10-busy-nav.png  (736 x 999)
+  [  3.6s] on 모드: title='모드' 업데이트 확인 enabled=True
+  shot -> mods-10-busy-mods-page.png  (736 x 999)
+  [  4.1s] back after navigating: dialog=False submit-enabled=n/a field-enabled=n/a pill=False
+[PASS] the dialog stays open right after submit
+[PASS] its controls are disabled
+[FAIL] the top-bar pill names the job
+[FAIL] Esc is refused while busy
+[FAIL] the scrim does not dismiss a busy dialog
+[PASS] navigation still works while busy -- title=빌드
+[FAIL] the 빌드 primary is disabled while a job runs -- enabled=True
+[FAIL] the 모드 page primary is disabled while a job runs -- enabled=True
+[FAIL] the dialog survives the navigation
+  job took 5.3s
+  toast: 
+cleaned up QAbusy-1.21.1 and the pad file
+RESULT: 6 failed check(s): the top-bar pill names the job | Esc is refused while busy | the scrim does not dismiss a busy dialog | the 빌드 primary is disabled while a job runs | the 모드 page primary is disabled while a job runs | the dialog survives the navigation

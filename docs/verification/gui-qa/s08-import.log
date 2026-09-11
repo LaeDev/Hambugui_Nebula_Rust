@@ -1,0 +1,45 @@
+﻿# s08-import  2026-09-10 19:09:27
+--- a11y aside: is accessible-description reachable at all? ---
+[PASS] navigate to 설정
+  managed HelpText        = []
+  LookupById(30159)       = [NULL - managed client does not know FullDescription]
+  COM probe failed: Method invocation failed because [System.__ComObject] does not contain a method named 'ElementFromHandle'.
+
+--- 8a. the 가져오기 page lists the packs ---
+[PASS] navigate to 가져오기
+modpacks folder row = [C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-root\modpacks]
+[PASS] the 모드팩 폴더 열기 button is present
+pack rows = 4
+  [qa-curseforge.zip, CurseForge, 423 B] enabled=True
+  [qa-prism.zip, Prism 인스턴스, 1001 B] enabled=True
+  [qa-fabric.mrpack, Modrinth, 556 B] enabled=True
+  [qa-neo-bad.mrpack, Modrinth, 268 B] enabled=True
+[PASS] the modpacks folder contents are listed -- 4
+[PASS] format chip 「CurseForge」 appears -- 1 row(s)
+[PASS] format chip 「Modrinth」 appears -- 2 row(s)
+[PASS] format chip 「Prism 인스턴스」 appears -- 1 row(s)
+[FAIL] format chip 「알 수 없음」 appears -- 0 row(s)
+unselectable helper = [NONE]
+  shot -> 08a-import-list.png  (736 x 999)
+
+--- 8b. import the Prism instance as GuiPrism ---
+selecting [qa-prism.zip, Prism 인스턴스, 1001 B]
+row selection state = no SelectionItemPattern
+server id = [GuiPrism]
+모드팩 가져오기 enabled = True
+[PASS] 모드팩 가져오기 is enabled once a pack is selected
+  shot -> 08b-import-selected.png  (736 x 999)
+toast = [모드팩을 가져왔습니다]
+success callout = [가져왔습니다. 서버 GuiPrism-1.20.1]
+failure callout = [NONE]
+[PASS] a success callout names the created server
+[PASS] no failure callout
+  shot -> 08c-import-result.png  (736 x 999)
+[PASS] the server directory exists on disk
+
+--- 8c. the imported server shows on the 서버 page ---
+[PASS] navigate to 서버
+rows = 10; GuiPrism row = [GuiPrism-1.20.1, Fabric 0.16.9, 모드 2 · 파일 1 · 라이브러리 0]
+[PASS] the imported server is listed on the 서버 page
+  shot -> 08d-servers-after-import.png  (736 x 999)
+RESULT: 1 failed check(s): format chip 「알 수 없음」 appears

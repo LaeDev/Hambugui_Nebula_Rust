@@ -14,6 +14,9 @@ mod logsink;
 mod mods;
 pub(crate) mod settings;
 
+/// `nebula mods list` / `update` print the same two strings the 모드 page does,
+/// so they are written once, here, rather than copied into `cli.rs`.
+pub(crate) use mods::{installed_version, release_label};
 /// The CLI's per-user state lives here too: one definition, one directory, one
 /// `NEBULA_CONFIG_DIR` override.
 pub(crate) use settings::config_dir;
@@ -66,12 +69,27 @@ const DIR_MISSING: &str = "폴더가 없습니다 — 경로를 확인하세요"
 const FILE_MISSING: &str = "파일이 없습니다 — 경로를 확인하세요";
 
 pub fn run(level: log::LevelFilter) -> Result<()> {
+    run_inner(level, false)
+}
+
+/// What `nebula-gui` starts: the same GUI, with no console to mirror the log
+/// to, so the text `run` writes to stderr is written to
+/// `<config dir>/nebula-gui.log` instead. The level is the one `nebula gui`
+/// takes without `-v`/`-q`, since a double-click passes no flags.
+pub fn run_windowless() -> Result<()> {
+    run_inner(log::LevelFilter::Info, true)
+}
+
+fn run_inner(level: log::LevelFilter, log_to_file: bool) -> Result<()> {
     // `Config::from_env` loads `.env` into the process environment on its first
     // call, which is only sound while this is still the one thread. Every later
     // call is a no-op, `GuiSettings::load`'s seeding included.
     let _ = Config::from_env();
 
-    let log_rx = logsink::install(level);
+    // After `from_env`, so a `.env` that sets `NEBULA_CONFIG_DIR` is obeyed by
+    // the log file as much as by `settings.json`.
+    let log_path = log_to_file.then(|| config_dir().join("nebula-gui.log"));
+    let log_rx = logsink::install(level, log_path.as_deref());
 
     let stored = GuiSettings::load();
     let app =

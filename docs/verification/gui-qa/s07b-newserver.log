@@ -1,0 +1,30 @@
+﻿# s07b-newserver  2026-09-10 19:08:06
+[PASS] dialog is open
+--- 7c-bis. how the field error reaches assistive tech ---
+  Name            = [서버 ID]
+  HelpText        = []
+  FullDescription = []
+  ItemStatus      = []
+  Value           = [Gui]
+  (Minecraft 버전) FullDescription = []  HelpText=[]
+--- 7e. 최신 fills the loader version (network) ---
+loader version before 최신 = []
+loader version after 최신 = [20.4.251]
+[PASS] 최신 fills the loader version from the network
+  shot -> 07e-latest-version.png  (736 x 999)
+--- 7f. create Gui-1.20.4 with loader 없음 ---
+[PASS] 로더 없음 is enabled once the lookup finished
+id=[Gui] mc=[1.20.4]
+[PASS] 로더 버전 disappears when 없음 is selected
+dialog closed = True
+[PASS] the dialog closes after a successful create
+toast = [서버 Gui-1.20.4]
+[PASS] a toast names the created server
+  shot -> 07f-created.png  (736 x 999)
+rows now = 9; Gui row = [Gui-1.20.4, 없음, 모드 0 · 파일 0 · 라이브러리 0]
+[PASS] the new server appears in the list
+[PASS] the new row carries the 없음 loader chip -- [Gui-1.20.4, 없음, 모드 0 · 파일 0 · 라이브러리 0]
+[PASS] the server directory exists on disk
+on-disk: files, libraries, servermeta.json
+  shot -> 07g-list-with-new-server.png  (736 x 999)
+RESULT: all checks passed

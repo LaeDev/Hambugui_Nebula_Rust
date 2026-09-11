@@ -17,7 +17,6 @@ import { TextField } from "../lib/text-field.slint";
 import {
     AppData,
     AppPage,
-    DepRowData,
     DialogKind,
     InstalledModRowData,
     ModHitRowData,
@@ -25,8 +24,6 @@ import {
     ModsData,
     SheetActions,
     SheetData,
-    UpdateRowData,
-    VersionRowData,
 } from "../lib/data.slint";
 
 // ── Shared pieces ───────────────────────────────────────────────────────────
@@ -46,8 +43,6 @@ component ScopeLine inherits Text {
 /// (§8.4). `progress-owner` is what routes it, so a failed install cannot
 /// appear over the 설치됨 list.
 component FailureCallout inherits Callout {
-    callback retry();
-
     tone: Tone.danger;
     title: ModsData.failure-title;
     body: ModsData.failure-body;
@@ -72,8 +67,10 @@ component FailureCallout inherits Callout {
         a11y-id: "mods-retry";
         icon: @image-url("../../assets/icons/refresh-cw.svg");
         enabled: !SheetData.busy;
+        // Both owners re-run the same thing: the host keeps one retry slot and
+        // decides from it what 다시 시도 means (§8.4).
         activated => {
-            root.retry();
+            ModsActions.retry-install();
         }
     }
 }
@@ -82,7 +79,6 @@ component FailureCallout inherits Callout {
 /// affordance, and an installed mod has nothing to sell.
 component InstalledRow inherits ListRow {
     in property <InstalledModRowData> data;
-    in property <int> index;
     callback open-detail();
 
     title: root.data.title;
@@ -132,7 +128,6 @@ component InstalledRow inherits ListRow {
 /// 설치 button is the only control on it.
 component HitRow inherits ListRow {
     in property <ModHitRowData> data;
-    in property <int> index;
     callback install();
 
     title: root.data.title;
@@ -300,11 +295,7 @@ export component ModsScreen inherits VerticalLayout {
             a11y-id: "mods-installed-progress";
         }
 
-        if ModsData.failure-visible && root.owns-installed : FailureCallout {
-            retry => {
-                ModsActions.retry-install();
-            }
-        }
+        if ModsData.failure-visible && root.owns-installed : FailureCallout { }
 
         // Eight rows of 72 px, and the page ScrollView owns everything else.
         // Rows scrolled out of a ListView leave the accessibility tree (§6),
@@ -327,7 +318,6 @@ export component ModsScreen inherits VerticalLayout {
 
                     InstalledRow {
                         data: row;
-                        index: index;
                         enabled: root.live;
                         avatar: index < ModsData.installed-icons.length
                             ? ModsData.installed-icons[index]
@@ -358,7 +348,6 @@ export component ModsScreen inherits VerticalLayout {
 
                 InstalledRow {
                     data: row;
-                    index: index;
                     enabled: root.live;
                     avatar: index < ModsData.installed-icons.length
                         ? ModsData.installed-icons[index]
@@ -457,11 +446,7 @@ export component ModsScreen inherits VerticalLayout {
             a11y-id: "mods-search-progress";
         }
 
-        if ModsData.failure-visible && !root.owns-installed : FailureCallout {
-            retry => {
-                ModsActions.retry-install();
-            }
-        }
+        if ModsData.failure-visible && !root.owns-installed : FailureCallout { }
 
         // CurseForge files the API refuses to hand over. Not a failure: they
         // were dropped from the plan before any download and the rest of the
@@ -578,7 +563,6 @@ export component ModsScreen inherits VerticalLayout {
 
         for row[index] in ModsData.hits : HitRow {
             data: row;
-            index: index;
             enabled: root.live;
             avatar: index < ModsData.hit-icons.length
                 ? ModsData.hit-icons[index]

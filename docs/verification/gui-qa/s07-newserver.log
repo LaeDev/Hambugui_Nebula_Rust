@@ -1,0 +1,39 @@
+﻿# s07-newserver  2026-09-10 19:06:58
+[PASS] navigate to 서버
+--- 7a. the dialog opens with a scrim ---
+  shot -> 07a-before-dialog.png  (736 x 999)
+[PASS] 새 서버 opens a dialog exposed as a Group named 새 서버
+  shot -> 07b-dialog-open.png  (736 x 999)
+scrim/dialog whole-window diff = 15.025
+[PASS] the dialog visibly dims the page behind it (scrim) -- diff=15.025
+  서버 ID                  Edit     -> found
+  Minecraft 버전           Edit     -> found
+  로더 없음                  TabItem  -> found
+  로더 Forge               TabItem  -> found
+  로더 NeoForge            TabItem  -> found
+  로더 Fabric              TabItem  -> found
+  새 서버 만들기 취소            Button   -> found
+  서버 만들기                 Button   -> found
+  닫기                     Button   -> found
+--- 7b. Esc closes it ---
+[PASS] Esc closes the dialog
+--- 7c. validation: empty 서버 ID ---
+[PASS] the dialog reopens
+id field HelpText = []
+visible error line = [서버 ID가 비어 있습니다 — 예: Test]
+[PASS] an empty 서버 ID shows an error under the field
+[FAIL] the error also reaches accessible-description (UIA HelpText)
+[PASS] the dialog stays open after a validation error
+  shot -> 07c-error-empty-id.png  (736 x 999)
+--- 7d. validation: NeoForge with a blank loader version ---
+NeoForge notice = [NeoForge 패치 필요. Hambugui 런처에 NeoForge 패치가 필요합니다. README의 NeoForge 항목을 참고하세요. Minecraft 1.20.2 이상만 지원합니다.]
+[PASS] choosing NeoForge shows the 패치 필요 callout
+[PASS] the 로더 버전 field appears once a loader is chosen
+loader-version error = [로더 버전이 비어 있습니다 — 최신/권장 버전 찾기를 누르거나 직접 입력하세요]
+[PASS] a blank loader version is refused with an error
+  shot -> 07d-error-blank-loader-version.png  (736 x 999)
+--- 7e. 최신 fills the loader version (network) ---
+loader version after 최신 = [로더 버전] (filled=True)
+[FAIL] 최신 fills the loader version from the network
+  shot -> 07e-latest-version.png  (736 x 999)
+--- 7f. create Gui-1.20.4 with loader 없음 ---

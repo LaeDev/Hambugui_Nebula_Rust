@@ -1,0 +1,9 @@
+﻿# cf-s19-restart-nokey  2026-09-12 00:27:35
+settings state: stored key: empty
+env var in this shell: unset
+  provider segment 1: name='제공자 CurseForge' IsEnabled=False
+[PASS] 재시작 후: 환경 변수 없음 + 설정 키 빈 값 → CurseForge 세그먼트 비활성 -- IsEnabled=False
+[PASS] 도움말 문구 표시 -- 설정에서 CurseForge API 키를 입력하세요
+  sort labels: 정렬 관련도 ; 정렬 다운로드 ; 정렬 최신
+  shot -> cf-16-restart-no-key.png  (736 x 999)
+RESULT: all checks passed

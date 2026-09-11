@@ -354,6 +354,76 @@ fn curseforge_search_sends_the_documented_query_and_the_key() {
 }
 
 #[test]
+fn curseforge_version_numbers_are_human_versions_not_file_ids() {
+    let (addr, _) = stub(|req| match req.path() {
+        "/v1/mods/238222/files" => json(CF_FILES_BODY),
+        _ => (404, "text/plain", Vec::new()),
+    });
+    let catalog = catalog(addr);
+    let cf = catalog.provider(ProviderId::CurseForge).unwrap();
+
+    let versions = cf.versions("238222", &mc(), Loader::Forge).unwrap();
+    let forge = &versions[0];
+    // CF-02: §8.4's line reads `JEI 15.59 for Forge`, never `JEI 8851009`.
+    assert_eq!(forge.number, "15.59 for Forge");
+    // The file id keeps its two homes, so nothing downstream loses it.
+    assert_eq!(forge.version_id, "8851009");
+    assert_eq!(forge.files[0].file_id.as_deref(), Some("8851009"));
+
+    // A file with no `displayName` falls back to its own name, minus the jar.
+    let noloader = &versions[1];
+    assert_eq!(noloader.number, "jei-noloader");
+    assert_eq!(noloader.version_id, "8851012");
+}
+
+#[test]
+fn curseforge_refuses_a_slug_without_asking_the_server() {
+    let (addr, calls) = stub(|_| (500, "text/plain", Vec::new()));
+    let catalog = catalog(addr);
+    let cf = catalog.provider(ProviderId::CurseForge).unwrap();
+
+    // CF-07: `/v1/mods/{id}` takes numbers only, so a slug is a local refusal
+    // that names the provider slugs do belong to.
+    let error = cf.project("jei").unwrap_err();
+    let printed = nebula_core::Error::from(error).to_string();
+    assert!(printed.contains("숫자 프로젝트 id"), "{printed}");
+    assert!(printed.contains("Modrinth"), "{printed}");
+    // "Before any request" is the claim; this is what proves it.
+    assert!(requests(&calls).is_empty(), "a request was sent");
+
+    assert!(cf.project("238222").is_err(), "a numeric id must be tried");
+    assert_eq!(requests(&calls).len(), 4, "the 500 retry schedule ran");
+}
+
+#[test]
+fn a_rejected_curseforge_key_is_not_a_network_failure() {
+    let (addr, calls) = stub(|_| (403, "text/plain", b"API Key missing or invalid".to_vec()));
+    let catalog = catalog(addr);
+    let cf = catalog.provider(ProviderId::CurseForge).unwrap();
+
+    // CF-04: both the JSON path (`send`) and the raw path (`classify`).
+    for error in [
+        cf.project("238222").unwrap_err(),
+        cf.versions("238222", &mc(), Loader::Forge).unwrap_err(),
+    ] {
+        assert!(
+            matches!(error, CatalogError::Unauthorized),
+            "{error:?} should be Unauthorized"
+        );
+        let printed = nebula_core::Error::from(error).to_string();
+        assert_eq!(
+            printed,
+            "CurseForge API 키가 거부되었습니다 — 설정의 키를 확인하세요"
+        );
+        // Never a bare `: 403`, and never the query string.
+        assert!(!printed.contains("403"), "{printed}");
+        assert!(!printed.contains("http"), "{printed}");
+    }
+    // A rejected key is not retried: the key will not fix itself in 3.5 s.
+    assert_eq!(requests(&calls).len(), 2);
+}
+
+#[test]
 fn curseforge_reads_the_loader_off_sortable_game_versions() {
     let (addr, _) = stub(|req| match req.path() {
         "/v1/mods/238222/files" => json(CF_FILES_BODY),

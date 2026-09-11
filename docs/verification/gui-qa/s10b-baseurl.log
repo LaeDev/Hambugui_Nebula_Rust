@@ -1,0 +1,21 @@
+﻿# s10b-baseurl  2026-09-10 19:17:01
+[PASS] navigate to 설정
+기본 URL before = [https://cdn.example.invalid/]
+기본 URL after typing = [nota url]
+new Text nodes after ~40 ms:
+   [Please provide a URL protocol (ex. http:// or https://)]
+   [저장되지 않은 변경]
+[PASS] an invalid 기본 URL raises an inline error
+[PASS] the error arrives within a second of typing (300 ms debounce) -- 40 ms
+  NOTE: the message is English: Please provide a URL protocol (ex. http:// or https://)
+[FAIL] DESIGN-v2 §5: user-facing errors are Korean -- English error surfaced: Please provide a URL protocol (ex. http:// or https://)
+helpText on the field = []
+  shot -> 10a-baseurl-error.png  (736 x 999)
+--- does 저장 refuse the bad value? ---
+save toast = [NONE]
+settings.json base-url = [https://cdn.example.invalid/]
+[PASS] 저장 does not write an invalid 기본 URL to disk -- [https://cdn.example.invalid/]
+  shot -> 10a2-baseurl-save-refused.png  (736 x 999)
+--- fix it ---
+remaining new Text nodes: 
+[PASS] correcting the value clears the inline error

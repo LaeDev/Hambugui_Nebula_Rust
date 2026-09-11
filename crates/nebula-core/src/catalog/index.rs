@@ -130,12 +130,8 @@ impl ModIndex {
     /// file written by a newer Nebula is an error rather than a silent
     /// downgrade that would drop fields on the next save.
     pub fn load(server: &ServerDir) -> Result<Self, CatalogError> {
-        Self::load_at(&server.modindex_file())
-    }
-
-    /// [`ModIndex::load`] against an explicit path.
-    pub fn load_at(path: &Path) -> Result<Self, CatalogError> {
-        let raw = match std::fs::read(path) {
+        let path = server.modindex_file();
+        let raw = match std::fs::read(&path) {
             Ok(raw) => raw,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 return Ok(Self::default());
@@ -159,11 +155,7 @@ impl ModIndex {
     /// mid-write leaves the previous index intact. Callers hold the server
     /// lock (reliability rule 3).
     pub fn save(&self, server: &ServerDir) -> Result<(), CatalogError> {
-        self.save_at(&server.modindex_file())
-    }
-
-    /// [`ModIndex::save`] against an explicit path.
-    pub fn save_at(&self, path: &Path) -> Result<(), CatalogError> {
+        let path = server.modindex_file();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }

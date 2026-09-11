@@ -1,0 +1,155 @@
+﻿# cf-s13-search-error  2026-09-12 00:10:17
+--- 12b: CurseForge 검색 (실 API) ---
+  cache/icons before: 4
+  query field now = [jei]
+[PASS] 검색어 입력 성공
+  CurseForge result rows: 6
+  --- on-screen texts ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    Just Enough Items (JEI)
+    mezz · 다운로드 6.2억 · 수정 1시간 전
+    View Items and Recipes
+    설치됨
+    Just Enough Resources (JER)
+    way2muchnoise · 다운로드 2.4억 · 수정 38일 전
+    A JEI addon that adds mob drops, ore gen, ..
+    설치
+    Just Enough Professions (JEP)
+    Mrbysco · 다운로드 1.1억 · 수정 83일 전
+    A JEI addon that adds profession workstations
+    설치
+    Just Enough Breeding (JEBr)
+    Christofmeg · 다운로드 5249만 · 수정 17일 전
+    JEI/REI/EMI plugin that displays breeding information
+    설치
+    EMI
+    EmilyPloszaj · 다운로드 4733만 · 수정 121일 전
+    Featureful and accessible modern item and recipe viewer with JEI compatibility
+    설치
+    More Overlays Updated
+    RiDGo8 · 다운로드 5461만 · 수정 58일 전
+    Adds NEI-like light overlay for mob spawns, a chunk border overlay and a JEI item search overlay. (updated for 1.16.5, 1.19, 1.21, 26.1) NEW: light level number overlay
+    설치
+  retry button: absent
+  shot -> cf-12-search-curseforge-error.png  (736 x 999)
+  cache/icons after CurseForge search: 4
+[PASS] CurseForge 검색이 디스크 아이콘을 만들지 않음 -- 4 -> 4
+--- 12c: 같은 질의를 Modrinth로 (대조군) ---
+  Modrinth result rows: 6
+  captions: mezz · 다운로드 7575만 · 수정 1시간 전 | Txni · 다운로드 372만 · 수정 597일 전 | Akkiruk · 다운로드 26만 · 수정 11시간 전 | raoulvdberge · 다운로드 17만 · 수정 102일 전 | AmicBeam · 다운로드 12만 · 수정 1일 전 | Saku_rain · 다운로드 10만 · 수정 85일 전
+[PASS] Modrinth 대조군이 결과를 돌려줌 -- rows=6
+  cache/icons after Modrinth search: 23
+[PASS] Modrinth 검색은 디스크 아이콘 파일을 만든다 (대조군) -- 4 -> 23
+  shot -> cf-12-search-modrinth-control.png  (736 x 999)
+--- 13(부분): 설치된 CurseForge 모드의 다른 버전 고르기 ---
+  --- 모드 정보 ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 5 · 직접 추가 0 · 확인 전
+    업데이트 확인
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Block Jackpot: Casino Machines
+    0.4.0 · [NeoForge - 1.21.1] Block Jackpot - Casino Machines - 0.4.0.jar · CurseForge
+    필수
+    AxoChaos
+    3.0.2 · axochaos-3.0.2-neoforge-1.21.1.jar · CurseForge
+    필수
+    Curios API
+    9.5.1+1.21.1 · curios-neoforge-9.5.1+1.21.1.jar · CurseForge
+    필수
+    JU
+    Just Enough Items
+    19.50.0.414 · jei-1.21.1-neoforge-19.50.0.414.jar · CurseForge
+    필수
+    JU
+    Just Enough Items
+    19.51.0.418 · jei-1.21.1-neoforge-19.51.0.418.jar · Modrinth
+    필수
+    AxoChaos — Neo-1.21.1
+    More items, armor, and mobs made from Axolotls and Obsidian
+    버전
+    3.0.2
+    파일
+    axochaos-3.0.2-neoforge-1.21.1.jar
+    제공자
+    CurseForge
+    해시
+    a7fb0a13ec0d
+    네임스페이스
+    필수
+    선택 켜짐
+    선택 꺼짐
+    다른 버전…
+    프로젝트 페이지 열기
+    삭제
+    취소
+    이동
+  shot -> cf-13-mod-detail-curseforge.png  (736 x 999)
+  --- 버전 목록 (CurseForge /files) ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 5 · 직접 추가 0 · 확인 전
+    업데이트 확인
+    Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+    Block Jackpot: Casino Machines
+    0.4.0 · [NeoForge - 1.21.1] Block Jackpot - Casino Machines - 0.4.0.jar · CurseForge
+    필수
+    AxoChaos
+    3.0.2 · axochaos-3.0.2-neoforge-1.21.1.jar · CurseForge
+    필수
+    Curios API
+    9.5.1+1.21.1 · curios-neoforge-9.5.1+1.21.1.jar · CurseForge
+    필수
+    JU
+    Just Enough Items
+    19.50.0.414 · jei-1.21.1-neoforge-19.50.0.414.jar · CurseForge
+    필수
+    JU
+    Just Enough Items
+    19.51.0.418 · jei-1.21.1-neoforge-19.51.0.418.jar · Modrinth
+    필수
+    AxoChaos 버전 — Neo-1.21.1
+    axochaos-3.0.2-neoforge-1.21.1.jar
+    1.21.1 · 2026-09-11 · 4.2 MB
+    정식
+    설치됨
+    axochaos-3.0.1-neoforge-1.21.1.jar
+    1.21.1 · 2026-09-10 · 4.2 MB
+    정식
+    이전 버전으로 교체
+    axochaos-3.0.0-neoforge-1.21.1.jar
+    1.21.1 · 2026-09-03 · 4.1 MB
+    정식
+    이전 버전으로 교체
+    axochaos-2.15.0-neoforge-1.21.1.jar
+    1.21.1 · 2026-07-22 · 2.5 MB
+    정식
+    이전 버전으로 교체
+    axochaos-2.14.0-neoforge-1.21.1.jar
+    1.21.1 · 2026-07-18 · 2.4 MB
+    정식
+    이전 버전으로 교체
+    취소
+  shot -> cf-13-version-picker-curseforge.png  (736 x 999)
+RESULT: all checks passed

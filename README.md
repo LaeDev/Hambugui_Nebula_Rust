@@ -8,6 +8,12 @@ CLI/GUI 도구입니다. [dscalzi/Nebula](https://github.com/dscalzi/Nebula)의 
 원저작자는 Daniel Scalzi(`dscalzi/Nebula`)이며, 이 저장소는 MIT 라이선스 하에 배포됩니다.
 자세한 내용은 [12. 라이선스](#12-라이선스)를 참고하세요.
 
+바로 쓸 수 있는 Windows 배포본(zip)은 [3.1 배포본 설치/실행](#31-배포본-설치실행-windows)을 보세요.
+
+GUI는 Slint로 만들었습니다 — Slint Royalty-free License 2.0 §2(b)가 요구하는 저작자 표시입니다.
+
+[![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)
+
 ## 2. 요구 사항
 
 - **Rust 1.97** (이 저장소의 `rust-toolchain.toml`이 `1.97.0`을 고정합니다) 또는
@@ -44,6 +50,45 @@ nebula validate --strict                          # 런처 계약(Hambugui/Helio
 nebula gui                                         # GUI 실행 (인자 없이 nebula만 실행해도 동일)
 ```
 
+## 3.1 배포본 설치/실행 (Windows)
+
+빌드 도구 없이 쓰려면 포터블 zip을 받으면 됩니다. 설치 프로그램은 없습니다.
+
+1. **받기** — GitHub **Releases**의 `nebula-<버전>-windows-x86_64.zip`, 또는 아직 태그가 없다면
+   GitHub **Actions**의 `package` 작업이 올린 아티팩트(보관 30일)를 받습니다.
+2. **검증** — 압축을 푼 뒤 폴더 안에서 해시를 대조합니다. `SHA256SUMS.txt`는 폴더 안 모든 파일의
+   SHA-256 목록입니다.
+
+   ```powershell
+   Get-Content .\SHA256SUMS.txt
+   Get-FileHash .\nebula-gui.exe -Algorithm SHA256
+   ```
+
+3. **풀기** — 아무 폴더에나 풀면 됩니다(예: `D:\Tools\nebula`). 쓰기 권한만 있으면 USB에서도 돌아갑니다.
+4. **실행** —
+   - GUI: `nebula-gui.exe` 더블클릭. 콘솔 창이 뜨지 않습니다.
+   - CLI: PowerShell에서 `.\nebula.exe --help`. `.\nebula.exe gui`는 콘솔을 유지한 채 GUI를 띄웁니다.
+5. **SmartScreen** — 두 실행 파일은 코드 서명이 없어 처음 실행할 때 "Windows의 PC 보호" 창이
+   뜰 수 있습니다. **추가 정보 → 실행**을 누르세요. 그 전에 4번의 해시를 대조하는 것을 권장합니다.
+
+**요구 사항**: Windows 10 이상 64비트. Java는 Forge/NeoForge 설치기를 실행할 때만 필요합니다
+(NeoForge는 Java 21 권장). 그 외 런타임 설치는 필요 없습니다.
+
+**설정이 저장되는 곳**: 기본값은 `%APPDATA%\nebula\`이며 `settings.json`과 Google Drive 토큰이
+여기 들어갑니다. `NEBULA_CONFIG_DIR`을 지정하면 그 경로를 접미사 없이 그대로 씁니다.
+`nebula-gui.exe`는 콘솔이 없으므로 로그를 같은 폴더의 `nebula-gui.log`에 쓰며, 실행할 때마다
+새로 덮어씁니다.
+
+**직접 패키징하기** — Windows에서 PowerShell 7로:
+
+```powershell
+pwsh scripts/package-release.ps1            # 테스트 → 릴리스 빌드 → dist/ 조립 → 스모크 테스트 → zip
+pwsh scripts/package-release.ps1 -SkipTests # 테스트를 건너뜀 (CI의 package 작업과 동일)
+```
+
+결과는 `dist/nebula-<버전>-windows-x86_64.zip`이며, 스크립트가 zip 경로·크기·SHA-256을 출력합니다.
+네트워크는 필요 없고(크레이트가 이미 받아져 있어야 합니다), 어느 경로에서 실행해도 됩니다.
+
 ## 4. GUI
 
 `nebula gui`(또는 인자 없이 `nebula`)는 3:4 세로 비율 창(기본 720×960, 최소 640×800,
@@ -64,7 +109,7 @@ nebula gui                                         # GUI 실행 (인자 없이 n
    버전, 삭제)를 엽니다. 찾기는 Modrinth/CurseForge에서 검색해 설치 확인 대화상자(해결된
    버전, 네임스페이스, 필수·선택 의존성)를 거쳐 설치합니다. **Modrinth는 API 키 없이
    검색·설치할 수 있습니다.** CurseForge 검색·설치는 사용자 자신의 API 키가 필요합니다 —
-   설정 → CurseForge에서 입력하거나 환경 변수 `NEBULA_CURSEFORGE_API_KEY`를 설정하세요
+   설정 → CurseForge API 키에 입력하거나 환경 변수 `NEBULA_CURSEFORGE_API_KEY`를 설정하세요
    (둘 다 있으면 환경 변수가 우선합니다).
 4. **가져오기** — `modpacks/` 폴더의 CurseForge/Modrinth/Prism 팩 중 하나를 골라 서버
    ID를 지정하고 가져옵니다. 자동으로 받을 수 없는 파일은 수동 다운로드 목록으로
@@ -158,10 +203,10 @@ camelCase 별칭(`--installLocal`, `--discardOutput`, `--invalidateCache`)은 ke
 | 하위 명령 | 인자/옵션 | 설명 |
 |---|---|---|
 | `search <QUERY>` | `--provider modrinth\|curseforge`(기본 `modrinth`), `--sort relevance\|downloads\|newest`(기본 `relevance`), `--limit <N>`(기본 `20`), `--offset <N>`(기본 `0`) | 서버의 마인크래프트 버전·로더에 맞는 모드를 검색합니다. |
-| `install <PROJECT>` | `--version <ID>`(생략 시 서버에 맞는 최신 버전을 고름), `--namespace required\|optionalon\|optionaloff`(기본 `required`), `--no-deps`(필수 의존성 없이 단독 설치 — 게임이 시작되지 않을 수 있음), `--provider modrinth\|curseforge`(기본 `modrinth`) | `PROJECT`(프로젝트 id 또는 slug)와 필수 의존성을 설치합니다. |
+| `install <PROJECT>` | `--version <ID>`(생략 시 서버에 맞는 최신 버전을 고름), `--namespace required\|optionalon\|optionaloff`(기본 `required`), `--no-deps`(필수 의존성 없이 단독 설치 — 게임이 시작되지 않을 수 있음), `--provider modrinth\|curseforge`(기본 `modrinth`) | `PROJECT`(프로젝트 id, 또는 Modrinth라면 slug도 가능 — **CurseForge는 숫자 프로젝트 id만 받습니다**)와 필수 의존성을 설치합니다. |
 | `list` | | 관리 중인 모드와 손으로 넣은 모드를 모두 나열합니다. |
 | `update` | `--apply` | `--apply` 없이 실행하면 업데이트 가능한 모드 목록만 보여주고 아무것도 설치하지 않습니다. `--apply`를 주면 실제로 설치합니다. |
-| `remove <FILE>` | | 모드 파일과 색인 항목을 삭제합니다. |
+| `remove <FILE>` | `--yes` | 모드 파일과 색인 항목을 삭제합니다. 다른 관리 중인 모드가 이 모드를 의존성으로 두고 있을 때만 `--yes`가 필요합니다(없으면 오류로 끝나고 삭제하지 않습니다). |
 | `move <FILE> <NAMESPACE>` | `NAMESPACE`는 `required`\|`optionalon`\|`optionaloff` | 모드를 다른 네임스페이스로 옮겨 켜거나 끕니다. |
 
 ### server
@@ -462,9 +507,19 @@ NEBULA_NET_TESTS=1 JAVA_EXECUTABLE="C:\...\java.exe" cargo test --workspace
 이 저장소는 [MIT 라이선스](LICENSE)로 배포됩니다. 원저작자는 Daniel Scalzi(2019–2020,
 `dscalzi/Nebula`)이며, Rust 포트 저작권은 LaeDev(2026)에 있습니다.
 
-GUI 바이너리는 [Slint](https://slint.dev/)를 정적으로 링크합니다. Slint는
+GUI 바이너리는 [Slint](https://slint.dev/)를 정적으로 링크하며,
 [Royalty-free License 2.0](https://github.com/slint-ui/slint/blob/master/LICENSES/LicenseRef-Slint-Royalty-free-2.0.md)
-조건으로 사용할 수 있습니다.
+조건으로 배포합니다. 이 라이선스 §2는 About 화면의 `AboutSlint` 위젯(§2(a))이나
+바이너리를 내려받는 공개 웹페이지의 저작자 표시 배지(§2(b)) 중 하나를 요구합니다.
+Nebula는 **§2(b)** 를 택해 이 README 상단과 각 GitHub Release 본문에
+[Made with Slint 배지](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png)를
+싣습니다. §3의 제한(단독 배포 금지, 임베디드 시스템 금지, Slint API 노출 금지)도 지킵니다 —
+Slint는 데스크톱 애플리케이션에 통합되어서만 배포되고, `nebula` 크레이트의 `gui` 모듈은
+비공개라 Slint 타입이 공개 API로 새어 나가지 않습니다.
+
+글꼴(Pretendard, SIL OFL 1.1)과 아이콘(Lucide, ISC), 번들 Java 도구, 링크된 Rust 크레이트의
+라이선스 고지는 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)에 모아 두었으며,
+이 파일은 배포본 zip에도 함께 들어갑니다.
 
 `libraries/java/` 아래 번들 jar(`Claritas.jar`, `PackXZExtract.jar`)는 각 원 프로젝트의
 라이선스를 따릅니다. Nebula는 이 jar들을 바이너리에 내장(`include_bytes!`)해 실행 시

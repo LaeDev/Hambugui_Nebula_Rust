@@ -1,15 +1,23 @@
 <#
 .SYNOPSIS
-Verifies a distribution.json against the Hambugui launcher parser with the NeoForge patch applied.
+Verifies a distribution.json against the Hambugui launcher parser, optionally with the NeoForge patch applied.
 
 .DESCRIPTION
 Copies hambugui-distribution/hambugui-domain out of the (read-only) launcher checkout into a temp
-workspace, applies the NeoForge patch there, builds scripts/launcher-contract-harness against the
-patched crate, and runs it on the given file. The launcher checkout is never modified.
+workspace, optionally applies the NeoForge patch there, builds scripts/launcher-contract-harness
+against the crate, and runs it on the given file. The launcher checkout is never modified.
+
+Since launcher main ec20e6f (2026-09-12), the NeoForge module types are merged upstream, so -NoPatch
+is the normal mode: it skips the patch existence check and the `git apply` step entirely and builds
+the harness against the launcher crates as they are. The patch modes below remain for older launcher
+checkouts that predate that merge.
 
 -Patch defaults to hambugui-neoforge-from-main.patch, which is correct when the launcher checkout is
-on main. If it is on branch wip/distribution-neoforge-module-type (419a3af), pass
+on main before ec20e6f. If it is on branch wip/distribution-neoforge-module-type (419a3af), pass
 -Patch docs\launcher\hambugui-neoforge.patch instead. Both bases end up at the same tree.
+
+.EXAMPLE
+scripts\verify-launcher-contract.ps1 -Distribution fixtures\launcher\nebula-valid.json -Runtime -NoPatch
 
 .EXAMPLE
 scripts\verify-launcher-contract.ps1 -Distribution fixtures\launcher\nebula-valid.json -Runtime
@@ -20,15 +28,21 @@ param(
     [switch]$Runtime,
     [string]$Target = 'windows-x86_64',
     [string]$LauncherDir = 'H:\HambuguiLauncherRust',
-    [string]$Patch
+    [string]$Patch,
+    [switch]$NoPatch
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
-if (-not $Patch) { $Patch = Join-Path $repo 'docs\launcher\hambugui-neoforge-from-main.patch' }
-$patch = (Resolve-Path $Patch).Path
+$patch = $null
+if (-not $NoPatch) {
+    if (-not $Patch) { $Patch = Join-Path $repo 'docs\launcher\hambugui-neoforge-from-main.patch' }
+    $patch = (Resolve-Path $Patch).Path
+}
 $distribution = (Resolve-Path $Distribution).Path
-foreach ($required in @($patch, (Join-Path $LauncherDir 'crates\hambugui-distribution'))) {
+$requiredPaths = @((Join-Path $LauncherDir 'crates\hambugui-distribution'))
+if ($patch) { $requiredPaths += $patch }
+foreach ($required in $requiredPaths) {
     if (-not (Test-Path $required)) { throw "missing: $required" }
 }
 
@@ -70,9 +84,13 @@ publish = false
 hambugui-distribution = { path = "../crates/hambugui-distribution" }
 '@
 
-    & git -C $temp apply -p1 $patch
-    if ($LASTEXITCODE -ne 0) { throw "git apply failed for $patch" }
-    Write-Host "patched launcher copy: $temp" -ForegroundColor DarkGray
+    if ($NoPatch) {
+        Write-Host "unpatched launcher copy: $temp" -ForegroundColor DarkGray
+    } else {
+        & git -C $temp apply -p1 $patch
+        if ($LASTEXITCODE -ne 0) { throw "git apply failed for $patch" }
+        Write-Host "patched launcher copy: $temp" -ForegroundColor DarkGray
+    }
 
     $harnessArgs = @($distribution)
     if ($Runtime) {

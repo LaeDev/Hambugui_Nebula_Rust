@@ -1,0 +1,17 @@
+﻿# s00-probe  2026-09-10 18:48:58
+window Name='Nebula' ControlType=ControlType.Window hwnd=7211630
+window=736x999 client=720x960 at 52,52
+Find '빌드' -> 3 match(es)
+   ControlType.TabItem rect=60,95
+   ControlType.Text rect=68,131
+   ControlType.Text rect=156,83
+[PASS] Korean accessible-label is findable through UIA
+[PASS] '배포본 생성' button found -- enabled=True
+  shot -> probe-00.png  (736 x 999)
+[PASS] PrintWindow capture is not uniform
+[FAIL] theme toggle button found
+page title before = [빌드]
+page title after ^2 = [서버]
+[PASS] Ctrl+2 switches the page
+page title after ^1 = [빌드]
+RESULT: 1 failed check(s): theme toggle button found

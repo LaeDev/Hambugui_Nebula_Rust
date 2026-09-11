@@ -1,0 +1,35 @@
+﻿# cf-s11-settings-key  2026-09-12 00:05:47
+start: no settings.json
+scope: Fg-1.20.1 · Minecraft 1.20.1 · Forge 47.4.23
+--- 11a: 찾기, 키가 어디에도 없을 때 ---
+  provider segment 1: name='제공자 CurseForge' IsEnabled=False
+[PASS] 키 없음: CurseForge 세그먼트 비활성 -- IsEnabled=False
+[PASS] 키 없음: 도움말 문구 표시 -- 설정에서 CurseForge API 키를 입력하세요
+  sort labels (Modrinth): 정렬 관련도 ; 정렬 다운로드 ; 정렬 최신
+  shot -> cf-11-segment-disabled.png  (736 x 999)
+--- 11b: 설정 → CurseForge 카드 ---
+[PASS] 설정 페이지로 이동 -- 설정
+[PASS] 설정에 settings-curseforge-key 필드 존재
+  field ControlType=ControlType.Edit IsPassword=True
+[PASS] 키 필드가 password 모드 -- IsPassword=True
+  card texts: CurseForge | CurseForge API 키 | console.curseforge.com에서 발급받은 본인 키를 입력하세요. 환경 변수 NEBULA_CURSEFORGE_API_KEY가 있으면 그 값이 우선합니다.
+  ValuePattern after typing: length=60
+  shot -> cf-11-settings-card-masked.png  (736 x 999)
+  save button: '설정 저장' enabled=True
+  after save: stored key: 60 chars (redacted)
+[PASS] 저장 후 settings.json에 키가 기록됨 -- stored key: 60 chars (redacted)
+--- 11c: 설정 필드만으로 세그먼트가 켜지는가 ---
+  provider segment 1: IsEnabled=True
+[PASS] 설정 필드만으로 CurseForge 세그먼트 활성 -- IsEnabled=True
+[PASS] 활성화되면 도움말 문구가 사라짐
+  sort labels (CurseForge): 정렬 인기 ; 정렬 다운로드 ; 정렬 최신
+  shot -> cf-11-segment-enabled-by-field.png  (736 x 999)
+--- 11d: 필드를 비우고 저장 ---
+[PASS] 설정 페이지로 이동(2) -- 설정
+  save button: '설정 저장' enabled=True
+  after clear+save: stored key: empty
+[PASS] 비운 뒤 저장하면 키가 지워짐 -- stored key: empty
+  provider segment 1 after clear: IsEnabled=False
+[PASS] 키를 지우면 세그먼트가 다시 비활성 -- IsEnabled=False
+  shot -> cf-11-segment-disabled-after-clear.png  (736 x 999)
+RESULT: all checks passed

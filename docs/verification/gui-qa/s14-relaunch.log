@@ -1,0 +1,44 @@
+﻿# s14-relaunch  2026-09-10 19:34:08
+=== Relaunch: saved settings are applied, and 배포 starts with no target ===
+relaunched pid=18256
+title=[Nebula] window=736x999 client=720x960
+[PASS] a fresh launch is 720x960 in the client area -- 720x960
+--- saved settings are loaded ---
+[PASS] navigate to 설정
+Helios 데이터 폴더 = [C:\Nebula\HeliosQA]
+[PASS] the Helios path saved in scenario 10 is restored
+WebDAV 업로드 URL = [http://127.0.0.1:8099/dist/]
+[PASS] the WebDAV settings saved in scenario 9 are restored
+모션 줄이기 = On
+[PASS] 모션 줄이기 is restored as On
+  shot -> 14a-settings-restored.png  (736 x 999)
+--- 빌드 readiness reflects the restored settings ---
+[PASS] navigate to 빌드
+Helios readiness row = Helios 폴더 | C:\Nebula\HeliosQA | 미설정
+[PASS] the Helios row now shows the saved (but missing) folder as 미설정
+Helios 설치 switch enabled = False
+  shot -> 14b-build-after-restart.png  (736 x 999)
+--- 배포: no target chosen yet (fresh state) ---
+[PASS] navigate to 배포
+helper = [설정에서 대상을 구성한 뒤 여기에서 고르세요.]
+[PASS] with no target chosen the page says to configure one in 설정
+upload helper = [대상을 선택하세요.]
+[PASS] the 업로드 helper reads 대상을 선택하세요
+업로드 enabled with no target = False
+[PASS] 업로드 is disabled with no target
+변경된 파일만 업로드 enabled with no target = False
+WebDAV segment toggle state (should not read selected) = Off
+[PASS] neither publish target reads as selected on a fresh launch
+  shot -> 09-no-target.png  (736 x 999)
+--- Google Drive target notice ---
+Google Drive callout = [Google Drive는 CDN이 아닙니다. 100 MB를 넘는 파일과 다운로드 쿼터에 주의하세요. README의 Google Drive 항목을 참고하세요.]
+[PASS] choosing Google Drive shows the quota callout
+account row = [연결되지 않음]
+  shot -> 09f-gdrive-target.png  (736 x 999)
+
+=== Scenario 13 (redone): exit code ===
+WM_CLOSE -> exited=True after 0.04 s, exit code = 0
+[PASS] the process exits within 5 s of WM_CLOSE -- 0.04 s
+[PASS] the exit code is 0 -- 0
+[PASS] no panic on the second run either
+RESULT: all checks passed

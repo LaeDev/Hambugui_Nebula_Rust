@@ -13,7 +13,7 @@ use log::LevelFilter;
 use nebula_core::catalog::index::InstalledMod;
 use nebula_core::catalog::{
     self, Catalog, Endpoints, InstallChoice, InstallPlan, InstallReport, ManualDownload,
-    PlannedFile, ProviderId, ReleaseType, SearchQuery, SortKey,
+    PlannedFile, ProviderId, SearchQuery, SortKey,
 };
 use nebula_core::publish::{PublishOptions, Target, gdrive, webdav};
 use nebula_core::scan::Namespace;
@@ -23,11 +23,14 @@ use nebula_core::{
     Result, Root, ServerDir, distribution, import, meta, publish, remote, server, validate,
 };
 
-/// Where Nebula keeps per-user state: the Google Drive refresh token, and the
-/// GUI's `settings.json`. One definition, in the GUI's settings module — the
-/// CLI had its own copy that ignored `NEBULA_CONFIG_DIR`, so a test run with
-/// that variable set still wrote its token to the real config directory.
-use crate::gui::config_dir;
+/// What the CLI and the GUI say identically, defined once in the GUI module:
+/// `config_dir` is where Nebula keeps per-user state (the Google Drive refresh
+/// token and `settings.json`) — the CLI had its own copy that ignored
+/// `NEBULA_CONFIG_DIR`, so a test run with that variable set still wrote its
+/// token to the real config directory — and `installed_version` /
+/// `release_label` are the two 모드 strings `mods list` and `mods update` print
+/// exactly as §8.3 and §8.8 draw them.
+use crate::gui::{config_dir, installed_version, release_label};
 
 #[derive(Parser)]
 #[command(
@@ -129,7 +132,7 @@ enum ModsCommand {
     },
     /// Install a mod and the dependencies it requires.
     Install {
-        /// Project id or slug.
+        /// Project id, or a Modrinth slug — CurseForge accepts numeric project ids only.
         project: String,
         /// Install this exact version id instead of the newest suitable one.
         #[arg(long)]
@@ -896,19 +899,6 @@ fn markers(row: &InstalledMod) -> String {
     }
 }
 
-/// The human version for an installed row: the jar's own metadata first,
-/// then the index's `version_id`, else "unknown" — same ladder as the GUI's
-/// `installed_version` (crates/nebula/src/gui/mods.rs), duplicated here
-/// because that one is private to the GUI module.
-fn installed_version(row: &InstalledMod) -> String {
-    row.local
-        .as_ref()
-        .map(|local| local.version.clone())
-        .filter(|version| !version.trim().is_empty())
-        .or_else(|| row.entry.as_ref().map(|entry| entry.version_id.clone()))
-        .unwrap_or_else(|| "버전 미상".to_owned())
-}
-
 fn mods_update(catalog: &Catalog, dir: &ServerDir, apply: bool) -> Result<()> {
     let report = catalog::update::check_updates(catalog, dir)?;
     let candidates = report.candidates;
@@ -980,10 +970,11 @@ fn print_plan(plan: &InstallPlan) {
 }
 
 /// §8.4's confirm line: `{title} {number} · {정식|베타|알파} · {file} · {date}`,
-/// matching the GUI. `version_number` is CurseForge's real file number;
-/// `version_name` is a free-text title that usually just repeats the mod
-/// name, so it is only a fallback for a provider that leaves the number
-/// empty. The date is dropped when the provider didn't send one.
+/// matching the GUI. `version_number` is the human version — Modrinth's
+/// `version_number`, CurseForge's `displayName` (CF-02) — while `version_name`
+/// is a free-text title that usually just repeats the mod name, so it is only
+/// a fallback for a provider that leaves the number empty. The date is dropped
+/// when the provider didn't send one.
 fn plan_line(file: &PlannedFile) -> String {
     let number = if file.version_number.trim().is_empty() {
         &file.version_name
@@ -1049,14 +1040,6 @@ fn progress_line(index: usize, total: usize, file: &str) {
     );
 }
 
-fn release_label(release: ReleaseType) -> &'static str {
-    match release {
-        ReleaseType::Release => "정식",
-        ReleaseType::Beta => "베타",
-        ReleaseType::Alpha => "알파",
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Server management
 // ---------------------------------------------------------------------------
@@ -1088,6 +1071,7 @@ fn server_command(root: &Root, command: ServerCommand) -> Result<()> {
 mod tests {
     use super::*;
     use clap::CommandFactory;
+    use nebula_core::catalog::ReleaseType;
 
     #[test]
     fn command_tree_is_well_formed() {
@@ -1101,6 +1085,7 @@ mod tests {
             slug: Some("sodium".to_owned()),
             title: "Sodium".to_owned(),
             text_provider: ProviderId::CurseForge,
+            source_project_id: None,
             version_id: "42".to_owned(),
             version_name: "Sodium for 1.20.1".to_owned(),
             version_number: "0.5.8".to_owned(),
@@ -1144,6 +1129,21 @@ mod tests {
         let mut file = sample_planned_file();
         file.published.clear();
         assert_eq!(plan_line(&file), "Sodium 0.5.8 · 정식 · sodium-0.5.8.jar");
+    }
+
+    /// CF-07: `--help` said "Project id or slug" while CurseForge's
+    /// `/v1/mods/{id}` only ever accepted numbers.
+    #[test]
+    fn install_help_says_which_provider_takes_slugs() {
+        let mut command = Cli::command();
+        let help = command
+            .find_subcommand_mut("mods")
+            .and_then(|mods| mods.find_subcommand_mut("install"))
+            .expect("mods install")
+            .render_help()
+            .to_string();
+        assert!(help.contains("Modrinth slug"), "{help}");
+        assert!(help.contains("CurseForge accepts numeric"), "{help}");
     }
 
     #[test]

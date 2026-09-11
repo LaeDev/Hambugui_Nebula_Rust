@@ -71,9 +71,11 @@ pub fn require_provider(
     provider: ProviderId,
 ) -> Result<&dyn Provider, CatalogError> {
     catalog.provider(provider).ok_or_else(|| {
+        // Both ways in, because the CLI has no settings screen and D2 accepts
+        // either (CF-06).
         Error::Invalid(
-            "CurseForge API 키가 없습니다 — 설정 화면의 CurseForge API 키에 값을 입력하세요 \
-             (console.curseforge.com)"
+            "CurseForge API 키가 없습니다 — 설정 → CurseForge API 키에 값을 입력하거나 \
+             환경 변수 NEBULA_CURSEFORGE_API_KEY를 설정하세요 (console.curseforge.com)"
                 .to_owned(),
         )
         .into()
@@ -103,13 +105,21 @@ pub fn plan_install(
 
     let hit = source.project(project_id)?;
     let versions = source.versions(&hit.project_id, &ctx.mc, ctx.loader)?;
+    // The two misses are different answers and §8.4 only has a sentence for the
+    // second: a version id nobody has is `NotFound`, while a project that is
+    // simply not built for this server is `NoVersion` (CF-05).
     let root_version = match version {
         Some(wanted) => versions
             .into_iter()
-            .find(|candidate| candidate.version_id == wanted),
-        None => preferred_version(&versions).cloned(),
-    }
-    .ok_or(CatalogError::NotFound)?;
+            .find(|candidate| candidate.version_id == wanted)
+            .ok_or(CatalogError::NotFound)?,
+        None => preferred_version(&versions)
+            .cloned()
+            .ok_or_else(|| CatalogError::NoVersion {
+                mc: ctx.mc.to_string(),
+                loader: ctx.loader,
+            })?,
+    };
 
     let root = planned_file(catalog, provider, &hit, &root_version)?;
     let mut plan = InstallPlan {
@@ -311,6 +321,10 @@ fn planned_file(
             slug: None,
             title: hit.title.clone(),
             text_provider: provider,
+            // The version picker and any re-plan have to go back to the
+            // provider the user picked, with *its* id — not Modrinth's, which
+            // `project_id` above now holds (CF-03).
+            source_project_id: Some(hit.project_id.clone()),
             version_id: mirrored.version_id.clone(),
             version_name: mirrored.name.clone(),
             version_number: mirrored.number.clone(),
@@ -325,6 +339,7 @@ fn planned_file(
         slug: Some(hit.slug.clone()),
         title: hit.title.clone(),
         text_provider: provider,
+        source_project_id: None,
         version_id: version.version_id.clone(),
         version_name: version.name.clone(),
         version_number: version.number.clone(),
@@ -404,9 +419,10 @@ struct Installed<'a> {
     container: &'a Path,
     /// Read on the first slug miss only.
     ///
-    /// ponytail: `jarmeta::read` opens and hashes every jar four times, so a
-    /// 300-mod server pays for that once per plan; a `mod_id`-only reader in
-    /// `jarmeta` is the upgrade if planning ever feels slow.
+    /// ponytail: `jarmeta::read` unzips and hashes every jar once, so a 300-mod
+    /// server pays for that once per plan; a `mod_id`-only reader in `jarmeta`,
+    /// which would skip the hashing entirely, is the upgrade if planning ever
+    /// feels slow.
     jar_mods: Option<BTreeMap<String, String>>,
 }
 
@@ -500,11 +516,11 @@ pub fn apply(
     }
 
     let mut index = ModIndex::load(server)?;
-    let held: BTreeMap<(ProviderId, String), String> = index
-        .mods
-        .iter()
-        .map(|(file, entry)| ((entry.provider, entry.project_id.clone()), file.clone()))
-        .collect();
+    // The very same test planning used, D6's: `(provider, project id)` first,
+    // then the jar's own mod id. Identity is not a provider's property, so
+    // installing a mod the user already has from the *other* provider is a
+    // replace, never a second jar carrying the same mod id (CF-01).
+    let mut installed = Installed::new(&index, &ctx.container);
 
     let mut report = InstallReport {
         manual: plan.blocked.clone(),
@@ -535,21 +551,32 @@ pub fn apply(
             continue; // Blocked; already listed in `report.manual`.
         }
         check_file_name(&planned.file.file_name)?;
-        match held.get(&(planned.provider, planned.project_id.clone())) {
+        match installed.find(
+            planned.provider,
+            &planned.project_id,
+            planned.slug.as_deref(),
+        ) {
             // Re-checked under the lock, as D6 requires.
             Some(old) => match is_root {
                 true => {
+                    // Matched through the jar's mod id, not the index: there is
+                    // no entry to replace, and `replace_file_locked` would only
+                    // discover that after the fresh files were already on disk.
+                    // Refused here, before anything is downloaded.
+                    if !index.mods.contains_key(&old) {
+                        return Err(CatalogError::NameTaken { file: old });
+                    }
                     check_name_free(
                         &index,
                         &ctx.container,
                         &claimed,
                         &planned.file.file_name,
-                        Some(old),
+                        Some(&old),
                     )?;
-                    replace = Some((planned, old.clone()));
+                    replace = Some((planned, old));
                     claimed.insert(planned.file.file_name.clone());
                 }
-                false => report.skipped_already_installed.push(old.clone()),
+                false => report.skipped_already_installed.push(old),
             },
             None => {
                 check_name_free(
@@ -860,6 +887,20 @@ mod tests {
         ] {
             check_file_name(name).unwrap_or_else(|error| panic!("{name}: {error}"));
         }
+    }
+
+    /// CF-06: the CLI has no settings screen, so naming only that one is not
+    /// an actionable prescription for half the users D2 accepts.
+    #[test]
+    fn the_no_key_refusal_names_both_ways_in() {
+        let catalog = Catalog::new(super::super::Endpoints::default(), None);
+        let Err(error) = require_provider(&catalog, ProviderId::CurseForge) else {
+            panic!("a catalog with no key must refuse CurseForge");
+        };
+        let printed = Error::from(error).to_string();
+        assert!(printed.contains("설정 → CurseForge API 키"), "{printed}");
+        assert!(printed.contains("NEBULA_CURSEFORGE_API_KEY"), "{printed}");
+        assert!(printed.contains("console.curseforge.com"), "{printed}");
     }
 
     #[test]

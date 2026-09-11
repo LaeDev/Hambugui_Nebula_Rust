@@ -1,0 +1,6 @@
+﻿# s03c-scrollprobe  2026-09-10 18:57:15
+before scroll    descendants=63   LogView top=985    LogView children=0    +MM:SS rows=0    로그지우기=False
+  shot -> 03c-scrolled.png  (736 x 999)
+after scroll+10  descendants=77   LogView top=787    LogView children=25   +MM:SS rows=7    로그지우기=True
+back to top      descendants=63   LogView top=985    LogView children=0    +MM:SS rows=0    로그지우기=False
+RESULT: all checks passed

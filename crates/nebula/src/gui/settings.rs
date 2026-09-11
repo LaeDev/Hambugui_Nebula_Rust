@@ -59,6 +59,15 @@ pub struct GuiSettings {
     pub gdrive_client_id: String,
     pub gdrive_client_secret: String,
     pub gdrive_folder_id: String,
+
+    /// The user's own CurseForge key (D2). A form field; the environment
+    /// variable `NEBULA_CURSEFORGE_API_KEY` still wins over it, which is why
+    /// `ModsData.has-cf-key` is the host's answer and not this field's length.
+    pub curseforge_api_key: String,
+    /// Which server the 모드 page was last looking at (DESIGN-v2 §8.2).
+    /// **Not** a settings-form field: it is written when the pill strip
+    /// changes, and `form_from_ui` carries it over so a 저장 cannot wipe it.
+    pub last_mods_server: String,
 }
 
 impl GuiSettings {
@@ -133,6 +142,10 @@ impl GuiSettings {
             // Left verbatim so a bare `java` on PATH keeps working.
             java_executable: trimmed(&self.java_executable).map(PathBuf::from),
             helios_data_folder: trimmed(&self.helios_data_folder).map(PathBuf::from),
+            // Only the stored field. `NEBULA_CURSEFORGE_API_KEY` wins over it,
+            // but that rule lives in one place — `gui::mods::cf_key` — rather
+            // than being applied twice with two chances to diverge.
+            curseforge_api_key: trimmed(&self.curseforge_api_key).map(str::to_owned),
         })
     }
 
@@ -238,7 +251,49 @@ mod tests {
             gdrive_client_id: "id".into(),
             gdrive_client_secret: "secret".into(),
             gdrive_folder_id: "folder".into(),
+            curseforge_api_key: "cf-key".into(),
+            last_mods_server: "Test-1.20.1".into(),
         }
+    }
+
+    #[test]
+    fn a_settings_file_written_before_the_mods_page_still_loads() {
+        let dir = crate::gui::TempDir::new("legacy-settings");
+        let settings = with_config_dir(dir.path(), || {
+            // Exactly the shape shipped before §8: neither new key is there.
+            std::fs::create_dir_all(dir.path()).unwrap();
+            std::fs::write(
+                settings_path(),
+                r#"{ "root": "D:\\TestRoot", "base-url": "https://cdn.example.invalid/", "theme": "dark" }"#,
+            )
+            .unwrap();
+            GuiSettings::load()
+        });
+        assert_eq!(settings.root, "D:\\TestRoot");
+        assert_eq!(settings.theme, "dark");
+        assert_eq!(settings.curseforge_api_key, "");
+        assert_eq!(settings.last_mods_server, "");
+    }
+
+    #[test]
+    fn the_two_mods_keys_persist_under_their_kebab_case_names() {
+        let dir = crate::gui::TempDir::new("mods-settings");
+        let (raw, read_back) = with_config_dir(dir.path(), || {
+            sample().save().unwrap();
+            (
+                std::fs::read_to_string(settings_path()).unwrap(),
+                GuiSettings::load(),
+            )
+        });
+        assert!(raw.contains("\"curseforge-api-key\""), "{raw}");
+        assert!(raw.contains("\"last-mods-server\""), "{raw}");
+        assert_eq!(read_back.curseforge_api_key, "cf-key");
+        assert_eq!(read_back.last_mods_server, "Test-1.20.1");
+        // …and the key reaches the `Config` the catalog is built from.
+        assert_eq!(
+            read_back.to_config().unwrap().curseforge_api_key.as_deref(),
+            Some("cf-key")
+        );
     }
 
     #[test]

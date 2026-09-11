@@ -14,6 +14,10 @@ pub struct Config {
     pub base_url: Url,
     pub java_executable: Option<PathBuf>,
     pub helios_data_folder: Option<PathBuf>,
+    /// The user's own CurseForge Core API key (D2). Without it every
+    /// CurseForge catalog surface is absent; the inherited
+    /// [`crate::curseforge::API_KEY`] stays the modpack-import fallback only.
+    pub curseforge_api_key: Option<String>,
 }
 
 impl Config {
@@ -35,6 +39,7 @@ impl Config {
             helios_data_folder: optional("HELIOS_DATA_FOLDER")
                 .map(|v| absolute(&v))
                 .transpose()?,
+            curseforge_api_key: optional("NEBULA_CURSEFORGE_API_KEY"),
         })
     }
 

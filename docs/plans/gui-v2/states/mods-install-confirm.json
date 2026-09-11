@@ -1,0 +1,409 @@
+{
+  "Theme": {
+    "preference": "light",
+    "screenshot": true
+  },
+  "AppData": {
+    "page": "mods",
+    "dialog": "install-confirm",
+    "toasts": []
+  },
+  "SheetData": {
+    "has-root": true,
+    "root-initialised": true,
+    "can-generate": true,
+    "install-local-enabled": true,
+    "loading": false,
+    "servers-error": "",
+    "busy": false,
+    "busy-label": "",
+    "distro-name": "distribution",
+    "verdict-title": "",
+    "verdict-detail": "",
+    "verdict-tone": "success",
+    "summary": "",
+    "artifacts": 0,
+    "sha256-count": 0,
+    "errors": 0,
+    "warnings": 0,
+    "error-text": "",
+    "error-kind": "",
+    "error-hint": "",
+    "install-local": false,
+    "invalidate-cache": false,
+    "discard-output": false,
+    "findings-expanded": false,
+    "readiness": [
+      {
+        "label": "루트",
+        "value": "D:\\TestRoot",
+        "state": "ok"
+      },
+      {
+        "label": "기본 URL",
+        "value": "https://cdn.example.com/",
+        "state": "ok"
+      },
+      {
+        "label": "Java",
+        "value": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+        "state": "ok"
+      },
+      {
+        "label": "Launcher 폴더",
+        "value": "미설정",
+        "state": "missing"
+      }
+    ],
+    "servers": [
+      {
+        "id": "Test-1.12.2",
+        "loader": "Forge 14.23.5.2860",
+        "counts": "모드 42 · 파일 118 · 라이브러리 3",
+        "path": "D:\\TestRoot\\servers\\Test-1.12.2",
+        "initials": "TE",
+        "hue": 194
+      },
+      {
+        "id": "Sky-1.20.1",
+        "loader": "NeoForge 21.1.77",
+        "counts": "모드 128 · 파일 304 · 라이브러리 12",
+        "path": "D:\\TestRoot\\servers\\Sky-1.20.1",
+        "initials": "SK",
+        "hue": 28
+      },
+      {
+        "id": "Vanilla-1.21",
+        "loader": "없음",
+        "counts": "모드 0 · 파일 62 · 라이브러리 0",
+        "path": "D:\\TestRoot\\servers\\Vanilla-1.21",
+        "initials": "VA",
+        "hue": 268
+      }
+    ],
+    "findings": [],
+    "log": [
+      {
+        "time": "+00:00",
+        "target": "nebula",
+        "message": "루트 D:\\TestRoot · 서버 3개 · 모드팩 2개",
+        "level": "info"
+      },
+      {
+        "time": "+00:03",
+        "target": "files",
+        "message": "484 modules hashed",
+        "level": "info"
+      },
+      {
+        "time": "+00:05",
+        "target": "valid",
+        "message": "0 errors, 2 warnings",
+        "level": "warn"
+      },
+      {
+        "time": "+00:05",
+        "target": "write",
+        "message": "distribution.json 저장: D:\\TestRoot\\distribution.json",
+        "level": "info"
+      }
+    ]
+  },
+  "PublishData": {
+    "target": "none",
+    "only-changed": true,
+    "can-publish": false,
+    "busy": false,
+    "blocked-reason": "",
+    "result-line": "",
+    "result-error": false,
+    "distribution-url": ""
+  },
+  "NewServerData": {
+    "id": "",
+    "mc-version": "",
+    "loader": "none",
+    "loader-version": "",
+    "id-error": "",
+    "mc-error": "",
+    "loader-version-error": "",
+    "error-text": "",
+    "forge-mod-lists-warning": false,
+    "busy": false,
+    "lookup-busy": false
+  },
+  "ImportData": {
+    "zips": [],
+    "manual-downloads": [],
+    "folder-path": "D:\\TestRoot\\modpacks",
+    "id-error": "",
+    "error-text": "",
+    "busy": false,
+    "result-line": "",
+    "selected-zip": -1,
+    "server-id": ""
+  },
+  "SettingsData": {
+    "root": "D:\\TestRoot",
+    "base-url": "https://cdn.example.com/",
+    "java": "C:\\Program Files\\Java\\jdk-21\\bin\\java.exe",
+    "helios": "",
+    "theme": "light",
+    "reduced-motion": false,
+    "webdav-url": "https://dav.example.com/nebula/",
+    "webdav-user": "nebula",
+    "webdav-password": "hunter2hunter2",
+    "webdav-public-url": "",
+    "gdrive-client-id": "",
+    "gdrive-client-secret": "",
+    "gdrive-folder-id": "",
+    "gdrive-connected": false,
+    "gdrive-busy": false,
+    "gdrive-status": "",
+    "gdrive-status-error": false,
+    "root-error": "",
+    "base-url-error": "",
+    "java-error": "",
+    "helios-error": "",
+    "error-text": "",
+    "focus-field": "",
+    "focus-tick": 0,
+    "root-missing": false,
+    "busy": false,
+    "dirty": false,
+    "curseforge-api-key": "cf-key-000000000000000000000000"
+  },
+  "ModsData": {
+    "servers": [
+      "Test-1.12.2",
+      "Sky-1.20.1",
+      "Vanilla-1.21",
+      "Neo-1.21.1",
+      "RL-1.12.2"
+    ],
+    "server-index": 3,
+    "scope-line": "Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.72",
+    "has-servers": true,
+    "view": 1,
+    "has-cf-key": true,
+    "provider-index": 0,
+    "sort-index": 0,
+    "sort-labels": [
+      "관련도",
+      "다운로드",
+      "최신"
+    ],
+    "query": "optimization",
+    "installed": [
+      {
+        "file-name": "jei-19.21.0.247.jar",
+        "title": "Just Enough Items",
+        "subtitle": "19.21.0.247 · jei-19.21.0.247.jar · CurseForge",
+        "initials": "JE",
+        "hue": 204,
+        "namespace": "required",
+        "namespace-label": "필수",
+        "update-available": true,
+        "missing": false,
+        "unshippable": false
+      },
+      {
+        "file-name": "sodium-0.6.0.jar",
+        "title": "Sodium",
+        "subtitle": "0.6.0 · sodium-0.6.0.jar · Modrinth",
+        "initials": "SO",
+        "hue": 156,
+        "namespace": "optionalon",
+        "namespace-label": "선택 켜짐",
+        "update-available": false,
+        "missing": false,
+        "unshippable": false
+      },
+      {
+        "file-name": "jade-15.2.4.jar",
+        "title": "Jade",
+        "subtitle": "15.2.4 · jade-15.2.4.jar · 직접 추가",
+        "initials": "JA",
+        "hue": 42,
+        "namespace": "optionaloff",
+        "namespace-label": "선택 꺼짐",
+        "update-available": false,
+        "missing": true,
+        "unshippable": false
+      },
+      {
+        "file-name": "journeymap-5.10.3.zip",
+        "title": "JourneyMap",
+        "subtitle": "5.10.3 · journeymap-5.10.3.zip · 직접 추가",
+        "initials": "JO",
+        "hue": 312,
+        "namespace": "required",
+        "namespace-label": "필수",
+        "update-available": false,
+        "missing": false,
+        "unshippable": true
+      }
+    ],
+    "installed-count-line": "설치된 모드 4",
+    "check-caption": "관리 3 · 직접 추가 1 · 마지막 업데이트 확인 5분 전",
+    "updates-available": 1,
+    "hits": [
+      {
+        "provider": "modrinth",
+        "project-id": "sodium",
+        "title": "Sodium",
+        "caption": "CaffeineMC · 다운로드 4560만 · 수정 3일 전",
+        "description": "렌더링을 다시 짜서 프레임을 크게 끌어올리는 클라이언트 최적화 모드입니다.",
+        "initials": "SO",
+        "hue": 156,
+        "installed": true,
+        "resolving": false,
+        "no-version": false,
+        "install-a11y-id": "mods-install-modrinth-sodium"
+      },
+      {
+        "provider": "modrinth",
+        "project-id": "lithium",
+        "title": "Lithium",
+        "caption": "CaffeineMC · 다운로드 3120만 · 수정 12일 전",
+        "description": "게임 로직과 틱 처리를 최적화합니다. 동작은 바닐라와 같습니다.",
+        "initials": "LI",
+        "hue": 96,
+        "installed": false,
+        "resolving": false,
+        "no-version": false,
+        "install-a11y-id": "mods-install-modrinth-lithium"
+      },
+      {
+        "provider": "modrinth",
+        "project-id": "ferrite-core",
+        "title": "FerriteCore",
+        "caption": "malte0811 · 다운로드 2870만 · 수정 1개월 전",
+        "description": "메모리 사용량을 줄입니다. 서버와 클라이언트 모두에서 동작합니다.",
+        "initials": "FE",
+        "hue": 28,
+        "installed": false,
+        "resolving": true,
+        "no-version": false,
+        "install-a11y-id": "mods-install-modrinth-ferrite-core"
+      },
+      {
+        "provider": "modrinth",
+        "project-id": "immersive-portals",
+        "title": "Immersive Portals",
+        "caption": "qouteall · 다운로드 890만 · 수정 2개월 전 · 1.21.1 NeoForge용 버전 없음",
+        "description": "포털 너머를 실시간으로 그려 이동을 끊김 없이 만듭니다.",
+        "initials": "IM",
+        "hue": 268,
+        "installed": false,
+        "resolving": false,
+        "no-version": true,
+        "install-a11y-id": "mods-install-modrinth-immersive-portals"
+      }
+    ],
+    "search-state": "results",
+    "search-error-title": "",
+    "search-error-body": "",
+    "has-more": true,
+    "loading-more": false,
+    "search-busy": false,
+    "resolving": false,
+    "list-busy": false,
+    "checking": false,
+    "progress-visible": false,
+    "progress-fraction": -1,
+    "progress-text": "",
+    "progress-owner": "search",
+    "failure-title": "",
+    "failure-body": "",
+    "failure-visible": false,
+    "failure-can-retry": true,
+    "failure-folder": "",
+    "manual": [],
+    "manual-folder": "",
+    "confirm-title": "Neo-1.21.1에 설치",
+    "confirm-version-line": "lithium 0.14.3 · 베타 · 0.4 MB · 2025-02-11",
+    "confirm-warning": "정식 버전이 없어 베타를 선택했습니다",
+    "confirm-namespace-index": 0,
+    "deps": [
+      {
+        "project-id": "cloth-config",
+        "title": "Cloth Config API",
+        "version": "15.0.140",
+        "size-label": "1.2 MB",
+        "checked": true,
+        "already-installed": false,
+        "required": true,
+        "helper": ""
+      },
+      {
+        "project-id": "architectury",
+        "title": "Architectury API",
+        "version": "13.0.8",
+        "size-label": "2.8 MB",
+        "checked": true,
+        "already-installed": false,
+        "required": true,
+        "helper": ""
+      },
+      {
+        "project-id": "fabric-api",
+        "title": "Forgified Fabric API",
+        "version": "0.111.0",
+        "size-label": "6.4 MB",
+        "checked": true,
+        "already-installed": true,
+        "required": true,
+        "helper": "jar 모드 id로 찾았습니다 — 직접 추가한 파일일 수 있습니다"
+      },
+      {
+        "project-id": "modmenu",
+        "title": "Mod Menu",
+        "version": "11.0.3",
+        "size-label": "0.6 MB",
+        "checked": false,
+        "already-installed": false,
+        "required": false,
+        "helper": ""
+      },
+      {
+        "project-id": "emi",
+        "title": "EMI",
+        "version": "1.1.18",
+        "size-label": "3.1 MB",
+        "checked": false,
+        "already-installed": false,
+        "required": false,
+        "helper": ""
+      }
+    ],
+    "confirm-footer": "3개 · 4.6 MB",
+    "confirm-primary-label": "3개 설치",
+    "confirm-blocked-title": "",
+    "confirm-blocked-body": "",
+    "confirm-can-install": true,
+    "versions": [],
+    "version-dialog-title": "",
+    "downgrade-confirm-line": "",
+    "detail-title": "",
+    "detail-description": "",
+    "detail-version": "",
+    "detail-file": "",
+    "detail-provider": "",
+    "detail-hash": "",
+    "detail-namespace-index": 0,
+    "detail-has-provider": true,
+    "detail-is-managed": true,
+    "delete-title": "",
+    "delete-path": "",
+    "delete-dependents": "",
+    "updates": [],
+    "update-count": 0,
+    "server-menu-id": "",
+    "duplicate-id": "",
+    "duplicate-error": "",
+    "delete-server-id": "",
+    "delete-server-path": "",
+    "delete-server-input": ""
+  }
+}

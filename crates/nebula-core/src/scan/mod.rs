@@ -12,8 +12,8 @@ pub mod library;
 pub mod toggle;
 
 pub use fabricmod::{
-    FabricEntryPoint, FabricModJson, entry_point, fabric_module_id_and_name, infer_group,
-    parse_fabric_mod_json, scan_fabric_mods,
+    FabricEntryPoint, FabricIcon, FabricModJson, entry_point, fabric_module_id_and_name,
+    infer_group, parse_fabric_mod_json, scan_fabric_mods,
 };
 pub use files::scan_files;
 // The metadata parsers behind these two are `pub(crate)` and tested inline in

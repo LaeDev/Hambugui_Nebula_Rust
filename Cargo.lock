@@ -3224,6 +3224,7 @@ dependencies = [
  "serde_json",
  "slint",
  "slint-build",
+ "tempfile",
 ]
 
 [[package]]
@@ -3233,6 +3234,7 @@ dependencies = [
  "dotenvy",
  "globset",
  "hex",
+ "image",
  "log",
  "md-5",
  "reqwest",

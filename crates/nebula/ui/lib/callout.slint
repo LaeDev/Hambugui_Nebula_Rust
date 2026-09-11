@@ -13,7 +13,9 @@ export component Callout inherits Rectangle {
     border-radius: Theme.r-lg;
 
     accessible-role: text;
-    accessible-label: root.title + ". " + root.body;
+    // Joined, never punctuated: the copy already ends its own sentences, and a
+    // Callout with no body would otherwise read a stop and a trailing space.
+    accessible-label: root.body == "" ? root.title : root.title + " " + root.body;
 
     layout := HorizontalLayout {
         padding: Theme.sp-3;
@@ -74,7 +76,8 @@ export component VerdictBanner inherits Rectangle {
     min-height: 72px;
 
     accessible-role: text;
-    accessible-label: root.title + ". " + root.detail;
+    // Same rule as `Callout`: the title carries its own stop.
+    accessible-label: root.detail == "" ? root.title : root.title + " " + root.detail;
 
     banner := HorizontalLayout {
         padding: Theme.sp-4;

@@ -1,12 +1,12 @@
 //! Publishing: plan extraction, change tracking, URL rewriting, and a WebDAV
 //! upload driven against an in-process stub server.
 
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+mod common;
 
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use common::{stub_created, summaries};
 use nebula_core::Result;
 use nebula_core::hash::Digests;
 use nebula_core::layout::Root;
@@ -371,77 +371,11 @@ fn rewriting_never_trusts_the_publish_state_to_supply_a_url() {
 
 // --- WebDAV ---------------------------------------------------------------
 
-type Calls = Arc<Mutex<Vec<(String, String, usize)>>>;
-
-/// A stub HTTP/1.1 server that answers 201 to everything and records
-/// method, request target and body length.
-fn stub_webdav() -> (SocketAddr, Calls) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let addr = listener.local_addr().unwrap();
-    let calls: Calls = Arc::new(Mutex::new(Vec::new()));
-
-    let recorded = Arc::clone(&calls);
-    std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            let Ok(stream) = stream else { break };
-            let recorded = Arc::clone(&recorded);
-            std::thread::spawn(move || serve(stream, &recorded));
-        }
-    });
-    (addr, calls)
-}
-
-fn serve(stream: TcpStream, calls: &Mutex<Vec<(String, String, usize)>>) {
-    let Ok(mut writer) = stream.try_clone() else {
-        return;
-    };
-    let mut reader = BufReader::new(stream);
-
-    loop {
-        let mut request_line = String::new();
-        if reader.read_line(&mut request_line).unwrap_or(0) == 0 {
-            return;
-        }
-        let mut parts = request_line.split_whitespace();
-        let method = parts.next().unwrap_or_default().to_owned();
-        let target = parts.next().unwrap_or_default().to_owned();
-
-        let mut length = 0usize;
-        loop {
-            let mut header = String::new();
-            if reader.read_line(&mut header).unwrap_or(0) == 0 {
-                return;
-            }
-            let header = header.trim_end().to_ascii_lowercase();
-            if header.is_empty() {
-                break;
-            }
-            if let Some(value) = header.strip_prefix("content-length:") {
-                length = value.trim().parse().unwrap_or(0);
-            }
-        }
-
-        let mut body = vec![0u8; length];
-        if length > 0 && reader.read_exact(&mut body).is_err() {
-            return;
-        }
-        calls.lock().unwrap().push((method, target, body.len()));
-
-        if writer
-            .write_all(b"HTTP/1.1 201 Created\r\nContent-Length: 0\r\n\r\n")
-            .is_err()
-        {
-            return;
-        }
-        let _ = writer.flush();
-    }
-}
-
 #[test]
 fn uploads_over_webdav_creating_every_collection_first() {
     let fixture = Fixture::golden();
     let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
-    let (addr, calls) = stub_webdav();
+    let (addr, calls) = stub_created();
 
     let mut target = WebDavTarget::new(
         Url::parse(&format!("http://{addr}/nebula-dist/")).unwrap(),
@@ -469,7 +403,7 @@ fn uploads_over_webdav_creating_every_collection_first() {
     );
     assert_eq!((report.uploaded, report.skipped), (2, 0));
 
-    let calls = calls.lock().unwrap();
+    let calls = summaries(&calls);
     let seen: Vec<(&str, &str, usize)> = calls
         .iter()
         .map(|(method, target, length)| (method.as_str(), target.as_str(), *length))
@@ -509,7 +443,7 @@ fn creates_each_webdav_collection_once_per_run() {
         &[(name, b"one"), (other, b"two")],
     );
     let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
-    let (addr, calls) = stub_webdav();
+    let (addr, calls) = stub_created();
 
     let mut target = WebDavTarget::new(
         Url::parse(&format!("http://{addr}/")).unwrap(),
@@ -529,7 +463,7 @@ fn creates_each_webdav_collection_once_per_run() {
     )
     .unwrap();
 
-    let calls = calls.lock().unwrap();
+    let calls = summaries(&calls);
     let mkcols: Vec<&str> = calls
         .iter()
         .filter(|(method, ..)| method == "MKCOL")

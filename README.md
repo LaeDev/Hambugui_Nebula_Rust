@@ -47,22 +47,32 @@ nebula gui                                         # GUI 실행 (인자 없이 n
 ## 4. GUI
 
 `nebula gui`(또는 인자 없이 `nebula`)는 3:4 세로 비율 창(기본 720×960, 최소 640×800,
-크기 조절 가능)을 띄웁니다. 좌측 72px 내비게이션 레일에 다섯 페이지(빌드/서버/가져오기/
-배포/설정) 아이콘이 있고, 상단 바에는 현재 페이지 제목, 작업 중일 때 나타나는 상태 알약
-(경과 시간 표시), 라이트/다크 테마 토글 버튼이 있습니다.
+크기 조절 가능)을 띄웁니다. 좌측 72px 내비게이션 레일에 여섯 페이지(빌드/서버/모드/
+가져오기/배포/설정) 아이콘이 있고, 상단 바에는 현재 페이지 제목, 작업 중일 때 나타나는
+상태 알약(경과 시간 표시), 라이트/다크 테마 토글 버튼이 있습니다.
 
 1. **빌드**(기본 페이지) — 루트/기본 URL/Java/Launcher 폴더 준비 상태를 확인하고, 배포본
    파일 이름과 옵션(Launcher 폴더에 설치 / Forge 캐시 무효화 / 설치 출력 삭제)을 정해
    "배포본 생성" 또는 "기존 파일 검증"을 실행한 뒤 결과와 로그를 봅니다.
 2. **서버** — `list_servers`가 읽은 서버 목록(로더, 모드/파일/라이브러리 개수)을 보고,
-   "모드팩 가져오기"로 이동하거나 "새 서버" 대화상자로 서버를 만듭니다.
-3. **가져오기** — `modpacks/` 폴더의 CurseForge/Modrinth/Prism 팩 중 하나를 골라 서버
+   "모드팩 가져오기"로 이동하거나 "새 서버" 대화상자로 서버를 만듭니다. 각 행의 셰브런을
+   누르면 메뉴(모드 관리 / 폴더 열기 / 복제 / 삭제)가 열리며, 삭제는 서버 ID를 정확히
+   입력해야 실행됩니다.
+3. **모드** — 상단의 서버 선택 알약으로 관리할 서버를 고르고, 설치됨 / 찾기 화면을
+   전환합니다. 설치됨은 관리 중인 모드와 손으로 넣은 모드를 함께 보여주며 업데이트 확인 /
+   모두 업데이트를 제공하고, 자세히 버튼으로 모드 상세 대화상자(네임스페이스 이동, 다른
+   버전, 삭제)를 엽니다. 찾기는 Modrinth/CurseForge에서 검색해 설치 확인 대화상자(해결된
+   버전, 네임스페이스, 필수·선택 의존성)를 거쳐 설치합니다. **Modrinth는 API 키 없이
+   검색·설치할 수 있습니다.** CurseForge 검색·설치는 사용자 자신의 API 키가 필요합니다 —
+   설정 → CurseForge에서 입력하거나 환경 변수 `NEBULA_CURSEFORGE_API_KEY`를 설정하세요
+   (둘 다 있으면 환경 변수가 우선합니다).
+4. **가져오기** — `modpacks/` 폴더의 CurseForge/Modrinth/Prism 팩 중 하나를 골라 서버
    ID를 지정하고 가져옵니다. 자동으로 받을 수 없는 파일은 수동 다운로드 목록으로
    나타납니다.
-4. **배포** — WebDAV/Google Drive 업로드 대상을 고르고, 변경된 파일만 올릴지 정한 뒤
+5. **배포** — WebDAV/Google Drive 업로드 대상을 고르고, 변경된 파일만 올릴지 정한 뒤
    업로드를 실행합니다.
-5. **설정** — 루트/기본 URL/Java/Launcher 폴더, WebDAV·Google Drive 자격 증명, 테마와
-   모션 줄이기를 편집하고 저장합니다.
+6. **설정** — 루트/기본 URL/Java/Launcher 폴더, WebDAV·Google Drive 자격 증명, CurseForge
+   API 키, 테마와 모션 줄이기를 편집하고 저장합니다.
 
 빌드 페이지에서 생성/검증이 끝나면 결과 카드에 **검증 배너**가 뜹니다: `런처 검증 통과`
 (성공)/`경고와 함께 통과`(strict 검증만 실패)/`검증 실패`(오류 포함) 세 등급이며 파일명과
@@ -71,7 +81,7 @@ SHA-256 앞자리를 함께 보여줍니다. strict 검증을 통과하지 못�
 실패, 최대 3개 표시, 4초 후 자동 소멸)가 뜨고, "새 서버" 같은 화면은 모달 대화상자로
 열립니다(작업 중에는 열리지 않습니다).
 
-키보드: `Ctrl`/`Cmd`+`1`~`5`로 페이지 전환, `Esc`로 대화상자 닫기(작업 중이 아닐 때),
+키보드: `Ctrl`/`Cmd`+`1`~`6`로 페이지 전환, `Esc`로 대화상자 닫기(작업 중이 아닐 때),
 `Enter`로 대화상자 제출 및 설정 저장.
 
 **설정 저장 위치**: 설정은 JSON으로 Windows `%APPDATA%\nebula\settings.json`, macOS
@@ -140,6 +150,27 @@ camelCase 별칭(`--installLocal`, `--discardOutput`, `--invalidateCache`)은 ke
 | `gdrive-auth` | | Google 계정에 대해 OAuth 인증을 수행하고 리프레시 토큰을 저장합니다. |
 | `gui` | | GUI를 실행합니다(인자 없이 `nebula`를 실행한 것과 같습니다). |
 
+### mods
+
+`nebula mods <SERVER> <하위 명령>` — `<SERVER>`는 `<ROOT>/servers` 아래의 서버 디렉터리
+이름입니다.
+
+| 하위 명령 | 인자/옵션 | 설명 |
+|---|---|---|
+| `search <QUERY>` | `--provider modrinth\|curseforge`(기본 `modrinth`), `--sort relevance\|downloads\|newest`(기본 `relevance`), `--limit <N>`(기본 `20`), `--offset <N>`(기본 `0`) | 서버의 마인크래프트 버전·로더에 맞는 모드를 검색합니다. |
+| `install <PROJECT>` | `--version <ID>`(생략 시 서버에 맞는 최신 버전을 고름), `--namespace required\|optionalon\|optionaloff`(기본 `required`), `--no-deps`(필수 의존성 없이 단독 설치 — 게임이 시작되지 않을 수 있음), `--provider modrinth\|curseforge`(기본 `modrinth`) | `PROJECT`(프로젝트 id 또는 slug)와 필수 의존성을 설치합니다. |
+| `list` | | 관리 중인 모드와 손으로 넣은 모드를 모두 나열합니다. |
+| `update` | `--apply` | `--apply` 없이 실행하면 업데이트 가능한 모드 목록만 보여주고 아무것도 설치하지 않습니다. `--apply`를 주면 실제로 설치합니다. |
+| `remove <FILE>` | | 모드 파일과 색인 항목을 삭제합니다. |
+| `move <FILE> <NAMESPACE>` | `NAMESPACE`는 `required`\|`optionalon`\|`optionaloff` | 모드를 다른 네임스페이스로 옮겨 켜거나 끕니다. |
+
+### server
+
+| 명령 | 인자/옵션 | 설명 |
+|---|---|---|
+| `server delete <DIR>` | `--yes`(필수) | 서버 디렉터리를 통째로 삭제합니다. `--yes` 없이 실행하면 삭제될 절대 경로만 출력하고 오류로 끝납니다(아무것도 지우지 않습니다). |
+| `server duplicate <DIR> <NEW_ID>` | | `DIR`을 `NEW_ID`(마인크래프트 버전 접미사는 유지)로 복제합니다. `modindex.json`도 그대로 복사됩니다. |
+
 ## 6. 파일 구조 명세
 
 Nebula는 파일 구조 자체로 정보를 보존하는 방식을 씁니다. 이 구조로부터 Helios/Hambugui용
@@ -170,6 +201,18 @@ TestRoot/                          배포본을 감싸는 루트 디렉터리
 무관하고, 여러 개면 디렉터리 정렬 순서상 마지막 파일이 선택됩니다. (2) `servermeta.json`의
 `meta.icon`에 전체 URL을 직접 적습니다(직접 호스팅 권장). `servermeta.json`의 값이 비어
 있지 않고 유효한 URL이면 항상 그 값이 우선하며, 비어 있거나 무효하면 1번으로 대체됩니다.
+
+### 모드 카탈로그 파일
+
+`nebula mods`와 GUI 모드 페이지가 관리를 위해 서버 디렉터리 안에 두는 파일입니다. 셋 다
+**`distribution.json` 생성에는 전혀 영향을 주지 않습니다** — 어떤 스캐너도 읽지 않습니다.
+
+| 경로 | 내용 |
+|---|---|
+| `<server>/modindex.json` | 서버별 설치 색인(제공자, 버전, 해시, 의존성 등). 지워도 안전합니다 — 지우면 해당 모드들이 목록에서 `직접 추가`로만 보입니다. |
+| `<server>/.nebula-tmp/` | 다운로드 스테이징 디렉터리. |
+| `<server>/.nebula-lock` | 모드 설치/업데이트/삭제/이동, 서버 삭제/복제 중에 생성되는 프로세스 간 배타적 잠금 파일. |
+| `<root>/cache/icons/` | 모드 아이콘 캐시. |
 
 ### 추가 메타데이터
 
@@ -241,6 +284,10 @@ TestRoot/                          배포본을 감싸는 루트 디렉터리
 자동 감지해 CurseForge zip, Modrinth `.mrpack`, Prism/MultiMC 인스턴스 zip 중 하나로
 가져옵니다. `generate server-curseforge`는 CurseForge 형식만 허용하는 별칭입니다.
 
+이 형식 인식과 4절의 모드 관리 동작은 [Prism Launcher](https://github.com/PrismLauncher/PrismLauncher)
+(GPL-3.0)를 **동작 참고용으로만** 사용합니다 — 엔드포인트·매개변수·엣지 케이스를 참고했을
+뿐 코드는 전혀 복사하지 않았습니다.
+
 | 형식 | 감지 기준(zip 내부 항목) | 로더 정보 출처 |
 |---|---|---|
 | CurseForge 팩 (`.zip`) | `manifest.json` | `minecraft.modLoaders[].id`: `forge-<v>`, `neoforge-<v>`, `fabric-<v>`. `quilt-<v>`나 1.20.1용 legacy NeoForge id(`neoforge-1.20.1-<v>`)는 지원하지 않아 오류를 냅니다. |
@@ -261,6 +308,16 @@ TestRoot/                          배포본을 감싸는 루트 디렉터리
 overrides/`는 무시). 입력 파일은 `<ROOT>/modpacks/`(하위 폴더 포함) 또는 절대 경로로
 지정합니다. 자동으로 받을 수 없는 파일(CurseForge의 `downloadUrl == null` 등)은 수동
 다운로드 목록으로 출력되며, GUI 가져오기 화면도 같은 목록을 경고 상자에 표시합니다.
+
+### CurseForge 이용 약관 안내
+
+Nebula는 CurseForge 검색을 위한 자체 API 키를 배포판에 포함하지 않습니다 — 사용자가
+[console.curseforge.com](https://console.curseforge.com)에서 직접 발급받은 키를 넣어야
+CurseForge 검색·설치가 열립니다(4절). CurseForge API가 돌려준 데이터(제목, 아이콘 등)는
+디스크에 캐시하지 않습니다 — `modindex.json`에는 사용자가 실제로 설치한 파일의 id와
+해시만 남습니다. 원저작자가 제3자 배포를 허용하지 않은 CurseForge 파일은 설치 목록에
+자동으로 받을 수 없다는 표시와 함께 수동 다운로드 링크·대상 폴더가 나타나며, 사용자가
+직접 내려받아 그 폴더에 넣어야 합니다.
 
 ## 8. Hambugui 호환성
 
@@ -380,6 +437,18 @@ Forge/NeoForge를 빌드하거나 모드를 스캔했을 때 나옵니다. Java 
 `servers[i].modules[j]…` 형태의 JSON 경로입니다. `--strict` 없이는 경고였던 항목이
 `--strict`에서는 오류가 될 수 있습니다(HTTP URL, SHA-256 누락 등). 마지막 줄의
 `N artifacts, M with SHA-256, E errors, W warnings` 요약으로 상태를 확인하세요.
+
+**다른 Nebula 작업이 이 서버를 사용 중입니다.** 다른 프로세스(또는 다른 작업)가 같은
+서버의 `.nebula-lock`을 쥐고 있습니다. 대개는 그 작업이 끝날 때까지 기다리면 됩니다. 그
+프로세스가 이미 죽었는데 잠금이 30분 넘게 남아 있다면 `.nebula-lock` 파일을 지우고 다시
+시도하세요.
+
+**요청이 너무 많습니다.** Modrinth/CurseForge의 속도 제한에 걸렸다는 뜻입니다. 잠시 뒤
+다시 시도하세요(설치 작업 중에는 한 번 자동으로 재시도합니다).
+
+**설치된 모드 목록의 `배포 불가` 표시.** 네임스페이스 디렉터리(`required`/`optionalon`/
+`optionaloff`) 안에 `.jar`로 끝나지 않거나 열리지 않는(손상된) 파일이 있으면 배포본 생성
+전체가 실패합니다. 그 파일을 지우거나 올바른 jar로 바꾸세요.
 
 **네트워크가 필요한 테스트 실행.** 기본 `cargo test --workspace`는 오프라인 전용입니다.
 Forge/Fabric/NeoForge 다운로드가 필요한 테스트는 `NEBULA_NET_TESTS=1`일 때만 켜집니다.

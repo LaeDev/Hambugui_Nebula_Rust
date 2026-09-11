@@ -11,6 +11,11 @@ export component SegmentedControl inherits Rectangle {
     /// the Korean label is a caption and may be reworded.
     in property <string> a11y-id;
     in property <bool> enabled: true;
+    /// Per option, parallel to `options`. **Empty (the default) enables every
+    /// option**, which is why every existing caller renders unchanged. A
+    /// disabled option is dimmed, announces `accessible-enabled: false`, takes
+    /// no hover, click or arrow key, and can never become the selection.
+    in property <[bool]> option-enabled;
     /// Which option is selected, `-1` for none. Strictly `in`: the control does
     /// not decide its own state. Every caller derives this from the value it
     /// owns and updates that value in `changed`, so a selection the caller
@@ -25,13 +30,24 @@ export component SegmentedControl inherits Rectangle {
     border-color: Theme.accent;
     border-radius: Theme.r-md + Theme.ring-gutter;
 
+    // So `forward-focus: namespace` in a dialog body reaches the track rather
+    // than nothing (DESIGN-v2 §8.7).
+    forward-focus: fs;
+
     accessible-role: tab-list;
     accessible-label: root.a11y-prefix;
     accessible-id: root.a11y-id;
     accessible-enabled: root.enabled;
 
+    /// A short or empty `option-enabled` leaves the option enabled, so the
+    /// property can be omitted entirely.
+    pure function option-on(index: int) -> bool {
+        root.option-enabled.length <= index || root.option-enabled[index]
+    }
+
     function pick(index: int) {
-        if (root.enabled && index >= 0 && index < root.options.length && index != root.selected) {
+        if (root.enabled && index >= 0 && index < root.options.length && index != root.selected
+            && root.option-on(index)) {
             root.changed(index);
         }
     }
@@ -39,6 +55,11 @@ export component SegmentedControl inherits Rectangle {
     fs := FocusScope {
         enabled: root.enabled;
         key-pressed(event) => {
+            // ponytail: one hop. `pick` refuses a disabled neighbour, so the
+            // ring never lands on one; hopping *over* it to the next enabled
+            // option would need a loop, which a Slint function cannot have.
+            // Both of today's callers have two options, where one hop is the
+            // whole range.
             if (event.text == Key.LeftArrow) {
                 root.pick(max(0, root.selected - 1));
                 accept
@@ -65,7 +86,7 @@ export component SegmentedControl inherits Rectangle {
                         border-radius: Theme.r-sm + 1px;
                         background: root.selected == index
                             ? Theme.surface
-                            : touch.has-hover ? Theme.surface-3 : transparent;
+                            : (touch.has-hover && root.option-on(index)) ? Theme.surface-3 : transparent;
                         border-width: root.selected == index ? 1px : 0px;
                         border-color: Theme.border;
                         animate background { duration: Theme.fast; }
@@ -74,7 +95,7 @@ export component SegmentedControl inherits Rectangle {
                         accessible-label: root.a11y-prefix + " " + option;
                         // `theme-0`, `theme-1`, …: one handle per option.
                         accessible-id: root.a11y-id == "" ? "" : root.a11y-id + "-" + index;
-                        accessible-enabled: root.enabled;
+                        accessible-enabled: root.enabled && root.option-on(index);
                         accessible-checkable: true;
                         accessible-checked: root.selected == index;
                         accessible-action-default => {
@@ -87,7 +108,9 @@ export component SegmentedControl inherits Rectangle {
 
                             Text {
                                 text: option;
-                                color: root.selected == index ? Theme.text : Theme.text-2;
+                                color: root.selected == index
+                                    ? Theme.text
+                                    : root.option-on(index) ? Theme.text-2 : Theme.text-3;
                                 font-size: Type.button;
                                 font-weight: root.selected == index ? Type.semibold : Type.medium;
                                 vertical-alignment: center;
@@ -97,8 +120,10 @@ export component SegmentedControl inherits Rectangle {
                         }
 
                         touch := TouchArea {
-                            enabled: root.enabled;
-                            mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+                            enabled: root.enabled && root.option-on(index);
+                            mouse-cursor: (root.enabled && root.option-on(index))
+                                ? MouseCursor.pointer
+                                : MouseCursor.default;
                             clicked => {
                                 root.pick(index);
                             }

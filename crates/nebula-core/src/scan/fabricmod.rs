@@ -23,6 +23,34 @@ pub struct FabricModJson {
     pub version: String,
     pub name: Option<String>,
     pub entrypoints: Option<BTreeMap<String, Vec<FabricEntryPoint>>>,
+    /// Read by the mod catalog only; the distribution scanners ignore it.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Read by the mod catalog only; the distribution scanners ignore it.
+    #[serde(default)]
+    pub icon: Option<FabricIcon>,
+}
+
+/// `icon` is either one path or a map of pixel size to path.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum FabricIcon {
+    Path(String),
+    Sized(BTreeMap<String, String>),
+}
+
+impl FabricIcon {
+    /// The largest declared size, or the single path. Unparsable keys sort
+    /// last by name so a map of nonsense still yields something.
+    pub fn largest(&self) -> Option<&str> {
+        match self {
+            FabricIcon::Path(path) => Some(path.as_str()),
+            FabricIcon::Sized(sizes) => sizes
+                .iter()
+                .max_by_key(|(size, _)| size.parse::<u32>().unwrap_or(0))
+                .map(|(_, path)| path.as_str()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -99,6 +127,8 @@ pub fn fabric_module_id_and_name(
         version: crude_version,
         name: Some(crude_name),
         entrypoints: None,
+        description: None,
+        icon: None,
     });
 
     // Upstream relies on `''` being falsy for both the group and the name.

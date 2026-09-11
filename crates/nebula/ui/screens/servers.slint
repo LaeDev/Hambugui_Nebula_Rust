@@ -9,7 +9,7 @@ import { IconButton } from "../lib/icon-button.slint";
 import { ListRow } from "../lib/list-row.slint";
 import { SegmentedControl } from "../lib/segmented.slint";
 import { TextField } from "../lib/text-field.slint";
-import { AppData, AppPage, DialogKind, Loader, NewServerData, SheetActions, SheetData } from "../lib/data.slint";
+import { AppData, AppPage, DialogKind, Loader, ModsActions, NewServerData, SheetActions, SheetData } from "../lib/data.slint";
 
 /// 서버 (DESIGN-v2 §4).
 export component ServersScreen inherits VerticalLayout {
@@ -84,13 +84,15 @@ export component ServersScreen inherits VerticalLayout {
 
             Chip { text: row.loader; }
 
+            // One tab stop per row, and now it opens the menu rather than the
+            // folder: 폴더 열기 is the menu's second item (DESIGN-v2 §8.5).
             IconButton {
-                icon: @image-url("../../assets/icons/folder-open.svg");
-                a11y-label: row.id + " 폴더 열기";
-                a11y-id: "server-open-" + row.id;
+                icon: @image-url("../../assets/icons/chevron-right.svg");
+                a11y-label: row.id + " 메뉴";
+                a11y-id: "servers-menu-" + row.id;
                 enabled: root.live;
                 activated => {
-                    SheetActions.open-folder(row.path);
+                    ModsActions.open-server-menu(row.id);
                 }
             }
         }

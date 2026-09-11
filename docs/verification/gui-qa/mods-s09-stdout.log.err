@@ -1,0 +1,5 @@
+[+00:00] [INFO] [nebula::gui]: 창을 띄웁니다: 0 ms
+[+00:00] [INFO] [nebula::gui]: 루트 C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\root · 서버 2개 · 모드팩 0개
+[+00:00] [INFO] [nebula::gui]: 첫 스캔 반영: 128 ms
+[+00:13] [INFO] [nebula_core::catalog::manage]: Duplicated server QAneo-1.21.1 as QAcopy-1.21.1
+[+00:28] [INFO] [nebula_core::catalog::manage]: Deleted server QAcopy-1.21.1

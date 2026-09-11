@@ -12,7 +12,9 @@ pub enum Error {
         #[source]
         source: std::io::Error,
     },
-    #[error("HTTP {url}: {message}")]
+    /// An empty `url` would print as a dangling `HTTP : …`, so the message
+    /// stands on its own then.
+    #[error("{}", if url.is_empty() { message.clone() } else { format!("HTTP {url}: {message}") })]
     Http { url: String, message: String },
     #[error("{0}")]
     Json(#[from] serde_json::Error),

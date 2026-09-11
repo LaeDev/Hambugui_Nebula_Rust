@@ -22,6 +22,15 @@ sha1 = "0.11.0"
 hex = "0.4.3"
 dotenvy = "0.15.7"
 tempfile = "3.27.0"
+# Icon decoding for the mod catalog. Slint already builds this exact crate, so
+# cargo unifies the two and no new package enters Cargo.lock. The features are
+# the three formats the providers actually serve (webp on Modrinth, png/jpeg on
+# CurseForge); never enable `slint/image-default-formats`, which would pull
+# rav1e into the normal graph (D5, R8).
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 
 [dev-dependencies]
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# Same crate and features as above, so the icon tests can encode the PNG and
+# JPEG they feed the decoder. No new package enters Cargo.lock.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }

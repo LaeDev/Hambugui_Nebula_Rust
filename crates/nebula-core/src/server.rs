@@ -306,9 +306,10 @@ pub fn read_server_meta(dir: &ServerDir) -> Result<ServerMeta> {
     })
 }
 
-/// The loader shown in listings. A hand-edited `servermeta.json` may name more
-/// than one; [`build_server_spec`] still emits every one it finds.
-fn server_loader(meta: &ServerMeta) -> Option<(LoaderKind, String)> {
+/// The loader shown in listings, and the one the mod catalog installs for. A
+/// hand-edited `servermeta.json` may name more than one; [`build_server_spec`]
+/// still emits every one it finds.
+pub fn server_loader(meta: &ServerMeta) -> Option<(LoaderKind, String)> {
     [
         (LoaderKind::Forge, &meta.forge),
         (LoaderKind::NeoForge, &meta.neoforge),

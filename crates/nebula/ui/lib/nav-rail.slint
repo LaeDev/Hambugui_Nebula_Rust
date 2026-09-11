@@ -104,9 +104,10 @@ component NavItem inherits Rectangle {
     }
 }
 
-/// The 72 px left rail (DESIGN-v2 §3). Four pages at the top, 설정 at the
-/// bottom. Ctrl/Cmd+1..5 is handled in `app.slint`, where the keys can be
-/// captured before a text field sees them.
+/// The 72 px left rail (DESIGN-v2 §3, §8.1). Five pages at the top — 빌드
+/// 서버 모드 가져오기 배포 — and 설정 at the bottom. Ctrl/Cmd+1..6 is handled
+/// in `app.slint`, where the keys can be captured before a text field sees
+/// them.
 export component NavRail inherits Rectangle {
     in property <AppPage> page;
     callback navigate(AppPage);
@@ -146,6 +147,16 @@ export component NavRail inherits Rectangle {
             selected: root.page == AppPage.servers;
             activated => {
                 root.navigate(AppPage.servers);
+            }
+        }
+
+        NavItem {
+            icon: @image-url("../../assets/icons/package.svg");
+            text: "모드";
+            a11y-id: "nav-mods";
+            selected: root.page == AppPage.mods;
+            activated => {
+                root.navigate(AppPage.mods);
             }
         }
 

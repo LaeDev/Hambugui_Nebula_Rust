@@ -182,6 +182,7 @@ mod tests {
             base_url: Url::parse("https://cdn.example.invalid/").unwrap(),
             java_executable: None,
             helios_data_folder: None,
+            curseforge_api_key: None,
         }
     }
 

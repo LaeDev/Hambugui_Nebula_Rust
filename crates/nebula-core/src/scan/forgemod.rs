@@ -101,6 +101,10 @@ pub fn forge_flavour_for(mc: &MinecraftVersion) -> Result<ForgeFlavour> {
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ModsToml {
     pub mods: Vec<ModsTomlEntry>,
+    /// Pack-level icon; the catalog falls back to it when the mod entry has
+    /// none. Unused by the distribution scanners.
+    #[serde(rename = "logoFile", default)]
+    pub logo_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -110,6 +114,12 @@ pub(crate) struct ModsTomlEntry {
     pub version: Option<String>,
     #[serde(rename = "displayName")]
     pub display_name: Option<String>,
+    /// Catalog only.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Catalog only.
+    #[serde(rename = "logoFile", default)]
+    pub logo_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -117,6 +127,12 @@ pub(crate) struct McModInfo {
     pub modid: Option<String>,
     pub name: Option<String>,
     pub version: Option<String>,
+    /// Catalog only.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Catalog only.
+    #[serde(rename = "logoFile", default)]
+    pub logo_file: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -471,7 +487,7 @@ pub(crate) fn read_forge_mod_meta(
 }
 
 /// Whether the mod defers its version to `META-INF/MANIFEST.MF`.
-fn wants_jar_version(parsed: Option<&ModsToml>) -> bool {
+pub(crate) fn wants_jar_version(parsed: Option<&ModsToml>) -> bool {
     parsed
         .and_then(|toml| toml.mods.first())
         .and_then(|entry| entry.version.as_deref())
@@ -557,11 +573,12 @@ fn claritas_key(path: &Path) -> Result<PathBuf> {
     std::path::absolute(path).map_err(io(format!("resolving {}", path.display())))
 }
 
-fn is_optifine(file_name: &str) -> bool {
+pub(crate) fn is_optifine(file_name: &str) -> bool {
     file_name.to_lowercase().contains(OPTIFINE_EXCEPTION)
 }
 
-fn entry_bytes<R: Read + Seek>(zip: &mut ZipArchive<R>, name: &str) -> Option<Vec<u8>> {
+/// One zip entry inflated whole, or `None` when it is absent or unreadable.
+pub(crate) fn entry_bytes<R: Read + Seek>(zip: &mut ZipArchive<R>, name: &str) -> Option<Vec<u8>> {
     let mut entry = zip.by_name(name).ok()?;
     let mut bytes = Vec::new();
     entry.read_to_end(&mut bytes).ok()?;

@@ -21,3 +21,7 @@ slint = { version = "=1.17.1", default-features = false, features = ["std", "bac
 
 [build-dependencies]
 slint-build = "=1.17.1"
+
+[dev-dependencies]
+# Already in Cargo.lock through nebula-core; no new package.
+tempfile = "3.27.0"

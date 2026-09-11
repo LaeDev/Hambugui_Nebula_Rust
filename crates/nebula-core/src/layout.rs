@@ -47,6 +47,13 @@ impl Root {
         self.path.join("cache")
     }
 
+    /// Where the mod catalog writes decoded 72x72 icons. It sits under
+    /// `cache/`, outside every directory a distribution scanner walks, so a
+    /// cached icon can never become published content (reliability rule 5).
+    pub fn icons_cache_dir(&self) -> PathBuf {
+        self.cache_dir().join("icons")
+    }
+
     pub fn forge_cache_dir(&self, artifact_version: &str) -> PathBuf {
         self.cache_dir().join("forge").join(artifact_version)
     }
@@ -126,6 +133,12 @@ impl ServerDir {
 
     pub fn server_meta_file(&self) -> PathBuf {
         self.path.join("servermeta.json")
+    }
+
+    /// The mod catalog's per-server install index. It sits at the server's top
+    /// level, which no scanner reads, so it never becomes published content.
+    pub fn modindex_file(&self) -> PathBuf {
+        self.path.join("modindex.json")
     }
 
     pub fn files_dir(&self) -> PathBuf {

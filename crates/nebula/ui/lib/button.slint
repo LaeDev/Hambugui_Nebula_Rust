@@ -2,7 +2,7 @@ import { Theme } from "theme.slint";
 import { Type } from "typography.slint";
 import { ProgressBar } from "progress.slint";
 
-export enum ButtonVariant { primary, secondary, ghost }
+export enum ButtonVariant { primary, secondary, ghost, danger }
 export enum ButtonSize { md, lg }
 
 /// DESIGN-v2 §3. The outer rectangle is the focus ring and the 44 px hit
@@ -27,13 +27,19 @@ export component Button inherits Rectangle {
     private property <bool> live: root.enabled && !root.loading;
     private property <bool> primary: root.variant == ButtonVariant.primary;
     private property <bool> ghost: root.variant == ButtonVariant.ghost;
+    /// Soft red fill, red label (DESIGN-v2 §3, §8.7). Not a filled red button:
+    /// 삭제 is a real action, not the loudest thing on the page, and a solid
+    /// danger fill would out-shout the one accent primary beside it.
+    private property <bool> danger: root.variant == ButtonVariant.danger;
     /// What this button is called, wherever it is named: to a screen reader, and
     /// on the progress bar that says this button is the one that is working.
     private property <string> label: root.a11y-label == "" ? root.text : root.a11y-label;
     private property <length> visual-h: root.size == ButtonSize.lg ? 44px : 36px;
     private property <brush> label-color: root.primary
         ? Theme.on-accent
-        : (root.ghost && !touch.has-hover) ? Theme.text-2 : Theme.text;
+        : root.danger
+            ? Theme.danger
+            : (root.ghost && !touch.has-hover) ? Theme.text-2 : Theme.text;
 
     // The height is stated on the inner fill, not here: a layout gives an
     // element with children the children's preferred height and overwrites any
@@ -50,6 +56,10 @@ export component Button inherits Rectangle {
     border-width: (fs.has-focus || Theme.focus-demo) ? Theme.ring-width : 0px;
     border-color: Theme.accent;
     border-radius: Theme.r-md + Theme.ring-gutter;
+
+    // So a dialog body can name its initial focus (`forward-focus: install`,
+    // DESIGN-v2 §8.7): `focus()` on a plain Rectangle goes nowhere.
+    forward-focus: fs;
 
     accessible-role: button;
     accessible-label: root.label;
@@ -81,14 +91,24 @@ export component Button inherits Rectangle {
                 height: root.visual-h;
                 border-radius: Theme.r-md;
                 border-width: root.ghost ? 0px : 1px;
-                border-color: root.primary ? Theme.accent : Theme.border;
+                border-color: root.primary
+                    ? Theme.accent
+                    : root.danger ? Theme.danger : Theme.border;
+                // The danger fill deepens on hover and press in both themes —
+                // `darker` on a light soft-red and on a dark one both move away
+                // from the resting colour, which is what the state has to say.
+                // There is no danger-hover token and §8 adds none.
                 background: root.primary
                     ? (touch.pressed || touch.has-hover ? Theme.accent-hover : Theme.accent)
-                    : touch.pressed
-                        ? Theme.surface-3
-                        : touch.has-hover
-                            ? Theme.surface-2
-                            : root.ghost ? transparent : Theme.surface-2;
+                    : root.danger
+                        ? (touch.pressed
+                            ? Theme.danger-soft.darker(0.12)
+                            : touch.has-hover ? Theme.danger-soft.darker(0.05) : Theme.danger-soft)
+                        : touch.pressed
+                            ? Theme.surface-3
+                            : touch.has-hover
+                                ? Theme.surface-2
+                                : root.ghost ? transparent : Theme.surface-2;
                 clip: true;
                 animate background, border-color { duration: Theme.fast; }
 
@@ -135,7 +155,9 @@ export component Button inherits Rectangle {
                     track: 2px;
                     // Which button is working, not just that something is.
                     a11y-label: root.label;
-                    fill: root.primary ? Theme.on-accent : Theme.accent;
+                    fill: root.primary
+                        ? Theme.on-accent
+                        : root.danger ? Theme.danger : Theme.accent;
                 }
             }
         }

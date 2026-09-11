@@ -1,0 +1,179 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// A wrapping row of selectable pills under a caption (DESIGN-v2 §8.2): the
+/// 모드 page's server selector.
+///
+/// Deliberately **not** a `SegmentedControl`. That control commits on the arrow
+/// key, and here a selection change wipes the search results and re-runs the
+/// installed-list job, so arrowing through five servers would start five jobs.
+/// The group is one tab stop; Left/Right/Home/End move a roving ring **without
+/// selecting**, and Enter or Space is what commits. A click selects directly,
+/// because a pointer user has already aimed.
+///
+/// The pills sit on a grid of equal columns rather than at their natural
+/// widths: Slint cannot measure a `Text` before layout, so a row of
+/// natural-width pills cannot know where to wrap, and a server id long enough
+/// to push the strip past the window would take the page's right edge with it.
+/// Equal columns wrap by arithmetic and elide instead.
+export component PillStrip inherits VerticalLayout {
+    /// The line above the strip: `서버`.
+    in property <string> caption;
+    in property <[string]> labels;
+    /// Which pill is selected; `-1` for none. Strictly `in`, like
+    /// `SegmentedControl.selected`: the caller owns the value and updates it in
+    /// `selected`, so the strip can never show a selection the caller refused.
+    in property <int> selected-index: 0;
+    in property <bool> enabled: true;
+    /// Stable handle for automation, kebab-case. Each pill is `<id>-<index>`.
+    in property <string> a11y-id;
+    /// The user committed to the pill at this index.
+    callback selected(int);
+
+    /// Where the ring is, which is not where the selection is until Enter.
+    private property <int> focus-index: 0;
+    private property <bool> focused: fs.has-focus;
+    /// At most four, and never wider than the strip: a pill is a label, and a
+    /// 140 px column holds `Vanilla-1.21` with room to spare.
+    private property <int> cols: max(1, min(4, floor((strip.width + Theme.sp-2) / (140px + Theme.sp-2))));
+    private property <int> rows: max(1, ceil(root.labels.length / (1.0 * root.cols)));
+    private property <length> col-w: (strip.width - (root.cols - 1) * Theme.sp-2) / root.cols;
+
+    /// A strip that just took the focus rings the pill that is *selected*, not
+    /// the first one: the ring starting somewhere the eye is not is how a user
+    /// arrows past the server they are already on.
+    changed focused => {
+        if (root.focused) {
+            root.focus-index = max(0, root.selected-index);
+        }
+    }
+
+    function pick(index: int) {
+        if (root.enabled && index >= 0 && index < root.labels.length && index != root.selected-index) {
+            root.selected(index);
+        }
+    }
+
+    spacing: Theme.sp-half;
+    vertical-stretch: 0;
+
+    accessible-role: radio-group;
+    accessible-label: root.caption;
+    accessible-id: root.a11y-id;
+    accessible-enabled: root.enabled;
+
+    if root.caption != "" : Text {
+        text: root.caption;
+        color: Theme.text-2;
+        font-size: Type.secondary;
+        font-weight: Type.medium;
+        vertical-stretch: 0;
+    }
+
+    // An explicit height on a Rectangle, the way `LogView` is sized: the pills
+    // are placed by arithmetic, so nothing here has a preferred height a layout
+    // could derive.
+    strip := Rectangle {
+        height: root.rows * 44px;
+        vertical-stretch: 0;
+        opacity: root.enabled ? 1.0 : 0.5;
+
+        fs := FocusScope {
+            enabled: root.enabled;
+            key-pressed(event) => {
+                if (root.labels.length == 0) {
+                    return reject;
+                }
+                // Ctrl+Home / Ctrl+End belong to the page scroller in
+                // `app.slint`; only the bare keys are the strip's.
+                if (event.modifiers.control || event.modifiers.meta) {
+                    return reject;
+                }
+                if (event.text == Key.LeftArrow || event.text == Key.UpArrow) {
+                    root.focus-index = max(0, root.focus-index - 1);
+                    accept
+                } else if (event.text == Key.RightArrow || event.text == Key.DownArrow) {
+                    root.focus-index = min(root.labels.length - 1, root.focus-index + 1);
+                    accept
+                } else if (event.text == Key.Home) {
+                    root.focus-index = 0;
+                    accept
+                } else if (event.text == Key.End) {
+                    root.focus-index = root.labels.length - 1;
+                    accept
+                } else if (event.text == " " || event.text == "\n") {
+                    root.pick(root.focus-index);
+                    accept
+                } else {
+                    reject
+                }
+            }
+
+            for label[index] in root.labels : Rectangle {
+                x: mod(index, root.cols) * (root.col-w + Theme.sp-2);
+                y: floor(index / root.cols) * 44px;
+                width: root.col-w;
+                // 36 px of pill inside a 44 px target: the 4 px gutter is both
+                // the hit padding §3 asks for and the offset the ring sits at.
+                height: 44px;
+
+                // The ring is the outer box, as everywhere else in the kit.
+                border-radius: Theme.r-pill;
+                border-width: ((root.focused && root.focus-index == index)
+                    || (Theme.focus-demo && root.selected-index == index)) ? Theme.ring-width : 0px;
+                border-color: Theme.accent;
+
+                accessible-role: radio-button;
+                accessible-label: label;
+                accessible-id: root.a11y-id == "" ? "" : root.a11y-id + "-" + index;
+                accessible-enabled: root.enabled;
+                accessible-checkable: true;
+                accessible-checked: root.selected-index == index;
+                accessible-action-default => {
+                    root.pick(index);
+                }
+
+                VerticalLayout {
+                    padding: Theme.ring-gutter;
+
+                    Rectangle {
+                        border-radius: Theme.r-pill;
+                        background: root.selected-index == index
+                            ? Theme.accent-soft
+                            : touch.pressed
+                                ? Theme.surface-3
+                                : touch.has-hover ? Theme.surface : Theme.surface-2;
+                        border-width: 1px;
+                        border-color: root.selected-index == index ? Theme.accent : Theme.border;
+                        animate background, border-color { duration: Theme.fast; }
+
+                        HorizontalLayout {
+                            padding-left: Theme.sp-3;
+                            padding-right: Theme.sp-3;
+
+                            Text {
+                                text: label;
+                                color: root.selected-index == index ? Theme.accent : Theme.text;
+                                font-size: Type.button;
+                                font-weight: root.selected-index == index ? Type.semibold : Type.medium;
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+
+                touch := TouchArea {
+                    enabled: root.enabled;
+                    mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+                    clicked => {
+                        root.focus-index = index;
+                        fs.focus();
+                        root.pick(index);
+                    }
+                }
+            }
+        }
+    }
+}

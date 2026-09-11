@@ -12,6 +12,10 @@ export component TextField inherits VerticalLayout {
     in property <string> placeholder;
     /// A unit shown inside the input, right-aligned: `.json`.
     in property <string> suffix;
+    /// An 18 px glyph inside the input, before the text (DESIGN-v2 §8.7):
+    /// `search` on the 모드 search field. Mirrors the suffix slot, and is
+    /// decoration — the field's own label is what names it.
+    in property <image> leading-icon;
     in property <string> a11y-label;
     /// Stable handle for automation, kebab-case (`settings-root`). Becomes the
     /// UIA AutomationId on the input itself, which is the node a client finds.
@@ -82,12 +86,40 @@ export component TextField inherits VerticalLayout {
         }
 
         HorizontalLayout {
-            padding-left: 12px;
+            padding-left: root.leading-icon.width > 0 ? 10px : 12px;
             padding-right: root.action-icon.width > 0 ? 4px : 12px;
             spacing: Theme.sp-half;
 
+            // A row of its own to centre in: a HorizontalLayout anchors a
+            // fixed-height child to the top, which would leave the glyph
+            // 11 px above the caret.
+            if root.leading-icon.width > 0 : VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+
+                Image {
+                    source: root.leading-icon;
+                    width: 18px;
+                    height: 18px;
+                    image-fit: contain;
+                    colorize: Theme.text-3;
+                    accessible-role: none;
+                }
+            }
+
             Rectangle {
                 horizontal-stretch: 1;
+                // The input's *minimum* width is the width of its whole text,
+                // and it reaches the row through this wrapper. Without the
+                // clamp an over-constrained row cannot shrink it, and a URL two
+                // characters longer than the field pushed the trailing copy
+                // button out through the card's right edge (`import`, and the
+                // 모드 manual-download list). `preferred-width: 0px` on the
+                // input below only fixes the *preferred* half of the same
+                // problem; the minimum has to be cut here, because a
+                // `min-width` on the input itself is refused next to its
+                // `width: 100%`.
+                min-width: 0px;
 
                 if root.text == "" && root.placeholder != "" : Text {
                     x: 0;

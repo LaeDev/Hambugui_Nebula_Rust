@@ -22,6 +22,7 @@ fn config(root: &Path) -> Config {
         base_url: Url::parse(BASE).unwrap(),
         java_executable: None,
         helios_data_folder: None,
+        curseforge_api_key: None,
     }
 }
 

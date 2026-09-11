@@ -3,12 +3,17 @@
 
 use std::path::Path;
 
+use serde::{Deserialize, Serialize};
+
 use crate::error::{Result, io};
 use crate::spec::{Module, Required};
 
 use super::{Candidate, discover};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The serialised names are exactly [`Namespace::dir_name`], which is what
+/// `modindex.json` stores.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Namespace {
     Required,
     OptionalOn,

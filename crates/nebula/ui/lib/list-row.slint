@@ -1,8 +1,9 @@
 import { Theme } from "theme.slint";
 import { Type } from "typography.slint";
 
-/// A 56 px row: optional 36 px avatar, title, subtitle, and whatever the caller
-/// hangs on the right (DESIGN-v2 §3).
+/// A 56 px row — 72 px with the optional third `description` line: optional
+/// 36 px avatar, title, subtitle, and whatever the caller hangs on the right
+/// (DESIGN-v2 §3).
 ///
 /// `selectable` is what makes the row a control. A server row is not one — its
 /// 폴더 열기 button is the single tab stop, as the 2026-09-10 UX fixes decided —
@@ -10,6 +11,9 @@ import { Type } from "typography.slint";
 export component ListRow inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
+    /// The optional third line (DESIGN-v2 §8.7): one line, elided, 72 px row.
+    /// A 찾기 result's blurb — an installed mod deliberately has none.
+    in property <string> description;
     /// The server's own `icon.png` when it has one.
     in property <image> avatar;
     /// Shown when there is no avatar: one or two letters on a tinted fill.
@@ -29,7 +33,7 @@ export component ListRow inherits Rectangle {
     private property <bool> live: root.enabled && root.selectable;
     private property <bool> has-avatar: root.avatar.width > 0 || root.initials != "" || root.icon.width > 0;
 
-    min-height: 56px;
+    min-height: root.description == "" ? 56px : 72px;
     vertical-stretch: 0;
     border-radius: Theme.r-md;
     border-width: root.selected ? 1px : (fs.has-focus || Theme.focus-demo) && root.selectable ? Theme.ring-width : 1px;
@@ -138,6 +142,18 @@ export component ListRow inherits Rectangle {
                     text: root.subtitle;
                     color: Theme.text-2;
                     font-size: Type.secondary;
+                    overflow: elide;
+                }
+
+                // One line only, whatever the provider sent: a blurb that
+                // wrapped would make every row a different height and the
+                // fixed-height delegates of §8.3 would tear.
+                if root.description != "" : Text {
+                    text: root.description;
+                    color: Theme.text-3;
+                    font-size: Type.caption;
+                    font-weight: Type.medium;
+                    wrap: no-wrap;
                     overflow: elide;
                 }
             }

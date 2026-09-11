@@ -5,6 +5,19 @@ import { IconButton } from "icon-button.slint";
 /// Scrim plus a centred 560 px card (DESIGN-v2 §3). The caller passes the body
 /// and the footer row as children; the title bar and the close button are here.
 ///
+/// **The card has no scroller, and must not get one** (§3, §8.4). A body that
+/// scrolled would take its content out of the accessibility tree (§6) and put a
+/// second wheel target inside the page's own. A body longer than the card is a
+/// body with a list in it, and the list owns its scrolling — that is why
+/// `install-confirm` sizes its dependency `ListView` and `version-picker` its
+/// version list, rather than either of them growing the card.
+///
+/// **A dialog open when a job starts stays open** (§8.6): the host clears
+/// `closable` and every control inside gates on `SheetData.busy`, because a job
+/// started from a dialog is already writing to disk. That is also why the
+/// controls in a dialog body stage their changes and the footer's primary is
+/// what applies them.
+///
 /// Deviation from §3: no 200 ms fade/scale. Slint 1.17's software renderer
 /// animates `opacity` from zero on the frame an element is created, so the
 /// first frame of a dialog that fades in is a blank screen — which is exactly

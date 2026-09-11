@@ -11,6 +11,7 @@
 //!   clears only after the worker's result has been applied.
 
 mod logsink;
+mod mods;
 pub(crate) mod settings;
 
 /// The CLI's per-user state lives here too: one definition, one directory, one
@@ -146,6 +147,10 @@ enum Screen {
     Import,
     Publish,
     Settings,
+    /// The 모드 page's own mutating jobs (DESIGN-v2 §8.6). It has no per-screen
+    /// spinner — the top-bar pill and one `ProgressRow` carry every one of them
+    /// — so this arm only keeps a mods job from lighting another page up.
+    Mods,
 }
 
 /// A job the sheet can re-run from its failure box with the current field
@@ -252,10 +257,14 @@ struct Ui {
     /// Slint marks a property dirty on every `set`, so the 100 ms tick only
     /// writes this one when it actually flips.
     forge_warning: Cell<bool>,
+    /// Everything the 모드 page owns (DESIGN-v2 §8), in one field so the
+    /// catalog's models and sequence counters stay out of the sheet's way.
+    mods: mods::ModsState,
 }
 
 impl Ui {
     fn new(app: &App, stored: GuiSettings) -> Self {
+        let mods = mods::ModsState::new(&stored);
         Self {
             app: app.as_weak(),
             settings: RefCell::new(stored),
@@ -283,6 +292,7 @@ impl Ui {
             name_check: Debounce::default(),
             settings_check: Debounce::default(),
             forge_warning: Cell::new(false),
+            mods,
         }
     }
 
@@ -425,12 +435,17 @@ impl Ui {
         app.global::<SheetData>().set_loading(true);
     }
 
-    fn apply_snapshot(&self, snap: Snapshot) {
+    /// Takes `Rc<Self>` because the 모드 page's own applier needs one; every
+    /// caller already holds it.
+    fn apply_snapshot(self: &Rc<Self>, snap: Snapshot) {
         let Some(app) = self.app.upgrade() else {
             return;
         };
         let sheet = app.global::<SheetData>();
         let told_before = sheet.get_servers_error();
+        // The 모드 page's pill strip is fed from the same rows, but only when
+        // they are real: a failed scan knows nothing about the servers.
+        let mut servers_changed = false;
         self.readiness.set_vec(snap.readiness);
         match &snap.servers_error {
             // A scan that failed knows nothing about the servers, so the rows
@@ -440,6 +455,7 @@ impl Ui {
             Some(error) => sheet.set_servers_error(error.as_str().into()),
             None => {
                 sheet.set_servers_error(SharedString::new());
+                servers_changed = true;
                 self.servers.set_vec(snap.servers);
                 // `Image` is not `Send`, so the worker thread only carries paths
                 // and the decode happens here, on the event-loop thread.
@@ -518,6 +534,12 @@ impl Ui {
         {
             log::error!("{error}");
             self.toast(Tone::Danger, "서버 목록을 읽지 못했습니다");
+        }
+        // Last, so the 모드 page's fallback toast (§8.2) lands after the
+        // scan's own and the pill strip agrees with the 서버 list beside it.
+        if servers_changed {
+            let names = self.servers.iter().map(|row| row.id.to_string()).collect();
+            mods::apply_servers(self, names);
         }
     }
 
@@ -897,6 +919,7 @@ fn tick(ui: &Rc<Ui>, rx: &Receiver<logsink::LogLine>) {
     drain_logs(&ui.logs, rx);
     tick_busy_label(ui, &app);
     tick_progress(ui, &app);
+    mods::tick(ui, &app);
 
     // The opening scan: an ordinary job, started once the window exists, so a
     // slow root delays the first numbers rather than the first frame.
@@ -931,7 +954,8 @@ fn tick(ui: &Rc<Ui>, rx: &Receiver<logsink::LogLine>) {
     }
     if ui.settings_check.due(SETTLE) {
         validate_settings_form(&app);
-        let dirty = form_from_ui(&app) != *ui.settings.borrow();
+        let stored = ui.settings.borrow().clone();
+        let dirty = form_from_ui(&app, &stored) != stored;
         app.global::<SettingsData>().set_dirty(dirty);
     }
 }
@@ -1501,6 +1525,8 @@ fn bind_models(ui: &Rc<Ui>, app: &App) {
 
     app.global::<AppData>()
         .set_toasts(ModelRc::from(ui.toasts.clone()));
+
+    mods::bind_models(ui, app);
 }
 
 fn apply_settings_to_ui(app: &App, current: &GuiSettings) {
@@ -1518,16 +1544,21 @@ fn apply_settings_to_ui(app: &App, current: &GuiSettings) {
     data.set_gdrive_client_id(current.gdrive_client_id.as_str().into());
     data.set_gdrive_client_secret(current.gdrive_client_secret.as_str().into());
     data.set_gdrive_folder_id(current.gdrive_folder_id.as_str().into());
+    data.set_curseforge_api_key(current.curseforge_api_key.as_str().into());
 
     let theme = app.global::<Theme>();
     theme.set_preference(theme_preference(&current.theme));
     theme.set_reduced_motion(current.reduced_motion);
 }
 
-/// The settings form as it currently stands. `save-settings` passes only six of
-/// the fourteen values; all fourteen are `in-out`, so they are read from one
-/// place instead of two.
-fn form_from_ui(app: &App) -> GuiSettings {
+/// The settings form as it currently stands. `save-settings` passes none of
+/// the values; every one of them is `in-out`, so they are read from one place
+/// instead of two.
+///
+/// `last_mods_server` is **not** a form field: it is carried over from what is
+/// already stored, because a 저장 that dropped it would move the 모드 page back
+/// to the first server on the next launch.
+fn form_from_ui(app: &App, stored: &GuiSettings) -> GuiSettings {
     let data = app.global::<SettingsData>();
     GuiSettings {
         root: data.get_root().trim().to_owned(),
@@ -1543,6 +1574,8 @@ fn form_from_ui(app: &App) -> GuiSettings {
         gdrive_client_id: data.get_gdrive_client_id().trim().to_owned(),
         gdrive_client_secret: data.get_gdrive_client_secret().to_owned().to_string(),
         gdrive_folder_id: data.get_gdrive_folder_id().trim().to_owned(),
+        curseforge_api_key: data.get_curseforge_api_key().trim().to_owned(),
+        last_mods_server: stored.last_mods_server.clone(),
     }
 }
 
@@ -1804,7 +1837,8 @@ fn wire(ui: &Rc<Ui>, app: &App) {
         let ui = ui.clone();
         move || {
             if let Some(app) = ui.app.upgrade() {
-                commit_settings(&ui, &app, form_from_ui(&app));
+                let stored = ui.settings.borrow().clone();
+                commit_settings(&ui, &app, form_from_ui(&app, &stored));
             }
         }
     });
@@ -1848,7 +1882,8 @@ fn wire(ui: &Rc<Ui>, app: &App) {
                 return data.set_root_error(format!("폴더를 만들지 못했습니다: {error}").into());
             }
             log::info!("루트 폴더를 만들었습니다: {path}");
-            commit_settings(&ui, &app, form_from_ui(&app));
+            let stored = ui.settings.borrow().clone();
+            commit_settings(&ui, &app, form_from_ui(&app, &stored));
         }
     });
 
@@ -1991,8 +2026,13 @@ fn wire(ui: &Rc<Ui>, app: &App) {
     actions.on_navigate({
         let ui = ui.clone();
         move |page| {
-            if page == AppPage::Import || page == AppPage::Servers {
+            if page == AppPage::Import || page == AppPage::Servers || page == AppPage::Mods {
                 spawn_refresh(&ui, "목록 새로 고침");
+            }
+            if page == AppPage::Mods {
+                // The pill strip comes back with the refresh above; the
+                // installed list only reloads when its subject changed.
+                mods::navigated(&ui);
             }
         }
     });
@@ -2029,6 +2069,8 @@ fn wire(ui: &Rc<Ui>, app: &App) {
             form.set_error_text(SharedString::new());
         }
     });
+
+    mods::wire(ui, app);
 }
 
 /// Validates the form, stores it, and re-reads the root under one busy window.
@@ -2107,6 +2149,9 @@ fn commit_settings(ui: &Rc<Ui>, app: &App, mut next: GuiSettings) {
                 // fails would otherwise leave the process running on values no
                 // restart would bring back.
                 ui.settings.replace(stored);
+                // Before the snapshot: a CurseForge key that just arrived is
+                // what decides whether the 모드 page's provider segment works.
+                mods::settings_saved(ui);
                 ui.apply_snapshot(snap);
                 if let Some(app) = ui.app.upgrade() {
                     app.global::<SettingsData>().set_dirty(false);
@@ -2145,9 +2190,29 @@ fn open_folder(path: &Path) {
     if path.as_os_str().is_empty() {
         return;
     }
-    // The modpacks folder is offered before anything has been put in it.
+    // The modpacks folder is offered before anything has been put in it. This
+    // is also why a URL cannot come through here: it would make a directory
+    // named after the address.
     let _ = std::fs::create_dir_all(path);
+    if let Err(error) = hand_to_shell(path.as_os_str()) {
+        log::error!("폴더를 열지 못했습니다 ({}): {error}", path.display());
+    }
+}
 
+/// Opens a URL in the default browser (§8.3's 프로젝트 페이지 열기). Same three
+/// programs as [`open_folder`], and deliberately no `create_dir_all`.
+fn open_external(url: &str) {
+    if url.trim().is_empty() {
+        return;
+    }
+    if let Err(error) = hand_to_shell(std::ffi::OsStr::new(url)) {
+        log::error!("주소를 열지 못했습니다 ({url}): {error}");
+    }
+}
+
+/// The one spawn both openers share. `explorer.exe` reports exit code 1 on
+/// success, so only the spawn is checked.
+fn hand_to_shell(target: &std::ffi::OsStr) -> std::io::Result<()> {
     let program = if cfg!(windows) {
         "explorer"
     } else if cfg!(target_os = "macos") {
@@ -2155,10 +2220,7 @@ fn open_folder(path: &Path) {
     } else {
         "xdg-open"
     };
-    // `explorer.exe` reports exit code 1 on success, so only the spawn is checked.
-    if let Err(error) = Command::new(program).arg(path).spawn() {
-        log::error!("폴더를 열지 못했습니다 ({}): {error}", path.display());
-    }
+    Command::new(program).arg(target).spawn().map(|_| ())
 }
 
 #[cfg(test)]

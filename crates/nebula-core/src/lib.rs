@@ -1,5 +1,6 @@
 //! Nebula core: distribution.json generation for Helios/Hambugui launchers.
 
+pub mod catalog;
 pub mod config;
 pub mod curseforge;
 pub mod distribution;

@@ -20,7 +20,10 @@ pub const NEOFORGE_VERSIONS_API: &str =
 
 static CLIENT: OnceLock<std::result::Result<reqwest::blocking::Client, String>> = OnceLock::new();
 
-fn client() -> Result<&'static reqwest::blocking::Client> {
+/// The one blocking client in the crate. `catalog::http` sends its own
+/// requests through it with a per-request timeout, so there is no second
+/// connection pool and no second User-Agent policy.
+pub(crate) fn client() -> Result<&'static reqwest::blocking::Client> {
     CLIENT
         .get_or_init(|| {
             reqwest::blocking::Client::builder()

@@ -11,9 +11,20 @@ import { Dialog } from "lib/dialog.slint";
 import { NavRail } from "lib/nav-rail.slint";
 import { Toast } from "lib/toast.slint";
 import { TopBar } from "lib/top-bar.slint";
-import { AppData, AppPage, DialogKind, NewServerData, SettingsData, SheetActions, SheetData } from "lib/data.slint";
+import { AppData, AppPage, DialogKind, ModsData, NewServerData, SettingsData, SheetActions, SheetData } from "lib/data.slint";
 import { BuildScreen } from "screens/build.slint";
 import { ServersScreen, NewServerForm } from "screens/servers.slint";
+import {
+    InstallConfirmDialogBody,
+    ModDeleteDialogBody,
+    ModDetailDialogBody,
+    ModsScreen,
+    ServerDeleteDialogBody,
+    ServerDuplicateDialogBody,
+    ServerMenuDialogBody,
+    UpdatePreviewDialogBody,
+    VersionPickerDialogBody,
+} from "screens/mods.slint";
 import { ImportScreen } from "screens/import.slint";
 import { PublishScreen } from "screens/publish.slint";
 import { SettingsScreen, SettingsFooter } from "screens/settings.slint";
@@ -37,12 +48,19 @@ export {
     ManualDownloadData,
     ImportRowData,
     ToastData,
+    InstalledModRowData,
+    ModHitRowData,
+    VersionRowData,
+    DepRowData,
+    UpdateRowData,
     SheetData,
     SheetActions,
     PublishData,
     NewServerData,
     ImportData,
     SettingsData,
+    ModsData,
+    ModsActions,
 } from "lib/data.slint";
 
 export component App inherits Window {
@@ -56,6 +74,14 @@ export component App inherits Window {
     background: Theme.bg;
     default-font-family: "Pretendard";
     default-font-size: 14px;
+
+    /// The server every 모드 dialog title carries (DESIGN-v2 §8.2). Guarded,
+    /// because `server-index` is `-1` before the first server is chosen and an
+    /// out-of-range model read is not worth a title.
+    property <string> current-server: (ModsData.server-index >= 0
+        && ModsData.server-index < ModsData.servers.length)
+        ? ModsData.servers[ModsData.server-index]
+        : "";
 
     function flip-theme() {
         SettingsData.theme = Theme.dark ? ThemePreference.light : ThemePreference.dark;
@@ -102,12 +128,15 @@ export component App inherits Window {
                 AppData.go(AppPage.servers);
                 accept
             } else if (event.text == "3") {
-                AppData.go(AppPage.import);
+                AppData.go(AppPage.mods);
                 accept
             } else if (event.text == "4") {
-                AppData.go(AppPage.publish);
+                AppData.go(AppPage.import);
                 accept
             } else if (event.text == "5") {
+                AppData.go(AppPage.publish);
+                accept
+            } else if (event.text == "6") {
                 AppData.go(AppPage.settings);
                 accept
             } else {
@@ -164,9 +193,11 @@ export component App inherits Window {
                         ? "빌드"
                         : AppData.page == AppPage.servers
                             ? "서버"
-                            : AppData.page == AppPage.import
-                                ? "가져오기"
-                                : AppData.page == AppPage.publish ? "배포" : "설정";
+                            : AppData.page == AppPage.mods
+                                ? "모드"
+                                : AppData.page == AppPage.import
+                                    ? "가져오기"
+                                    : AppData.page == AppPage.publish ? "배포" : "설정";
                     busy: SheetData.busy;
                     busy-label: SheetData.busy-label;
                     dark: Theme.dark;
@@ -197,6 +228,7 @@ export component App inherits Window {
 
                         if AppData.page == AppPage.build : BuildScreen { }
                         if AppData.page == AppPage.servers : ServersScreen { }
+                        if AppData.page == AppPage.mods : ModsScreen { }
                         if AppData.page == AppPage.import : ImportScreen { }
                         if AppData.page == AppPage.publish : PublishScreen { }
                         if AppData.page == AppPage.settings : SettingsScreen { }
@@ -261,6 +293,173 @@ export component App inherits Window {
                     activated => {
                         root.submit-new-server();
                     }
+                }
+            }
+        }
+
+        // ── 모드 dialogs (DESIGN-v2 §8) ─────────────────────────────────────
+        // Each body owns its own footer and declares where the focus lands
+        // (§8.7); this layer only says which one is open, what it is called,
+        // and what happens when it goes away. `closable: !SheetData.busy` is
+        // §8.6: a job started from a dialog is already writing to disk.
+        if AppData.dialog == DialogKind.mod-detail : Dialog {
+            title: ModsData.detail-title;
+            a11y-id: "mod-detail-dialog";
+            closable: !SheetData.busy;
+            init => {
+                detail-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            detail-body := ModDetailDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.install-confirm : Dialog {
+            title: ModsData.confirm-title;
+            a11y-id: "install-confirm-dialog";
+            closable: !SheetData.busy;
+            init => {
+                confirm-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            confirm-body := InstallConfirmDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.version-picker : Dialog {
+            title: ModsData.version-dialog-title;
+            a11y-id: "version-picker-dialog";
+            closable: !SheetData.busy;
+            init => {
+                version-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            version-body := VersionPickerDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.update-preview : Dialog {
+            title: root.current-server == ""
+                ? "모두 업데이트"
+                : "모두 업데이트 — " + root.current-server;
+            a11y-id: "update-preview-dialog";
+            closable: !SheetData.busy;
+            init => {
+                update-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            update-body := UpdatePreviewDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.mod-delete : Dialog {
+            title: ModsData.delete-title;
+            a11y-id: "mod-delete-dialog";
+            closable: !SheetData.busy;
+            init => {
+                mod-delete-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            mod-delete-body := ModDeleteDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.server-menu : Dialog {
+            title: ModsData.server-menu-id;
+            a11y-id: "server-menu-dialog";
+            closable: !SheetData.busy;
+            init => {
+                menu-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            menu-body := ServerMenuDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.server-duplicate : Dialog {
+            title: "서버 복제 — " + ModsData.server-menu-id;
+            a11y-id: "server-duplicate-dialog";
+            closable: !SheetData.busy;
+            init => {
+                duplicate-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            duplicate-body := ServerDuplicateDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
+                }
+            }
+        }
+
+        if AppData.dialog == DialogKind.server-delete : Dialog {
+            title: "서버 삭제 — " + ModsData.delete-server-id;
+            a11y-id: "server-delete-dialog";
+            closable: !SheetData.busy;
+            init => {
+                server-delete-body.focus();
+            }
+            closed => {
+                SheetActions.close-dialog();
+                keys.focus();
+            }
+
+            server-delete-body := ServerDeleteDialogBody {
+                dismissed => {
+                    SheetActions.close-dialog();
+                    keys.focus();
                 }
             }
         }

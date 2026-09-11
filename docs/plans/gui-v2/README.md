@@ -20,28 +20,51 @@ of static state. Interaction is checked by running the real binary
 | `lib/theme.slint` | `Theme`, `ThemePreference`, `Tone` | Every token in §2. `Theme.dark` follows `preference`, falling back to `Palette.color-scheme`. `reduced-motion` zeroes `fast`/`base`/`slow`. `tone-fg`/`tone-soft`/`tone-icon` are the single source of what a tone looks like. |
 | `lib/typography.slint` | `Type` | Sizes and weights only; Pretendard is selected by weight from the three bundled TTFs. |
 | `lib/data.slint` | the globals and structs below | No component: `slint-viewer --check` on it reports "No component found", which is expected. |
-| `lib/button.slint` | `Button`, `ButtonVariant`, `ButtonSize` | `primary`/`secondary`/`ghost`, `md` 36 px / `lg` 44 px visual inside a 44/52 px hit box, optional 18 px leading icon, `loading` draws a 2 px indeterminate bar along the bottom edge and names the button. |
+| `lib/button.slint` | `Button`, `ButtonVariant`, `ButtonSize` | `primary`/`secondary`/`ghost`/`danger`, `md` 36 px / `lg` 44 px visual inside a 44/52 px hit box, optional 18 px leading icon, `loading` draws a 2 px indeterminate bar along the bottom edge and names the button. `danger` is a soft-red fill with a red label (not a solid fill), added for 삭제 actions (DESIGN-v2 §8.7). |
 | `lib/icon-button.slint` | `IconButton` | 36×36 ghost square in a 44 px hit box. `a11y-label` is required — it has no visible text. |
-| `lib/text-field.slint` | `TextField` | Label / 40 px input / helper or error. `password` adds the eye toggle, `read-only` renders mono and keeps the field selectable, `action-icon` puts an `IconButton` inside the input. `select-all()` and `focus-input()` are public; `forward-focus` reaches the input, so `forward-focus: field` works on a form. |
+| `lib/text-field.slint` | `TextField` | Label / 40 px input / helper or error. `password` adds the eye toggle, `read-only` renders mono and keeps the field selectable, `action-icon` puts an `IconButton` inside the input, `leading-icon` puts an 18 px decorative glyph before the text (mirrors the trailing slot; added for the 모드 검색 field, §8.7). `select-all()` and `focus-input()` are public; `forward-focus` reaches the input, so `forward-focus: field` works on a form. |
 | `lib/switch.slint` | `Switch` | 44 px row, 40×22 track, 18 px knob, optional helper line. |
-| `lib/segmented.slint` | `SegmentedControl` | `options: [string]`, `selected: int` (`-1` selects nothing), Left/Right arrows move the selection. `selected` is strictly `in`: the caller derives it from the value it owns and updates that value in `changed`, so the track can never show a selection the caller refused. |
+| `lib/segmented.slint` | `SegmentedControl` | `options: [string]`, `selected: int` (`-1` selects nothing), Left/Right arrows move the selection. `selected` is strictly `in`: the caller derives it from the value it owns and updates that value in `changed`, so the track can never show a selection the caller refused. `option-enabled: [bool]` disables single options — **empty (the default) enables all**, so every existing caller is unchanged; a disabled option dims to `Theme.text-3`, reports `accessible-enabled: false`, takes no hover, click or arrow, and is the reason the 제공자 control no longer refuses CurseForge silently. Arrow keys move one option at a time and refuse a disabled neighbour rather than hopping over it (a Slint function has no loop; both callers have two options). |
+| `lib/pill-strip.slint` | `PillStrip` | The 모드 page's server selector (§8.2): a wrapping grid of equal-width pills under a caption, `accessible-role: radio-group`. Deliberately not a `SegmentedControl` — Left/Right/Home/End move a roving focus ring **without selecting**, Enter/Space or a click commits, because a selection change re-runs the installed-list job. |
 | `lib/card.slint` | `Card`, `CardHeader` | Surface + one hairline + r-lg + 20 padding. `CardHeader` is a plain child, so a card's title row and its actions compose like anything else. |
-| `lib/list-row.slint` | `ListRow` | 56 px. `selectable` is what makes the row a control; a server row is not one (its 폴더 열기 is the single tab stop). Avatar = `avatar` image, else `initials` on a `hue`-tinted fill, else `icon`. `accessible-enabled` follows `enabled`, so a dimmed row reads as disabled. |
+| `lib/list-row.slint` | `ListRow` | 56 px, or 72 px when the optional third `description` line is set (§8.7; a 찾기 result's blurb — an installed mod has none). `selectable` is what makes the row a control; a server row is not one (its trailing chevron is the single tab stop). Avatar = `avatar` image, else `initials` on a `hue`-tinted fill, else `icon`. `accessible-enabled` follows `enabled`, so a dimmed row reads as disabled. |
 | `lib/chip.slint` | `Chip` | 24 px, always carries its text, so tone is never the only carrier. |
-| `lib/callout.slint` | `Callout`, `VerdictBanner` | `Callout` takes an optional trailing action as a child. `VerdictBanner` is the signature element (§1). |
+| `lib/callout.slint` | `Callout`, `VerdictBanner` | `Callout` takes an optional trailing action as a child. `VerdictBanner` is the signature element (§1). Both join their `accessible-label` conditionally — title alone when the second string is empty, otherwise the two separated by one space — because the copy already ends its own sentences. |
 | `lib/progress.slint` | `ProgressBar` | Indeterminate only, driven by `Theme.progress-phase`. Nothing this app does reports real progress, and a determinate bar over a Forge install would be a fake number. |
-| `lib/nav-rail.slint` | `NavRail` | 72 px, four pages then 설정 at the bottom, active = 56×56 accent-soft pill. |
+| `lib/progress-row.slint` | `ProgressRow` | The single progress carrier for a catalog job (§8.4, §8.7): a 4 px bar it draws itself (not a reused `ProgressBar`) plus one mono text line, with `accessible-role: progress-indicator` and `accessible-live-region: polite` on the row itself so a reader announces the text as it changes. `fraction` is 0–1 for a counted job, negative for indeterminate (slides on `Theme.progress-phase`). |
+| `lib/nav-rail.slint` | `NavRail` | 72 px, five pages (빌드/서버/모드/가져오기/배포) then 설정 at the bottom, active = 56×56 accent-soft pill. Ctrl/Cmd+1..6 selects a page, handled in `app.slint` so the keys can be captured before a text field sees them. |
 | `lib/top-bar.slint` | `TopBar` | 56 px title row + the busy status pill + the theme toggle, with the 2 px indeterminate bar on its bottom edge. |
-| `lib/dialog.slint` | `Dialog` | Scrim + centred 560 px card. Body and footer are passed as children. |
+| `lib/dialog.slint` | `Dialog` | Scrim + centred 560 px card. Body and footer are passed as children. **Has no scroller and must not get one** (§3, §8.4) — a body longer than the card is a body with a list in it, and the list owns its own scrolling (`install-confirm`'s dependency `ListView`, `version-picker`'s version list). While a job is running the host clears `closable` and every control inside the open dialog gates on `SheetData.busy`, so a dialog open when the job starts stays open with its controls disabled until the job ends (§8.6) — a job started from a dialog is already writing to disk. |
 | `lib/toast.slint` | `Toast` | One notice; `app.slint` stacks them and the host owns the 4 s timer. |
 | `lib/empty-state.slint` | `EmptyState` | Centred glyph, two lines, and up to two buttons as children. |
 | `lib/key-value.slint` | `KeyValue` | Key / value / trailing status, used by the readiness and target summaries. |
 | `lib/log-view.slint` | `LogView` | `Flickable` + `for`, pinned to the end. |
 
-Screens: `screens/{build,servers,import,publish,settings}.slint`.
+Screens: `screens/{build,servers,import,publish,settings,mods}.slint`.
 `servers.slint` also exports `NewServerForm` (the dialog's body) and
 `settings.slint` also exports `SettingsFooter` (the sticky save bar, which
-`app.slint` keeps outside the scrolling area).
+`app.slint` keeps outside the scrolling area). `screens/mods.slint` exports
+the 모드 page itself, `ModsScreen`, and eight dialog body components — one per
+`DialogKind` the 모드 page and the server row menu open — each declaring its
+own `forward-focus` (DESIGN-v2 §8.7):
+
+| Component | `DialogKind` | Initial focus |
+|---|---|---|
+| `ModDetailDialogBody` | `mod-detail` | the namespace `SegmentedControl` |
+| `InstallConfirmDialogBody` | `install-confirm` | the primary (설치) button |
+| `VersionPickerDialogBody` | `version-picker` | 취소 |
+| `UpdatePreviewDialogBody` | `update-preview` | the primary (업데이트) button |
+| `ModDeleteDialogBody` | `mod-delete` | 취소 (never the danger button) |
+| `ServerMenuDialogBody` | `server-menu` | 모드 관리 |
+| `ServerDuplicateDialogBody` | `server-duplicate` | the new-id `TextField` |
+| `ServerDeleteDialogBody` | `server-delete` | the confirmation `TextField` |
+
+`ui/lib/data.slint` gains the `ModsData` global (server selector and scope,
+찾기 controls and results, 설치됨 rows, the quiet-job flags, the one progress
+carrier, and the staged fields for each of the eight dialogs above) and the
+`ModsActions` global (the callbacks those controls and dialogs call out on) —
+see `data.slint` itself for the full property/callback list rather than
+duplicating it here.
 
 Every interactive component sets `accessible-role`, a Korean
 `accessible-label`, `accessible-enabled`, `accessible-id` (§9),
@@ -207,12 +230,32 @@ answer if the fields moved while it was out.
 | `servers-empty` | The empty state; the header's two actions step aside so the pair is not on screen twice. |
 | `servers-error` | A scan that failed: the danger callout naming the `servermeta.json` that broke it, the rows from the last successful scan still listed, the `N개` count withdrawn, and the toast. The state QA defect D1 was about. |
 | `new-server-dialog` | The dialog over the servers page, NeoForge selected, with its patch warning. |
+| `mods-installed` | 설치됨: a mix of 관리 and 직접 추가 rows, neutral namespace chips, and one 업데이트 가능 accent chip. |
+| `mods-installed-empty` | 설치됨 with no mods: the `EmptyState` pointing at 찾기. |
+| `mods-installed-many` | Over eight installed mods: the capped `ListView` and the `모두 보기` ghost button. |
+| `mods-search` | 찾기 with search results, the provider and sort `SegmentedControl`s. |
+| `mods-search-empty` | 찾기 with no results: `검색 결과가 없습니다 — 다른 검색어나 제공자를 시도하세요`. |
+| `mods-search-loading` | 찾기 mid-search: the `ProgressRow` and the `Modrinth에서 검색 중` helper line. |
+| `mods-search-error` | 찾기 with a danger `Callout` naming a `CatalogError` variant and `다시 시도`. |
+| `mods-search-results-progress` | 찾기 results with an install job's `ProgressRow` running above them. |
+| `mods-search-no-cf-key` | 찾기 without a CurseForge key: the provider control's second option is disabled (`option-enabled`), dimmed and not hoverable, with the 설정에서… helper under it. |
+| `mods-search-rollback` | A rollback that could not remove everything: the failure `Callout` names the surviving path and gains `폴더 열기` beside 다시 시도 (`failure-folder` non-empty). `mods-search` is the clean-rollback twin, where the button is absent. |
+| `mods-search-server-changed` | §8.4's `서버가 바뀌었습니다 — 다시 검색하세요` refusal: `failure-can-retry` false, so the `Callout` carries no button at all — the plan is dead and the copy already says what to do. |
+| `mods-install-confirm` | The `install-confirm` dialog: resolved version line, namespace control, required/optional dependency rows. |
+| `mods-detail` | The `mod-detail` dialog: description, `KeyValue` rows, namespace control, 다른 버전/프로젝트 페이지/삭제. |
+| `mods-version-picker` | The `version-picker` dialog: version rows with 정식/베타/알파 chips and a downgrade confirmation line. |
+| `mods-update-preview` | The `update-preview` dialog: one row per pending update and the `N개 업데이트` primary. |
+| `mods-delete` | The `mod-delete` dialog, including the "이 모드를 필요로 하는 모드가 있습니다" dependents `Callout`. |
+| `server-menu-dialog` | The 서버 row's menu dialog: 모드 관리 / 폴더 열기 / 복제 / 삭제. |
+| `server-duplicate-dialog` | The `server-duplicate` dialog with its new-id field. |
+| `server-delete-dialog` | The `server-delete` dialog: `삭제` disabled until the typed id matches the directory name exactly. |
 | `import` | All three format labels, an unselectable `알 수 없음` row, and a manual-download box. |
 | `publish` | The 배포 page after a WebDAV upload: the result callout and the selectable distribution URL. |
 | `publish-blocked` | A target chosen but not configured: 업로드 disabled, the reason naming the missing setting, 설정 열기 beside the 미설정 chip. |
 | `settings` | All four groups, Google Drive connected, and the sticky save bar reading 저장되지 않은 변경. |
 | `toast` | Two stacked toasts over the build page. |
 | `dark-build-success`, `dark-servers` | The same two pages in dark. |
+| `dark-mods-installed`, `dark-mods-installed-empty`, `dark-mods-installed-many`, `dark-mods-search`, `dark-mods-search-empty`, `dark-mods-search-error`, `dark-mods-search-loading`, `dark-mods-search-results-progress`, `dark-mods-search-no-cf-key`, `dark-mods-search-rollback`, `dark-mods-search-server-changed`, `dark-mods-install-confirm`, `dark-mods-detail`, `dark-mods-version-picker`, `dark-mods-update-preview`, `dark-mods-delete`, `dark-server-menu-dialog`, `dark-server-duplicate-dialog`, `dark-server-delete-dialog` | The dark twins of the 모드-page and server-menu/duplicate/delete states above. |
 | `focus-demo` | `Theme.focus-demo` renders every focus ring at once, because `--load-data` cannot move keyboard focus. |
 
 ## 5. Regenerating a screenshot
@@ -350,7 +393,7 @@ handles; treat them as the API a QA script is written against.
 
 | Id | Control |
 |---|---|
-| `nav-build`, `nav-servers`, `nav-import`, `nav-publish`, `nav-settings` | The five nav-rail tabs. |
+| `nav-build`, `nav-servers`, `nav-mods`, `nav-import`, `nav-publish`, `nav-settings` | The six nav-rail tabs. |
 | `theme-toggle` | The top bar's light/dark button. |
 | `log-clear` | 로그 지우기 in the log card. |
 | `toast-<id>`, `toast-<id>-close` | A toast and its close button; `<id>` is `ToastData.id`. |
@@ -365,11 +408,37 @@ handles; treat them as the API a QA script is written against.
 
 `servers-refresh`, `servers-import`, `servers-new`, `servers-empty-import`,
 `servers-empty-new`, `servers-open-settings`; per row `server-row-<id>` and
-`server-open-<id>`, where `<id>` is the directory name. The dialog is
-`new-server-dialog` / `new-server-dialog-close`, its fields `new-server-id`,
-`new-server-mc`, `new-server-loader` (options `new-server-loader-0..3`),
-`new-server-loader-version`, `new-server-latest`, `new-server-recommended`, and
-its footer `new-server-cancel` / `new-server-submit`.
+**`servers-menu-<id>`** (the trailing chevron that opens the `server-menu`
+dialog — this replaced the direct `server-open-<id>` 폴더 열기 button when the
+row's control became a menu, §8.5), where `<id>` is the directory name. The
+dialog is `new-server-dialog` / `new-server-dialog-close`, its fields
+`new-server-id`, `new-server-mc`, `new-server-loader` (options
+`new-server-loader-0..3`), `new-server-loader-version`, `new-server-latest`,
+`new-server-recommended`, and its footer `new-server-cancel` /
+`new-server-submit`.
+
+**모드, and the server-menu/duplicate/delete dialogs (§8.1–§8.5)**
+
+`mods-server` (the `PillStrip`, options `mods-server-0..`), `mods-view` (the
+설치됨/찾기 `SegmentedControl`), `mods-show-all`, `mods-check-updates`,
+`mods-update-all`, `mods-retry`, `mods-failure-folder` (the 폴더 열기 the
+failure `Callout` grows when a rollback left files behind); per installed row `mods-row-<file>` (the
+자세히 chevron, `<file>` is the mod's file name); 찾기: `mods-search`,
+`mods-provider`, `mods-sort`, `mods-retry-search`, `mods-search-more`, and per
+result row `mods-install-<provider>-<project id>` (provider-scoped, since
+slugs/ids are re-assignable per provider) plus `mods-manual-url-<file name>`
+and `mods-manual-folder` for the manual-download list. Dialog bodies:
+`mod-detail-namespace`, `mod-detail-versions`, `mod-detail-project`,
+`mod-detail-delete`, `mod-detail-cancel`, `mod-detail-apply`;
+`install-confirm-versions`, `install-confirm-namespace`,
+`install-confirm-optional`, `install-confirm-dep-<project id>`,
+`install-confirm-cancel`, `install-confirm-submit`; `version-row-<version id>`,
+`version-picker-cancel`; `update-preview-cancel`, `update-preview-submit`;
+`mod-delete-cancel`, `mod-delete-submit`; `server-menu-mods`,
+`server-menu-open-folder`, `server-menu-duplicate`, `server-menu-delete`,
+`server-menu-cancel`; `server-duplicate-id`, `server-duplicate-cancel`,
+`server-duplicate-submit`; `server-delete-confirm`, `server-delete-cancel`,
+`server-delete-submit`.
 
 **가져오기**
 
@@ -389,8 +458,9 @@ re-sorts the list.
 `settings-helios`, `settings-webdav-url`, `settings-webdav-user`,
 `settings-webdav-password`, `settings-webdav-public-url`,
 `settings-gdrive-client-id`, `settings-gdrive-client-secret`,
-`settings-gdrive-folder-id`, `settings-connect-gdrive`, `settings-theme`
-(options `settings-theme-0..2`), `settings-reduced-motion`, `settings-save`.
+`settings-gdrive-folder-id`, `settings-connect-gdrive`, `settings-curseforge-key`
+(the CurseForge API 키 field, §8.1), `settings-theme` (options
+`settings-theme-0..2`), `settings-reduced-motion`, `settings-save`.
 
 **Derived suffixes.** A `SegmentedControl` option is `<id>-<index>`. A
 `TextField`'s password eye is `<id>-reveal` and its trailing action button

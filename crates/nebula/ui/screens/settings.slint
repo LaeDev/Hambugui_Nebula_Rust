@@ -104,6 +104,20 @@ export component SettingsScreen inherits VerticalLayout {
         }
     }
 
+    // ── CurseForge ──────────────────────────────────────────────────────────
+    Card {
+        CardHeader { title: "CurseForge"; }
+
+        SettingsField {
+            label: "CurseForge API 키";
+            a11y-label: "CurseForge API 키";
+            a11y-id: "settings-curseforge-key";
+            password: true;
+            helper: "console.curseforge.com에서 발급받은 본인 키를 입력하세요. 환경 변수 NEBULA_CURSEFORGE_API_KEY가 있으면 그 값이 우선합니다.";
+            text <=> SettingsData.curseforge-api-key;
+        }
+    }
+
     // ── WebDAV ──────────────────────────────────────────────────────────────
     Card {
         CardHeader { title: "WebDAV"; }

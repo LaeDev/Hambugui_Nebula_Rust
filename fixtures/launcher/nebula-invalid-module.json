@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "servers": [
+    {
+      "id": "bad-module",
+      "modules": [
+        {
+          "id": "shader",
+          "type": "ShaderPack",
+          "artifact": {
+            "size": 1,
+            "SHA256": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+            "url": "https://cdn.example.invalid/shader.zip",
+            "path": "shader.zip"
+          }
+        }
+      ]
+    }
+  ]
+}

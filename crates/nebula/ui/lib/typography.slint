@@ -1,0 +1,23 @@
+// The type scale (DESIGN-v2 §2). Pretendard for every string; the three TTFs
+// are imported once in `app.slint` and selected here by weight.
+export global Type {
+    // Sizes
+    out property <length> page-title: 22px;
+    out property <length> section: 17px;
+    out property <length> row-title: 15px;
+    out property <length> body: 14px;
+    out property <length> secondary: 13px;
+    out property <length> caption: 12px;
+    /// The nav rail's label, the one size below caption.
+    out property <length> nav: 11px;
+    out property <length> button: 14px;
+    /// Hashes, paths and the log. Half-pixel sizes render fine; the software
+    /// renderer rounds the advance, not the glyph.
+    out property <length> mono: 12.5px;
+
+    // Weights. Pretendard ships Regular/Medium/SemiBold, so 700 would be
+    // synthesised — nothing here asks for it, and Regular is the default
+    // weight, so only the two that are actually selected are named.
+    out property <int> medium: 500;
+    out property <int> semibold: 600;
+}

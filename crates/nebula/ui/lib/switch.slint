@@ -1,0 +1,114 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// A 44 px row: label on the left, a 40×22 track with an 18 px knob on the
+/// right (DESIGN-v2 §3).
+export component Switch inherits Rectangle {
+    in property <string> text;
+    in property <string> a11y-label;
+    /// Stable handle for automation, kebab-case. Becomes the UIA AutomationId;
+    /// the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    /// One quiet line under the label, for a toggle that needs a reason.
+    in property <string> helper;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    callback toggled(bool);
+
+    function flip() {
+        if (root.enabled) {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+
+    min-height: Theme.row-h;
+    vertical-stretch: 0;
+    opacity: root.enabled ? 1.0 : 0.5;
+    border-radius: Theme.r-md + Theme.ring-gutter;
+    border-width: (fs.has-focus || Theme.focus-demo) ? Theme.ring-width : 0px;
+    border-color: Theme.accent;
+
+    accessible-role: checkbox;
+    accessible-label: root.a11y-label == "" ? root.text : root.a11y-label;
+    accessible-description: root.helper;
+    accessible-id: root.a11y-id;
+    accessible-enabled: root.enabled;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-action-default => {
+        root.flip();
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if ((event.text == " " || event.text == "\n") && root.enabled) {
+                root.flip();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        layout := HorizontalLayout {
+            padding-left: Theme.ring-gutter;
+            padding-right: Theme.ring-gutter;
+            spacing: 12px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.text;
+                    color: Theme.text;
+                    font-size: Type.body;
+                    wrap: word-wrap;
+                }
+
+                if root.helper != "" : Text {
+                    text: root.helper;
+                    color: Theme.text-3;
+                    font-size: Type.caption;
+                    font-weight: Type.medium;
+                    wrap: word-wrap;
+                }
+            }
+
+            Rectangle {
+                width: 40px;
+                horizontal-stretch: 0;
+
+                track := Rectangle {
+                    width: 40px;
+                    height: 22px;
+                    border-radius: 11px;
+                    background: root.checked ? Theme.accent : Theme.surface-3;
+                    border-width: root.checked ? 0px : 1px;
+                    border-color: Theme.border-strong;
+                    animate background { duration: Theme.fast; }
+
+                    Rectangle {
+                        y: 2px;
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 9px;
+                        background: root.checked ? Theme.on-accent : Theme.surface;
+                        x: root.checked ? 20px : 2px;
+                        animate x, background { duration: Theme.fast; }
+                    }
+                }
+            }
+        }
+
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+            clicked => {
+                root.flip();
+            }
+        }
+    }
+}

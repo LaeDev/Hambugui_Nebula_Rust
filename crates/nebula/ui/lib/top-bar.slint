@@ -1,0 +1,89 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+import { IconButton } from "icon-button.slint";
+import { ProgressBar } from "progress.slint";
+
+/// 56 px of page title and status, with the indeterminate bar hanging off its
+/// bottom edge while a job runs (DESIGN-v2 §3).
+export component TopBar inherits VerticalLayout {
+    in property <string> title;
+    in property <bool> busy;
+    /// `배포본 생성 중 · 1:23`, already formatted by the host.
+    in property <string> busy-label;
+    in property <bool> dark;
+    callback toggle-theme();
+
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        height: 56px;
+        padding-left: Theme.page-inset;
+        padding-right: Theme.sp-3;
+        spacing: Theme.sp-3;
+
+        Text {
+            text: root.title;
+            color: Theme.text;
+            font-size: Type.page-title;
+            font-weight: Type.semibold;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+
+        if root.busy : Rectangle {
+            horizontal-stretch: 0;
+            height: 28px;
+            y: (parent.height - 28px) / 2;
+            border-radius: Theme.r-pill;
+            background: Theme.accent-soft;
+
+            accessible-role: text;
+            accessible-label: root.busy-label;
+
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+
+                Text {
+                    text: root.busy-label;
+                    color: Theme.accent;
+                    font-family: Theme.mono;
+                    font-size: Type.mono;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        // The button's outer rectangle *is* its focus ring, so letting the bar
+        // stretch it drew a 44×56 ring with the glyph 6 px above centre. A row
+        // of its own gives the button back its 44 px square.
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 0;
+
+            IconButton {
+                icon: root.dark
+                    ? @image-url("../../assets/icons/sun.svg")
+                    : @image-url("../../assets/icons/moon.svg");
+                a11y-label: root.dark ? "라이트 테마로 전환" : "다크 테마로 전환";
+                a11y-id: "theme-toggle";
+                activated => {
+                    root.toggle-theme();
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        height: 2px;
+        vertical-stretch: 0;
+        background: Theme.border;
+
+        if root.busy : ProgressBar {
+            width: 100%;
+            track: 2px;
+            a11y-label: root.busy-label;
+        }
+    }
+}

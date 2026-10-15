@@ -1,0 +1,243 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+import { IconButton } from "icon-button.slint";
+
+/// Label above, a 40 px input, helper or error below (DESIGN-v2 §3). The ring
+/// is drawn on the input's own rectangle: the label and the helper sit outside
+/// it, so a wrapper ring would enclose text that is not the control.
+export component TextField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> helper;
+    in property <string> error;
+    in property <string> placeholder;
+    /// A unit shown inside the input, right-aligned: `.json`.
+    in property <string> suffix;
+    /// An 18 px glyph inside the input, before the text (DESIGN-v2 §8.7):
+    /// `search` on the 모드 search field. Mirrors the suffix slot, and is
+    /// decoration — the field's own label is what names it.
+    in property <image> leading-icon;
+    in property <string> a11y-label;
+    /// Stable handle for automation, kebab-case (`settings-root`). Becomes the
+    /// UIA AutomationId on the input itself, which is the node a client finds.
+    in property <string> a11y-id;
+    in property <bool> enabled: true;
+    in property <bool> password: false;
+    /// A URL the user copies rather than edits. Still selectable and still a
+    /// tab stop; only typing is refused.
+    in property <bool> read-only: false;
+    /// Optional trailing action inside the input — copy, open, and so on.
+    in property <image> action-icon;
+    in property <string> action-label;
+    in-out property <string> text;
+    callback edited(string);
+    callback accepted(string);
+    callback action();
+
+    private property <bool> ring: input.has-focus || Theme.focus-demo;
+    /// What this field is called, however it was labelled.
+    private property <string> name: root.a11y-label == "" ? root.label : root.a11y-label;
+    private property <bool> password-shown: false;
+    // So `field.focus()` — and `forward-focus: field` on a form — reaches the
+    // input rather than the wrapper, which cannot hold focus.
+    forward-focus: input;
+    /// For the host: a refused save puts the caret back in the field it named.
+    public function focus-input() {
+        input.focus();
+    }
+    /// For the read-only URL fields: the copy button selects the whole value so
+    /// Ctrl+C works without a drag.
+    public function select-all() {
+        input.focus();
+        input.select-all();
+    }
+
+    spacing: Theme.sp-half;
+    // Two fields side by side have different heights when only one carries a
+    // helper line; `start` keeps their inputs on the same baseline instead of
+    // spreading each field over its column.
+    alignment: start;
+
+    if root.label != "" : Text {
+        text: root.label;
+        color: Theme.text-2;
+        font-size: Type.secondary;
+        font-weight: Type.medium;
+        vertical-stretch: 0;
+    }
+
+    Rectangle {
+        height: 40px;
+        vertical-stretch: 0;
+        background: root.enabled ? Theme.surface : Theme.surface-2;
+        border-radius: Theme.r-md;
+        border-width: root.ring ? Theme.ring-width : 1px;
+        border-color: root.ring
+            ? Theme.accent
+            : root.error != ""
+                ? Theme.danger
+                : touch.has-hover ? Theme.border-strong : Theme.border;
+        animate border-color { duration: Theme.fast; }
+
+        touch := TouchArea {
+            mouse-cursor: root.enabled ? MouseCursor.text : MouseCursor.default;
+            clicked => {
+                input.focus();
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: root.leading-icon.width > 0 ? 10px : 12px;
+            padding-right: root.action-icon.width > 0 ? 4px : 12px;
+            spacing: Theme.sp-half;
+
+            // A row of its own to centre in: a HorizontalLayout anchors a
+            // fixed-height child to the top, which would leave the glyph
+            // 11 px above the caret.
+            if root.leading-icon.width > 0 : VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+
+                Image {
+                    source: root.leading-icon;
+                    width: 18px;
+                    height: 18px;
+                    image-fit: contain;
+                    colorize: Theme.text-3;
+                    accessible-role: none;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                // The input's *minimum* width is the width of its whole text,
+                // and it reaches the row through this wrapper. Without the
+                // clamp an over-constrained row cannot shrink it, and a URL two
+                // characters longer than the field pushed the trailing copy
+                // button out through the card's right edge (`import`, and the
+                // 모드 manual-download list). `preferred-width: 0px` on the
+                // input below only fixes the *preferred* half of the same
+                // problem; the minimum has to be cut here, because a
+                // `min-width` on the input itself is refused next to its
+                // `width: 100%`.
+                min-width: 0px;
+
+                if root.text == "" && root.placeholder != "" : Text {
+                    x: 0;
+                    text: root.placeholder;
+                    color: Theme.text-3;
+                    font-size: Type.body;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    width: 100%;
+                }
+
+                input := TextInput {
+                    // A single-line input's preferred width is the width of its
+                    // whole text, so one long read-only URL would widen the
+                    // page and give it a horizontal scrollbar.
+                    preferred-width: 0px;
+                    text <=> root.text;
+                    enabled: root.enabled;
+                    read-only: root.read-only;
+                    input-type: root.password && !root.password-shown ? InputType.password : InputType.text;
+                    color: Theme.text;
+                    font-size: Type.body;
+                    font-family: root.read-only ? Theme.mono : "";
+                    selection-background-color: Theme.accent;
+                    selection-foreground-color: Theme.on-accent;
+                    single-line: true;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                    accessible-role: text-input;
+                    // Slint 1.17 does not map `accessible-description` to the
+                    // UIA HelpText a client can read, so an error announced
+                    // only there is announced nowhere. It stays — a future
+                    // Slint may carry it — and the error is folded into the
+                    // label as well, which does arrive.
+                    accessible-label: root.error != ""
+                        ? root.name + ", " + root.error
+                        : root.name;
+                    accessible-description: root.error != "" ? root.error : root.helper;
+                    accessible-id: root.a11y-id;
+                    accessible-enabled: root.enabled;
+                    edited => {
+                        root.edited(self.text);
+                    }
+                    accepted => {
+                        root.accepted(self.text);
+                    }
+                }
+            }
+
+            if root.suffix != "" : Text {
+                text: root.suffix;
+                color: Theme.text-3;
+                font-family: Theme.mono;
+                font-size: Type.mono;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            if root.password : IconButton {
+                icon: root.password-shown
+                    ? @image-url("../../assets/icons/eye-off.svg")
+                    : @image-url("../../assets/icons/eye.svg");
+                a11y-label: root.password-shown ? "비밀번호 숨기기" : "비밀번호 보기";
+                a11y-id: root.a11y-id == "" ? "" : root.a11y-id + "-reveal";
+                icon-size: 18px;
+                enabled: root.enabled;
+                horizontal-stretch: 0;
+                activated => {
+                    root.password-shown = !root.password-shown;
+                }
+            }
+
+            if root.action-icon.width > 0 : IconButton {
+                icon: root.action-icon;
+                a11y-label: root.action-label;
+                a11y-id: root.a11y-id == "" ? "" : root.a11y-id + "-action";
+                icon-size: 18px;
+                enabled: root.enabled;
+                horizontal-stretch: 0;
+                activated => {
+                    root.action();
+                }
+            }
+        }
+    }
+
+    if root.error != "" : HorizontalLayout {
+        spacing: Theme.sp-half;
+        vertical-stretch: 0;
+
+        Image {
+            source: @image-url("../../assets/icons/circle-alert.svg");
+            width: 16px;
+            height: 16px;
+            colorize: Theme.danger;
+            accessible-role: none;
+            horizontal-stretch: 0;
+            vertical-alignment: top;
+            y: 1px;
+        }
+
+        Text {
+            text: root.error;
+            color: Theme.danger;
+            font-size: Type.caption;
+            font-weight: Type.medium;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+    }
+
+    if root.error == "" && root.helper != "" : Text {
+        text: root.helper;
+        color: Theme.text-3;
+        font-size: Type.caption;
+        font-weight: Type.medium;
+        wrap: word-wrap;
+        vertical-stretch: 0;
+    }
+}

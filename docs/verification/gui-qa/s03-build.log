@@ -1,0 +1,54 @@
+﻿# s03-build  2026-09-10 18:51:55
+--- 3a. readiness rows ---
+  루트           value=[C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-root] chip=[확인됨]
+[PASS] readiness 「루트」 value matches env -- got [C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-root]
+[PASS] readiness 「루트」 chip is 확인됨 -- got [확인됨]
+  기본 URL       value=[https://cdn.example.invalid/] chip=[확인됨]
+[PASS] readiness 「기본 URL」 value matches env -- got [https://cdn.example.invalid/]
+[PASS] readiness 「기본 URL」 chip is 확인됨 -- got [확인됨]
+  Java         value=[C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot/bin/java.exe] chip=[확인됨]
+[PASS] readiness 「Java」 value matches env -- got [C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot/bin/java.exe]
+[PASS] readiness 「Java」 chip is 확인됨 -- got [확인됨]
+  Helios 폴더    value=[미설정] chip=[미설정]
+[PASS] readiness 「Helios 폴더」 value matches env -- got [미설정]
+[PASS] readiness 「Helios 폴더」 chip is 미설정 -- got [미설정]
+--- 3b. file state before the run ---
+distribution.json mtime before = 2026-09-10T08:17:37.3946871Z  size=83473
+[PASS] 배포본 생성 enabled before the run
+--- 3c. start the job ---
+[PASS] busy status pill appears in the top bar -- after 0.02 s
+  pill = [작업 중: 배포본 생성]
+ProgressBar elements while busy: 2
+[PASS] an indeterminate ProgressBar is exposed while busy
+  bar rect (window-relative) top=87 height=4 name=[작업 중: 배포본 생성]
+while busy: 배포본 생성 enabled=False, 기존 파일 검증 enabled=False
+[PASS] both build buttons are disabled while busy
+--- 3d. progress animation: two shots 2 s apart ---
+  shot -> 03-busy-a.png  (736 x 999)
+  shot -> 03-busy-b.png  (736 x 999)
+pill t0=[작업 중: 배포본 생성 · 0초]  t0+2s=[작업 중: 배포본 생성 · 2초]
+[PASS] elapsed time in the busy pill advances
+progress-bar strip mean |diff| = 24.101
+[PASS] the 2 px indeterminate bar strip changes between the two shots -- diff=24.101
+whole-window mean |diff| = 1.052
+--- 3e. wait for completion (<= 180 s) ---
+job finished after 58.6 s (done=True)
+[PASS] the build finishes within 180 s
+--- 3f. toast ---
+[FAIL] a toast appears when the job ends -- none seen
+--- 3g. verdict banner and summary chips ---
+verdict banner title = [NONE]
+[FAIL] verdict banner reads 런처 검증 통과 (https base URL passes strict)
+verdict detail = [NONE]
+summary chips: 
+[FAIL] four summary chips are shown -- 0
+summary accessible-label = [NONE]
+--- 3h. log rows ---
+log rows with +MM:SS: 0; last few = 
+[FAIL] the log view shows +MM:SS rows
+log line counter = [NONE]
+--- 3i. distribution.json was rewritten ---
+distribution.json mtime after = 2026-09-10T08:17:37.3946871Z  size=83473
+[FAIL] distribution.json mtime advanced
+  shot -> 03-verdict.png  (736 x 999)
+RESULT: 5 failed check(s): a toast appears when the job ends | verdict banner reads 런처 검증 통과 (https base URL passes strict) | four summary chips are shown | the log view shows +MM:SS rows | distribution.json mtime advanced

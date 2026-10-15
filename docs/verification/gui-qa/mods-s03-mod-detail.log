@@ -1,0 +1,81 @@
+﻿# s03-mod-detail  2026-09-11 11:14:49
+scope: QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+--- 3 mod-detail via the row chevron ---
+  chevron: name='Cloth Config v15 API 자세히' role=ControlType.Button
+  --- dialog texts ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 2
+    관리 0 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 꺼짐
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Cloth Config v15 API — QAfab-1.20.1
+    An API for config screens.
+    버전
+    15.0.140
+    파일
+    cloth-config-15.0.140-neoforge.jar
+    제공자
+    직접 추가
+    해시
+    c3e5733ba450
+    네임스페이스
+    필수
+    선택 켜짐
+    선택 꺼짐
+    삭제
+    취소
+    이동
+  ids: nav-build|TabItem|빌드 ; nav-servers|TabItem|서버 ; nav-mods|TabItem|모드 ; nav-import|TabItem|가져오기 ; nav-publish|TabItem|배포 ; nav-settings|TabItem|설정 ; theme-toggle|Button|라이트 테마로 전환 ; mods-server|Group|서버 ; mods-server-0|RadioButton|QAfab-1.20.1 ; mods-server-1|RadioButton|QAneo-1.21.1 ; mods-view|Tab|모드 보기 ; mods-view-0|TabItem|모드 보기 설치됨 ; mods-view-1|TabItem|모드 보기 찾기 ; mods-check-updates|Button|설치된 모드 업데이트 확인 ; mods-row-cloth-config-15.0.140-neoforge.jar|Button|Cloth Config v15 API 자세히 ; mods-row-notes.txt|Button|notes.txt 자세히 ; mod-detail-dialog|Group|Cloth Config v15 API — QAfab-1.20.1 ; mod-detail-dialog-close|Button|닫기 ; mod-detail-namespace|Tab|네임스페이스 ; mod-detail-namespace-0|TabItem|네임스페이스 필수 ; mod-detail-namespace-1|TabItem|네임스페이스 선택 켜짐 ; mod-detail-namespace-2|TabItem|네임스페이스 선택 꺼짐 ; mod-detail-delete|Button|이 모드 삭제 ; mod-detail-cancel|Button|모드 정보 닫기 ; mod-detail-apply|Button|선택한 네임스페이스로 이동
+  initial focus: Tab / 네임스페이스 / mod-detail-namespace
+  shot -> mods-03-detail.png  (736 x 999)
+[PASS] 다른 버전… is hidden for 직접 추가
+[PASS] 프로젝트 페이지 열기 is hidden without a provider id
+[PASS] initial focus is the namespace control -- mod-detail-namespace
+  namespace segment: mod-detail-namespace-0='네임스페이스 필수' sel= ; mod-detail-namespace-1='네임스페이스 선택 켜짐' sel= ; mod-detail-namespace-2='네임스페이스 선택 꺼짐' sel=
+  after staging: mod-detail-namespace-0= mod-detail-namespace-1= mod-detail-namespace-2=
+  shot -> mods-03-detail-staged.png  (736 x 999)
+  primary: name='선택한 네임스페이스로 이동' enabled=True
+  toast: 선택 켜짐으로 이동했습니다 | 선택 켜짐으로 이동했습니다
+[PASS] the move toast names the target namespace -- 선택 켜짐으로 이동했습니다 | 선택 켜짐으로 이동했습니다
+  shot -> mods-03-moved.png  (736 x 999)
+  --- list after the move ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 2
+    관리 0 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+[PASS] the dialog closed
+[PASS] the row now reads 선택 켜짐
+  focus after close: Window / Nebula / 
+  disk required : notes.txt
+  disk optionalon : cloth-config-15.0.140-neoforge.jar
+  disk optionaloff : 
+RESULT: all checks passed

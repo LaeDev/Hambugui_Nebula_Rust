@@ -1,0 +1,99 @@
+﻿# s06-updates  2026-09-11 11:28:01
+--- 7 교체 label for a newer version ---
+  version rows: '[1.20.1] Fabric API 0.92.12+1.20.1 교체' enabled=True ; '[1.20.1] Fabric API 0.92.11+1.20.1 설치됨' enabled=False ; '[1.20.1] Fabric API 0.92.9+1.20.1 이전 버전으로 교체' enabled=True ; '[1.20.1] Fabric API 0.92.8+1.20.1 이전 버전으로 교체' enabled=True ; '[1.20.1] Fabric API 0.92.7+1.20.1 이전 버전으로 교체' enabled=True
+[PASS] a newer version offers 교체 -- [1.20.1] Fabric API 0.92.12+1.20.1 교체 | [1.20.1] Fabric API 0.92.11+1.20.1 설치됨 | [1.20.1] Fabric API 0.92.9+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.8+1.20.1 이전 버전으로 교체 | [1.20.1] Fabric API 0.92.7+1.20.1 이전 버전으로 교체
+[PASS] the installed one is 설치됨
+  shot -> mods-07-version-actions.png  (736 x 999)
+--- 6 업데이트 확인 ---
+  button: '설치된 모드 업데이트 확인'  header: 관리 3 · 직접 추가 2 · 확인 전
+  toast: 업데이트 1개 있음
+[PASS] 업데이트 확인 reports a count -- 업데이트 1개 있음
+  header after the check: 관리 3 · 직접 추가 2 · 마지막 업데이트 확인 방금 전
+[PASS] the header caption records the check -- 관리 3 · 직접 추가 2 · 마지막 업데이트 확인 방금 전
+[PASS] the 업데이트 가능 chip is on the row
+  shot -> mods-06-check.png  (736 x 999)
+[PASS] 모두 업데이트 (N) appears when N > 0
+  primary: '업데이트 가능한 모드 모두 업데이트'
+[PASS] update-preview opened
+  --- update-preview texts ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 3 · 직접 추가 2 · 마지막 업데이트 확인 방금 전
+    업데이트 확인
+    모두 업데이트 (1)
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Fabric API
+    0.92.11+1.20.1 · fabric-api-0.92.11+1.20.1.jar · Modrinth
+    필수
+    업데이트 가능
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium Extra
+    0.5.9+mc1.20.1 · sodium-extra-0.5.9+mc1.20.1.jar · Modrinth
+    필수
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+    모두 업데이트 — QAfab-1.20.1
+    Fabric API
+    xhLT3C5f → 0.92.12+1.20.1 · fabric-api-0.92.11+1.20.1.jar
+    정식
+    취소
+    1개 업데이트
+    업데이트 1개 있음
+    업데이트 1개 있음
+  buttons: submit='모드 1개 업데이트' cancel='업데이트 취소'
+  initial focus: Button / 모드 1개 업데이트 / update-preview-submit
+  shot -> mods-06-update-preview.png  (736 x 999)
+  during apply: dialog-open=True pill=True ProgressRow(설치됨)=True  2.3s
+[PASS] the update pill names the job
+[PASS] the ProgressRow sits in the 설치됨 card
+  toast: 모드 1개를 업데이트했습니다
+  shot -> mods-06-updated.png  (736 x 999)
+  --- list after the update ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 3 · 직접 추가 2 · 마지막 업데이트 확인 방금 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    Fabric API
+    0.92.12+1.20.1 · fabric-api-0.92.12+1.20.1.jar · Modrinth
+    필수
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium Extra
+    0.5.9+mc1.20.1 · sodium-extra-0.5.9+mc1.20.1.jar · Modrinth
+    필수
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+  disk: fabric-api-0.92.12+1.20.1.jar, notes.txt, sodium-extra-0.5.9+mc1.20.1.jar, sodium-fabric-0.5.13+mc1.20.1.jar
+--- 6 second 업데이트 확인 ---
+  toast: 모두 최신입니다
+[PASS] a second check reports 모두 최신입니다 -- 모두 최신입니다
+  shot -> mods-06-uptodate.png  (736 x 999)
+RESULT: all checks passed

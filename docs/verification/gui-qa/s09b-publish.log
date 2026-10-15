@@ -1,0 +1,36 @@
+﻿# s09b-publish  2026-09-10 19:14:01
+--- aside (redone): does an unselectable 알 수 없음 row steal the selection? ---
+[PASS] navigate to 서버
+[PASS] navigate to 가져오기
+after clicking the Prism row:  Prism=On  unknown=not checkable
+[PASS] a selectable row becomes accessible-checked when chosen
+unknown row UIA IsEnabled = True, checkable = not checkable
+after clicking the 알 수 없음 row: Prism=On  unknown=not checkable
+[PASS] clicking the 알 수 없음 row does NOT move the selection
+[PASS] DEFECT: the 알 수 없음 row still reports IsEnabled=True to UI Automation -- True == the mismatch is the bug
+  shot -> 08e-unknown-format.png  (736 x 999)
+
+--- 9d. upload to the WebDAV stub ---
+settings.json exists = True
+[PASS] navigate to 배포
+target chip = [구성됨]
+[PASS] the configured target is marked 구성됨
+target URL summary = [http://127.0.0.1:8099/dist/]
+변경된 파일만 업로드 = On
+[PASS] 업로드 is enabled
+busy pill = [작업 중: 배포본 업로드 · 0초]
+upload took 2.1 s
+toast = [업로드를 마쳤습니다]
+result = [업로드 완료. WebDAV로 31개 업로드 · 134개 변경 없음]
+failure = [NONE]
+[PASS] the upload reports 업로드 완료
+[PASS] the result line reads 「WebDAV로 N개 업로드 · M개 변경 없음」
+배포 URL field = [https://cdn.example.invalid/distribution.json]
+[PASS] a 배포 URL field is offered
+[PASS] the 배포 URL field offers 주소 전체 선택
+  shot -> 09e-upload-done.png  (736 x 999)
+files under the stub root = 31
+  sample: dist\distribution.json | dist\repo\lib\net\fabricmc\fabric-loader\0.16.9\fabric-loader-0.16.9.jar | dist\repo\lib\net\fabricmc\sponge-mixin\0.15.4+mixin.0.8.7\sponge-mixin-0.15.4+mixin.0.8.7.jar | dist\repo\lib\net\minecraftforge\coremods\5.1.6\coremods-5.1.6.jar | dist\repo\lib\net\minecraftforge\fmlcore\1.20.1-47.3.0\fmlcore-1.20.1-47.3.0.jar | dist\repo\lib\net\minecraftforge\fmlearlydisplay\1.20.1-47.3.0\fmlearlydisplay-1.20.1-47.3.0.jar | dist\repo\lib\net\minecraftforge\fmlloader\1.20.1-47.3.0\fmlloader-1.20.1-47.3.0.jar | dist\repo\lib\net\minecraftforge\forge\1.20.1-47.3.0\forge-1.20.1-47.3.0-client.jar
+[PASS] the stub actually received files -- 31
+[PASS] distribution.json is among them
+RESULT: all checks passed

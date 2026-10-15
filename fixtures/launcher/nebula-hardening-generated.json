@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "rss": "<LINK TO RSS FEED>",
+  "discord": {
+    "clientId": "<FILL IN OR REMOVE DISCORD OBJECT>",
+    "smallImageText": "<FILL IN OR REMOVE DISCORD OBJECT>",
+    "smallImageKey": "<FILL IN OR REMOVE DISCORD OBJECT>"
+  },
+  "servers": [
+    {
+      "id": "Hambugui-1.20.1",
+      "name": "Hambugui (Minecraft 1.20.1)",
+      "description": "Hambugui Running Minecraft 1.20.1",
+      "icon": null,
+      "version": "1.0.0",
+      "address": "localhost:25565",
+      "minecraftVersion": "1.20.1",
+      "discord": {
+        "shortId": "<FILL IN OR REMOVE DISCORD OBJECT>",
+        "largeImageText": "<FILL IN OR REMOVE DISCORD OBJECT>",
+        "largeImageKey": "<FILL IN OR REMOVE DISCORD OBJECT>"
+      },
+      "mainServer": false,
+      "autoconnect": false,
+      "modules": [
+        {
+          "id": "client.cfg",
+          "name": "client.cfg",
+          "type": "File",
+          "artifact": {
+            "size": 15,
+            "url": "https://cdn.example.invalid/servers/Hambugui-1.20.1/files/config/client.cfg",
+            "MD5": "7576e668d81fb915409b43910f0779d1",
+            "SHA256": "f4a3565faf92888ae918bcaa41771ed55f0b9949a1e5193ed0c68a907706a71e",
+            "path": "config/client.cfg"
+          }
+        }
+      ]
+    }
+  ]
+}

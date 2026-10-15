@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    # The package job attaches the zip to a release on a version tag.
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
+
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: clippy, rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Build release
+        run: cargo build --release -p nebula
+
+  # The portable Windows package: the same script a maintainer runs locally.
+  package:
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.97.0
+
+      # The test job already ran the suite on this commit.
+      - name: Package
+        shell: pwsh
+        run: pwsh scripts/package-release.ps1 -SkipTests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nebula-windows-x86_64
+          path: dist/*.zip
+          retention-days: 30
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          body: |
+            Windows x86_64 포터블 배포본입니다. 설치 과정이 없으며, 압축을 풀고
+            `nebula-gui.exe`(GUI) 또는 `nebula.exe`(CLI)를 실행하면 됩니다.
+            요구 사항, SmartScreen 안내, 설정 위치는 zip 안 `RELEASE-NOTES.md`를 보세요.
+            zip 안 `SHA256SUMS.txt`로 각 파일의 SHA-256을 확인할 수 있습니다.
+
+            GUI는 Slint로 만들었습니다 — Slint Royalty-free License 2.0 §2(b) 저작자 표시입니다.
+
+            [![Made with Slint](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png)](https://slint.dev)

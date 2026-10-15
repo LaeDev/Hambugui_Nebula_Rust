@@ -1,0 +1,82 @@
+import { Theme } from "theme.slint";
+
+/// A 36×36 ghost square inside the 44 px hit target, labelled only for a
+/// screen reader (DESIGN-v2 §3). There are no tooltips in this app.
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    /// Required: this control has no visible text.
+    in property <string> a11y-label;
+    /// Stable handle for automation, kebab-case. Becomes the UIA AutomationId;
+    /// the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    in property <bool> enabled: true;
+    in property <bool> selected: false;
+    in property <length> icon-size: 20px;
+    callback activated();
+
+    // See button.slint: the size is stated on the inner square, because a
+    // layout overwrites a parent element's own width/height with the size its
+    // children ask for.
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    opacity: root.enabled ? 1.0 : 0.5;
+
+    border-width: (fs.has-focus || Theme.focus-demo) ? Theme.ring-width : 0px;
+    border-color: Theme.accent;
+    border-radius: Theme.r-md + Theme.ring-gutter;
+
+    accessible-role: button;
+    accessible-label: root.a11y-label;
+    accessible-id: root.a11y-id;
+    accessible-enabled: root.enabled;
+    accessible-action-default => {
+        if (root.enabled) {
+            root.activated();
+        }
+    }
+
+    fs := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if ((event.text == " " || event.text == "\n") && root.enabled) {
+                root.activated();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        VerticalLayout {
+            padding: Theme.ring-gutter;
+
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: Theme.r-md;
+                background: root.selected
+                    ? Theme.accent-soft
+                    : touch.pressed
+                        ? Theme.surface-3
+                        : touch.has-hover ? Theme.surface-2 : transparent;
+                animate background { duration: Theme.fast; }
+
+                Image {
+                    source: root.icon;
+                    width: root.icon-size;
+                    height: root.icon-size;
+                    image-fit: contain;
+                    colorize: root.selected ? Theme.accent : Theme.text-2;
+                    accessible-role: none;
+                }
+            }
+        }
+
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+            clicked => {
+                root.activated();
+            }
+        }
+    }
+}

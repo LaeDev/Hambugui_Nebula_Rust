@@ -1,0 +1,1352 @@
+import { ListView } from "std-widgets.slint";
+import { Theme, Tone } from "../lib/theme.slint";
+import { Type } from "../lib/typography.slint";
+import { Button, ButtonVariant, ButtonSize } from "../lib/button.slint";
+import { Card, CardHeader } from "../lib/card.slint";
+import { Chip } from "../lib/chip.slint";
+import { Callout } from "../lib/callout.slint";
+import { EmptyState } from "../lib/empty-state.slint";
+import { IconButton } from "../lib/icon-button.slint";
+import { KeyValue } from "../lib/key-value.slint";
+import { ListRow } from "../lib/list-row.slint";
+import { PillStrip } from "../lib/pill-strip.slint";
+import { ProgressRow } from "../lib/progress-row.slint";
+import { SegmentedControl } from "../lib/segmented.slint";
+import { Switch } from "../lib/switch.slint";
+import { TextField } from "../lib/text-field.slint";
+import {
+    AppData,
+    AppPage,
+    DialogKind,
+    InstalledModRowData,
+    ModHitRowData,
+    ModsActions,
+    ModsData,
+    SheetActions,
+    SheetData,
+} from "../lib/data.slint";
+
+// ── Shared pieces ───────────────────────────────────────────────────────────
+
+/// The line that says which server everything on this card is about
+/// (DESIGN-v2 §8.2). Mono, because it leads with a directory name.
+component ScopeLine inherits Text {
+    text: ModsData.scope-line;
+    color: Theme.text-2;
+    font-family: Theme.mono;
+    font-size: Type.mono;
+    vertical-stretch: 0;
+    overflow: elide;
+}
+
+/// The danger Callout a failed catalog job leaves in the card that owned it
+/// (§8.4). `progress-owner` is what routes it, so a failed install cannot
+/// appear over the 설치됨 list.
+component FailureCallout inherits Callout {
+    tone: Tone.danger;
+    title: ModsData.failure-title;
+    body: ModsData.failure-body;
+
+    // Only a rollback that could not remove everything leaves a folder behind
+    // (§8.4); every other failure leaves the property empty.
+    if ModsData.failure-folder != "" : Button {
+        text: "폴더 열기";
+        variant: ButtonVariant.ghost;
+        a11y-label: "남은 파일이 있는 폴더 열기";
+        a11y-id: "mods-failure-folder";
+        icon: @image-url("../../assets/icons/folder-open.svg");
+        enabled: !SheetData.busy;
+        activated => {
+            ModsActions.open-failure-folder();
+        }
+    }
+
+    if ModsData.failure-can-retry : Button {
+        text: "다시 시도";
+        a11y-label: "실패한 작업 다시 시도";
+        a11y-id: "mods-retry";
+        icon: @image-url("../../assets/icons/refresh-cw.svg");
+        enabled: !SheetData.busy;
+        // Both owners re-run the same thing: the host keeps one retry slot and
+        // decides from it what 다시 시도 means (§8.4).
+        activated => {
+            ModsActions.retry-install();
+        }
+    }
+}
+
+/// One 설치됨 row (§8.3). No description line: the third line is a 찾기-only
+/// affordance, and an installed mod has nothing to sell.
+component InstalledRow inherits ListRow {
+    in property <InstalledModRowData> data;
+    callback open-detail();
+
+    title: root.data.title;
+    subtitle: root.data.subtitle;
+    initials: root.data.initials;
+    hue: root.data.hue;
+    a11y-label: root.data.title + ", " + root.data.subtitle + ", " + root.data.namespace-label;
+
+    // The namespace is neutral: it is a fact about where the file lives, not a
+    // status. Only 업데이트 가능 spends the accent (§8.3).
+    Chip { text: root.data.namespace-label; }
+
+    if root.data.update-available : Chip {
+        text: "업데이트 가능";
+        tone: Tone.accent;
+    }
+
+    if root.data.missing : Chip {
+        text: "파일 없음";
+        tone: Tone.warning;
+        tone-glyph: true;
+    }
+
+    if root.data.unshippable : Chip {
+        text: "배포 불가";
+        tone: Tone.danger;
+        tone-glyph: true;
+    }
+
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 0;
+
+        IconButton {
+            icon: @image-url("../../assets/icons/chevron-right.svg");
+            a11y-label: root.data.title + " 자세히";
+            a11y-id: "mods-row-" + root.data.file-name;
+            enabled: root.enabled;
+            activated => {
+                root.open-detail();
+            }
+        }
+    }
+}
+
+/// One 찾기 result (§8.4). Not selectable — the row is a description and the
+/// 설치 button is the only control on it.
+component HitRow inherits ListRow {
+    in property <ModHitRowData> data;
+    callback install();
+
+    title: root.data.title;
+    subtitle: root.data.caption;
+    description: root.data.description;
+    initials: root.data.initials;
+    hue: root.data.hue;
+    a11y-label: root.data.title + ", " + root.data.caption;
+
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 0;
+
+        Button {
+            text: root.data.installed ? "설치됨" : "설치";
+            // The label tracks the same three states the text and the enabled
+            // binding do: a disabled button named `… 설치` tells a screen
+            // reader the opposite of what it does (D2).
+            a11y-label: root.data.title + (root.data.installed
+                ? " 설치됨"
+                : (root.data.no-version ? " 설치 불가" : " 설치"));
+            // Provider-scoped and re-assignable, so the host builds it.
+            a11y-id: root.data.install-a11y-id;
+            // The tab stop stays on an installed row: a control that vanishes
+            // once it is used moves every stop after it.
+            enabled: root.enabled && !root.data.installed && !root.data.no-version;
+            loading: root.data.resolving;
+            activated => {
+                root.install();
+            }
+        }
+    }
+}
+
+// ── The page ────────────────────────────────────────────────────────────────
+
+/// 모드 (DESIGN-v2 §8.2–§8.4).
+export component ModsScreen inherits VerticalLayout {
+    private property <bool> live: AppData.page-live;
+    /// The empty image, for a row the host has no icon for.
+    private property <image> no-icon;
+    /// 모두 보기 removed the eight-row cap. Screen state, not host state: it is
+    /// about this viewing of this list.
+    private property <bool> show-all: false;
+    private property <bool> capped: ModsData.installed.length > 8 && !root.show-all;
+    private property <bool> owns-installed: ModsData.progress-owner == "installed";
+
+    spacing: Theme.card-gap;
+
+    // ── No servers: nothing on this page has a subject (§8.2) ───────────────
+    if !ModsData.has-servers : Card {
+        EmptyState {
+            icon: @image-url("../../assets/icons/package.svg");
+            title: "서버가 없습니다";
+            body: "서버를 만들거나 모드팩을 가져오면 모드를 관리할 수 있습니다.";
+
+            Button {
+                text: "모드팩 가져오기";
+                icon: @image-url("../../assets/icons/download.svg");
+                a11y-label: "모드팩 가져오기 화면 열기";
+                a11y-id: "mods-empty-import";
+                enabled: root.live;
+                activated => {
+                    AppData.go(AppPage.import);
+                }
+            }
+
+            Button {
+                text: "새 서버";
+                icon: @image-url("../../assets/icons/plus.svg");
+                variant: ButtonVariant.primary;
+                a11y-label: "새 서버 만들기";
+                a11y-id: "mods-empty-new-server";
+                enabled: root.live;
+                activated => {
+                    SheetActions.open-dialog(DialogKind.new-server);
+                }
+            }
+        }
+    }
+
+    // ── Server selector (§8.2) ──────────────────────────────────────────────
+    if ModsData.has-servers : PillStrip {
+        caption: "서버";
+        labels: ModsData.servers;
+        selected-index: ModsData.server-index;
+        a11y-id: "mods-server";
+        enabled: root.live;
+        selected(index) => {
+            ModsData.server-index = index;
+            // Another server is another list: the cap comes back, or a switch
+            // to a server with forty mods renders all forty (§8.3).
+            root.show-all = false;
+            ModsActions.select-server(index);
+        }
+    }
+
+    if ModsData.has-servers : SegmentedControl {
+        options: ["설치됨", "찾기"];
+        a11y-prefix: "모드 보기";
+        a11y-id: "mods-view";
+        selected: ModsData.view;
+        enabled: root.live;
+        changed(index) => {
+            ModsData.view = index;
+            root.show-all = false;
+            ModsActions.set-view(index);
+        }
+    }
+
+    // ── 설치됨 (§8.3) ───────────────────────────────────────────────────────
+    if ModsData.has-servers && ModsData.view == 0 : Card {
+        CardHeader {
+            title: ModsData.installed-count-line;
+            subtitle: ModsData.check-caption;
+
+            if root.capped : Button {
+                text: "모두 보기";
+                variant: ButtonVariant.ghost;
+                a11y-label: "설치된 모드 모두 보기";
+                a11y-id: "mods-show-all";
+                enabled: root.live;
+                activated => {
+                    // Both: the cap is the screen's, and the host wants to know
+                    // the list it is keeping fresh just got longer.
+                    root.show-all = true;
+                    ModsActions.show-all-installed();
+                }
+            }
+
+            Button {
+                text: "업데이트 확인";
+                icon: @image-url("../../assets/icons/refresh-cw.svg");
+                a11y-label: "설치된 모드 업데이트 확인";
+                a11y-id: "mods-check-updates";
+                enabled: root.live;
+                loading: ModsData.checking;
+                activated => {
+                    ModsActions.check-updates();
+                }
+            }
+
+            if ModsData.updates-available > 0 : Button {
+                text: "모두 업데이트 (" + ModsData.updates-available + ")";
+                variant: ButtonVariant.primary;
+                a11y-label: "업데이트 가능한 모드 모두 업데이트";
+                a11y-id: "mods-update-all";
+                enabled: root.live;
+                activated => {
+                    ModsActions.open-update-preview();
+                }
+            }
+        }
+
+        ScopeLine { }
+
+        if ModsData.list-busy : ProgressRow {
+            text: "모드 목록을 읽는 중";
+            a11y-id: "mods-list-progress";
+        }
+
+        if ModsData.progress-visible && root.owns-installed : ProgressRow {
+            text: ModsData.progress-text;
+            fraction: ModsData.progress-fraction;
+            a11y-id: "mods-installed-progress";
+        }
+
+        if ModsData.failure-visible && root.owns-installed : FailureCallout { }
+
+        // Eight rows of 72 px, and the page ScrollView owns everything else.
+        // Rows scrolled out of a ListView leave the accessibility tree (§6),
+        // which is why the count in the header is never hidden and 모두 보기
+        // hands the whole list back to the page.
+        if root.capped : ListView {
+            height: 8 * 72px;
+
+            for row[index] in ModsData.installed : Rectangle {
+                // A 배포 불가 row is 96 px, not 72: its helper is a sentence,
+                // and elided into the row's text column it would say nothing.
+                height: row.unshippable ? 96px : 72px;
+
+                VerticalLayout {
+                    padding-bottom: Theme.card-gap;
+                    // Room for the ListView's scrollbar, which is drawn over
+                    // the delegate rather than beside it.
+                    padding-right: Theme.sp-3;
+                    spacing: Theme.sp-1;
+
+                    InstalledRow {
+                        data: row;
+                        enabled: root.live;
+                        avatar: index < ModsData.installed-icons.length
+                            ? ModsData.installed-icons[index]
+                            : root.no-icon;
+                        open-detail => {
+                            ModsActions.open-detail(index);
+                        }
+                    }
+
+                    if row.unshippable : Text {
+                        text: "배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요";
+                        color: Theme.text-3;
+                        font-size: Type.caption;
+                        font-weight: Type.medium;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+
+        if !root.capped : VerticalLayout {
+            spacing: Theme.card-gap;
+            vertical-stretch: 0;
+
+            for row[index] in ModsData.installed : VerticalLayout {
+                spacing: Theme.sp-1;
+                vertical-stretch: 0;
+
+                InstalledRow {
+                    data: row;
+                    enabled: root.live;
+                    avatar: index < ModsData.installed-icons.length
+                        ? ModsData.installed-icons[index]
+                        : root.no-icon;
+                    open-detail => {
+                        ModsActions.open-detail(index);
+                    }
+                }
+
+                if row.unshippable : Text {
+                    text: "배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요";
+                    color: Theme.text-3;
+                    font-size: Type.caption;
+                    font-weight: Type.medium;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        if ModsData.installed.length == 0 && !ModsData.list-busy : EmptyState {
+            icon: @image-url("../../assets/icons/package.svg");
+            title: "설치된 모드가 없습니다";
+            body: "찾기에서 검색해 설치하세요.";
+
+            Button {
+                text: "찾기";
+                icon: @image-url("../../assets/icons/search.svg");
+                variant: ButtonVariant.primary;
+                a11y-label: "모드 찾기로 전환";
+                a11y-id: "mods-empty-search";
+                enabled: root.live;
+                activated => {
+                    ModsData.view = 1;
+                    ModsActions.set-view(1);
+                }
+            }
+        }
+    }
+
+    // ── 찾기 (§8.4) ─────────────────────────────────────────────────────────
+    if ModsData.has-servers && ModsData.view == 1 : Card {
+        ScopeLine { }
+
+        TextField {
+            a11y-label: "모드 검색";
+            a11y-id: "mods-search";
+            placeholder: "모드 이름 또는 키워드";
+            leading-icon: @image-url("../../assets/icons/search.svg");
+            enabled: root.live;
+            text <=> ModsData.query;
+            accepted => {
+                ModsActions.search();
+            }
+        }
+
+        SegmentedControl {
+            options: ["Modrinth", "CurseForge"];
+            // Without a key the CurseForge search has nowhere to go, so the
+            // option is disabled rather than silently refused: it now looks
+            // and announces the way it behaves, and the helper below says why
+            // (§8.4, D6).
+            option-enabled: [true, ModsData.has-cf-key];
+            a11y-prefix: "제공자";
+            a11y-id: "mods-provider";
+            selected: ModsData.provider-index;
+            enabled: root.live;
+            changed(index) => {
+                ModsData.provider-index = index;
+                ModsActions.set-provider(index);
+            }
+        }
+
+        if !ModsData.has-cf-key : Text {
+            text: "설정에서 CurseForge API 키를 입력하세요";
+            color: Theme.text-3;
+            font-size: Type.caption;
+            font-weight: Type.medium;
+            wrap: word-wrap;
+        }
+
+        SegmentedControl {
+            options: ModsData.sort-labels;
+            a11y-prefix: "정렬";
+            a11y-id: "mods-sort";
+            selected: ModsData.sort-index;
+            enabled: root.live;
+            changed(index) => {
+                ModsData.sort-index = index;
+                ModsActions.set-sort(index);
+            }
+        }
+
+        if ModsData.progress-visible && !root.owns-installed : ProgressRow {
+            text: ModsData.progress-text;
+            fraction: ModsData.progress-fraction;
+            a11y-id: "mods-search-progress";
+        }
+
+        if ModsData.failure-visible && !root.owns-installed : FailureCallout { }
+
+        // CurseForge files the API refuses to hand over. Not a failure: they
+        // were dropped from the plan before any download and the rest of the
+        // install went through (§8.4).
+        if ModsData.manual.length > 0 : Callout {
+            tone: Tone.warning;
+            title: "직접 내려받아야 하는 파일";
+            body: "CurseForge가 배포를 허용하지 않는 파일입니다. 아래 주소에서 직접 내려받아 폴더에 넣으세요.";
+        }
+
+        for item in ModsData.manual : VerticalLayout {
+            spacing: Theme.sp-1;
+            vertical-stretch: 0;
+
+            Text {
+                text: item.name;
+                color: Theme.text;
+                font-size: Type.row-title;
+                font-weight: Type.medium;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: item.file;
+                color: Theme.text-2;
+                font-family: Theme.mono;
+                font-size: Type.mono;
+                wrap: word-wrap;
+            }
+
+            url := TextField {
+                a11y-label: item.name + " 다운로드 주소";
+                a11y-id: "mods-manual-url-" + item.file;
+                read-only: true;
+                text: item.url;
+                action-icon: @image-url("../../assets/icons/copy.svg");
+                action-label: "주소 전체 선택";
+                helper: "드래그해서 선택한 뒤 Ctrl+C로 복사";
+                action => {
+                    url.select-all();
+                }
+            }
+        }
+
+        if ModsData.manual.length > 0 : KeyValue {
+            key: "폴더";
+            value: ModsData.manual-folder;
+
+            Button {
+                text: "폴더 열기";
+                variant: ButtonVariant.ghost;
+                icon: @image-url("../../assets/icons/folder-open.svg");
+                a11y-label: "받은 파일을 넣을 폴더 열기";
+                a11y-id: "mods-manual-folder";
+                enabled: root.live;
+                activated => {
+                    ModsActions.open-manual-folder();
+                }
+            }
+        }
+
+        if ModsData.manual.length > 0 : Text {
+            text: "파일 이름은 .jar로 끝나야 하며, 완료되지 않은 다운로드(.crdownload 등)는 배포본 생성을 막습니다.";
+            color: Theme.text-3;
+            font-size: Type.caption;
+            font-weight: Type.medium;
+            wrap: word-wrap;
+        }
+
+        // ── The five search states (§8.4) ───────────────────────────────────
+        if ModsData.search-state == "idle" : EmptyState {
+            icon: @image-url("../../assets/icons/search.svg");
+            title: "검색어를 입력하세요";
+            body: ModsData.scope-line + "에 맞는 모드만 표시됩니다.";
+        }
+
+        if ModsData.search-state == "loading" : ProgressRow {
+            text: "검색 중";
+            a11y-id: "mods-search-loading";
+        }
+
+        if ModsData.search-state == "loading" : Text {
+            text: (ModsData.provider-index == 1 ? "CurseForge" : "Modrinth") + "에서 검색 중";
+            color: Theme.text-3;
+            font-size: Type.caption;
+            font-weight: Type.medium;
+            wrap: word-wrap;
+        }
+
+        if ModsData.search-state == "empty" : EmptyState {
+            icon: @image-url("../../assets/icons/search.svg");
+            title: "검색 결과가 없습니다";
+            body: "다른 검색어나 제공자를 시도하세요.";
+        }
+
+        // The host matched on the `CatalogError` variant, never on message
+        // text: these two strings arrive already decided.
+        if ModsData.search-state == "error" : Callout {
+            tone: Tone.danger;
+            title: ModsData.search-error-title;
+            body: ModsData.search-error-body;
+
+            Button {
+                text: "다시 시도";
+                a11y-label: "검색 다시 시도";
+                a11y-id: "mods-retry-search";
+                icon: @image-url("../../assets/icons/refresh-cw.svg");
+                enabled: root.live;
+                activated => {
+                    ModsActions.retry-search();
+                }
+            }
+        }
+
+        for row[index] in ModsData.hits : HitRow {
+            data: row;
+            enabled: root.live;
+            avatar: index < ModsData.hit-icons.length
+                ? ModsData.hit-icons[index]
+                : root.no-icon;
+            install => {
+                ModsActions.install-hit(index);
+            }
+        }
+
+        if ModsData.has-more : HorizontalLayout {
+            alignment: start;
+            vertical-stretch: 0;
+
+            Button {
+                text: "더 보기";
+                variant: ButtonVariant.ghost;
+                a11y-label: "검색 결과 더 보기";
+                a11y-id: "mods-search-more";
+                enabled: root.live;
+                loading: ModsData.loading-more;
+                activated => {
+                    ModsActions.search-more();
+                }
+            }
+        }
+    }
+}
+
+// ── Dialog bodies (§8.7: each declares where the focus lands) ───────────────
+
+/// `mod-detail` (§8.3). The namespace control **stages** the choice; 이동 is
+/// what runs the job, so a user cannot be locked in the dialog by a control
+/// they only tabbed through.
+export component ModDetailDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    /// The body's own close: `app.slint` closes the dialog and hands the focus
+    /// back to the key scope.
+    callback dismissed();
+
+    forward-focus: namespace;
+
+    spacing: Theme.sp-4;
+
+    if ModsData.detail-description != "" : Text {
+        text: ModsData.detail-description;
+        color: Theme.text-2;
+        font-size: Type.secondary;
+        wrap: word-wrap;
+        vertical-stretch: 0;
+    }
+
+    KeyValue { key: "버전"; value: ModsData.detail-version; }
+    KeyValue { key: "파일"; value: ModsData.detail-file; }
+    KeyValue {
+        key: "제공자";
+        value: ModsData.detail-provider;
+        dim: !ModsData.detail-has-provider;
+    }
+    KeyValue { key: "해시"; value: ModsData.detail-hash; }
+
+    VerticalLayout {
+        spacing: Theme.sp-half;
+        vertical-stretch: 0;
+
+        Text {
+            text: "네임스페이스";
+            color: Theme.text-2;
+            font-size: Type.secondary;
+            font-weight: Type.medium;
+        }
+
+        namespace := SegmentedControl {
+            options: ["필수", "선택 켜짐", "선택 꺼짐"];
+            a11y-prefix: "네임스페이스";
+            a11y-id: "mod-detail-namespace";
+            selected: ModsData.detail-namespace-index;
+            enabled: root.live;
+            changed(index) => {
+                ModsData.detail-namespace-index = index;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        vertical-stretch: 0;
+
+        if ModsData.detail-is-managed : Button {
+            text: "다른 버전…";
+            a11y-label: "다른 버전 고르기";
+            a11y-id: "mod-detail-versions";
+            enabled: root.live;
+            activated => {
+                ModsActions.open-version-picker();
+            }
+        }
+
+        if ModsData.detail-has-provider : Button {
+            text: "프로젝트 페이지 열기";
+            icon: @image-url("../../assets/icons/external-link.svg");
+            variant: ButtonVariant.ghost;
+            a11y-label: "프로젝트 페이지 열기";
+            a11y-id: "mod-detail-project";
+            enabled: root.live;
+            activated => {
+                ModsActions.open-project-page();
+            }
+        }
+
+        Rectangle { }
+
+        Button {
+            text: "삭제";
+            icon: @image-url("../../assets/icons/trash-2.svg");
+            variant: ButtonVariant.danger;
+            a11y-label: "이 모드 삭제";
+            a11y-id: "mod-detail-delete";
+            enabled: root.live;
+            activated => {
+                ModsActions.request-delete();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "모드 정보 닫기";
+            a11y-id: "mod-detail-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+
+        Button {
+            text: "이동";
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            a11y-label: "선택한 네임스페이스로 이동";
+            a11y-id: "mod-detail-apply";
+            enabled: root.live;
+            loading: SheetData.busy;
+            activated => {
+                ModsActions.apply-namespace();
+            }
+        }
+    }
+}
+
+/// `install-confirm` (§8.4). Always opens, even when there is nothing to
+/// decide: the version, the namespace and the dependency list are what the
+/// user is agreeing to.
+export component InstallConfirmDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    /// 선택 의존성 N개 opened the optional rows. Screen state: it is about this
+    /// dialog, not about the plan.
+    private property <bool> show-optional: false;
+    callback dismissed();
+
+    forward-focus: install;
+
+    spacing: Theme.sp-4;
+
+    HorizontalLayout {
+        spacing: Theme.sp-3;
+        vertical-stretch: 0;
+
+        Text {
+            text: ModsData.confirm-version-line;
+            color: Theme.text;
+            font-size: Type.body;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            wrap: word-wrap;
+        }
+
+        Button {
+            text: "다른 버전…";
+            variant: ButtonVariant.ghost;
+            a11y-label: "다른 버전 고르기";
+            a11y-id: "install-confirm-versions";
+            enabled: root.live;
+            activated => {
+                ModsActions.open-version-picker();
+            }
+        }
+    }
+
+    if ModsData.confirm-warning != "" : Callout {
+        tone: Tone.warning;
+        title: ModsData.confirm-warning;
+    }
+
+    VerticalLayout {
+        spacing: Theme.sp-half;
+        vertical-stretch: 0;
+
+        Text {
+            text: "네임스페이스";
+            color: Theme.text-2;
+            font-size: Type.secondary;
+            font-weight: Type.medium;
+        }
+
+        SegmentedControl {
+            options: ["필수", "선택 켜짐", "선택 꺼짐"];
+            a11y-prefix: "네임스페이스";
+            a11y-id: "install-confirm-namespace";
+            selected: ModsData.confirm-namespace-index;
+            enabled: root.live;
+            changed(index) => {
+                ModsData.confirm-namespace-index = index;
+            }
+        }
+    }
+
+    // The dependency list owns its own scrolling, because the Dialog card has
+    // none (§8.4). Optional rows are in the same list at zero height until
+    // 선택 의존성 opens them; the deps arrive required-first, which is what
+    // lets the first optional row carry the toggle.
+    if ModsData.deps.length > 0 : ListView {
+        height: min(4 * 56px, ModsData.deps.length * 56px);
+
+        for dep[index] in ModsData.deps : slot := Rectangle {
+            /// The deps arrive required-first, so the first row whose
+            /// predecessor is required is where the collapse toggle belongs —
+            /// and `length - index` is how many optional rows follow it.
+            property <bool> first-optional: !dep.required
+                && (index == 0 || ModsData.deps[index - 1].required);
+            property <bool> collapsed: !dep.required && !root.show-optional;
+
+            height: (!slot.collapsed || slot.first-optional) ? 56px : 0px;
+            clip: true;
+
+            if slot.collapsed && slot.first-optional : HorizontalLayout {
+                alignment: start;
+
+                Button {
+                    text: "선택 의존성 " + (ModsData.deps.length - index) + "개";
+                    variant: ButtonVariant.ghost;
+                    a11y-label: "선택 의존성 보기";
+                    a11y-id: "install-confirm-optional";
+                    enabled: root.live;
+                    activated => {
+                        root.show-optional = true;
+                    }
+                }
+            }
+
+            if !slot.collapsed : HorizontalLayout {
+                // Room for the ListView's scrollbar (it is drawn over the
+                // delegate): without it the size label loses its last glyph.
+                padding-right: Theme.sp-3;
+                spacing: Theme.sp-2;
+
+                Switch {
+                    text: dep.title + " " + dep.version;
+                    a11y-label: dep.title + " " + dep.version + " 함께 설치";
+                    a11y-id: "install-confirm-dep-" + dep.project-id;
+                    helper: dep.helper;
+                    // Already on the server: shown, never omitted, and not a
+                    // choice — unchecking it would promise a removal the
+                    // install does not do.
+                    enabled: root.live && !dep.already-installed;
+                    // One-way: the model element is the host's, and `Switch`
+                    // flips its own `checked` before it reports.
+                    checked: dep.checked;
+                    horizontal-stretch: 1;
+                    toggled(on) => {
+                        ModsActions.toggle-dep(index, on);
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+
+                    if dep.already-installed : Chip { text: "설치됨"; }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+
+                    if !dep.already-installed && dep.size-label != "" : Text {
+                        text: dep.size-label;
+                        color: Theme.text-3;
+                        font-family: Theme.mono;
+                        font-size: Type.mono;
+                    }
+                }
+            }
+        }
+    }
+
+    if ModsData.confirm-blocked-title != "" : Callout {
+        tone: Tone.danger;
+        title: ModsData.confirm-blocked-title;
+        body: ModsData.confirm-blocked-body;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-3;
+        vertical-stretch: 0;
+
+        Text {
+            text: ModsData.confirm-footer;
+            color: Theme.text-2;
+            font-size: Type.secondary;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+
+        Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "설치 취소";
+            a11y-id: "install-confirm-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+
+        install := Button {
+            text: ModsData.confirm-primary-label;
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            a11y-label: ModsData.confirm-primary-label;
+            a11y-id: "install-confirm-submit";
+            enabled: root.live && ModsData.confirm-can-install;
+            loading: SheetData.busy;
+            activated => {
+                ModsActions.confirm-install();
+            }
+        }
+    }
+}
+
+/// `version-picker` (§8.3). 360 px of list, 64 px rows, and the action on each
+/// row is the whole interaction — there is no primary to press afterwards.
+export component VersionPickerDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    callback dismissed();
+
+    forward-focus: close;
+
+    spacing: Theme.sp-4;
+
+    // §8.3 budgets 360 px; 5 × 64 is the whole-delegate number nearest it, and
+    // it is what stops the list ending on half a row of text.
+    ListView {
+        height: min(5 * 64px, ModsData.versions.length * 64px);
+
+        for row[index] in ModsData.versions : Rectangle {
+            height: 64px;
+
+            HorizontalLayout {
+                // Room for the ListView's scrollbar, drawn over the delegate.
+                padding-right: Theme.sp-3;
+                padding-bottom: Theme.sp-2;
+                spacing: Theme.sp-2;
+
+                accessible-role: list-item;
+                accessible-label: row.name + ", " + row.release-label + ", "
+                    + row.game-versions-label + ", " + row.date + ", " + row.size-label;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    horizontal-stretch: 1;
+
+                    Text {
+                        text: row.name;
+                        color: Theme.text;
+                        font-size: Type.row-title;
+                        font-weight: Type.medium;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: row.game-versions-label + " · " + row.date + " · " + row.size-label;
+                        color: Theme.text-2;
+                        font-size: Type.secondary;
+                        overflow: elide;
+                    }
+                }
+
+                // Neutral: the release channel is a fact, and the accent on
+                // this page belongs to 업데이트 가능 alone.
+                Chip { text: row.release-label; }
+
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+
+                    Button {
+                        text: row.action;
+                        a11y-label: row.name + " " + row.action;
+                        a11y-id: "version-row-" + row.version-id;
+                        enabled: root.live && row.enabled;
+                        activated => {
+                            ModsActions.pick-version(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // One line, inside the dialog: a downgrade is the one pick that is not
+    // obviously what the user meant (§8.3).
+    if ModsData.downgrade-confirm-line != "" : Callout {
+        tone: Tone.warning;
+        title: ModsData.downgrade-confirm-line;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        close := Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "버전 고르기 취소";
+            a11y-id: "version-picker-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+    }
+}
+
+/// `update-preview` (§8.3): what 모두 업데이트 is about to do, one line per mod.
+export component UpdatePreviewDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    callback dismissed();
+
+    forward-focus: apply;
+
+    spacing: Theme.sp-4;
+
+    ListView {
+        height: min(6 * 56px, ModsData.updates.length * 56px);
+
+        for row in ModsData.updates : Rectangle {
+            height: 56px;
+
+            HorizontalLayout {
+                padding-right: Theme.sp-3;
+                padding-bottom: Theme.sp-2;
+                spacing: Theme.sp-2;
+
+                accessible-role: list-item;
+                accessible-label: row.title + ", " + row.from + "에서 " + row.to + "로";
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    horizontal-stretch: 1;
+
+                    Text {
+                        text: row.title;
+                        color: Theme.text;
+                        font-size: Type.row-title;
+                        font-weight: Type.medium;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: row.from + " → " + row.to + " · " + row.file-name;
+                        color: Theme.text-2;
+                        font-family: Theme.mono;
+                        font-size: Type.mono;
+                        overflow: elide;
+                    }
+                }
+
+                Chip { text: row.release-label; }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "업데이트 취소";
+            a11y-id: "update-preview-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+
+        apply := Button {
+            text: ModsData.update-count + "개 업데이트";
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            a11y-label: "모드 " + ModsData.update-count + "개 업데이트";
+            a11y-id: "update-preview-submit";
+            enabled: root.live && ModsData.update-count > 0;
+            loading: SheetData.busy;
+            activated => {
+                ModsActions.apply-updates();
+            }
+        }
+    }
+}
+
+/// `mod-delete` (§8.3). The focus starts on 취소: the destructive button is
+/// never the one a stray Enter finds.
+export component ModDeleteDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    callback dismissed();
+
+    forward-focus: cancel;
+
+    spacing: Theme.sp-4;
+
+    Text {
+        text: "이 파일이 영구 삭제됩니다: " + ModsData.delete-path;
+        color: Theme.text;
+        font-size: Type.body;
+        wrap: word-wrap;
+        vertical-stretch: 0;
+    }
+
+    if ModsData.delete-dependents != "" : Callout {
+        tone: Tone.warning;
+        title: "이 모드를 필요로 하는 모드가 있습니다";
+        body: ModsData.delete-dependents;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        cancel := Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "모드 삭제 취소";
+            a11y-id: "mod-delete-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+
+        Button {
+            text: "삭제";
+            icon: @image-url("../../assets/icons/trash-2.svg");
+            variant: ButtonVariant.danger;
+            size: ButtonSize.lg;
+            a11y-label: "모드 삭제";
+            a11y-id: "mod-delete-submit";
+            enabled: root.live;
+            loading: SheetData.busy;
+            activated => {
+                ModsActions.confirm-delete();
+            }
+        }
+    }
+}
+
+/// `server-menu` (§8.5): the four things a server row can do, now that its
+/// trailing control is one chevron instead of one folder button.
+export component ServerMenuDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    callback dismissed();
+
+    forward-focus: manage;
+
+    spacing: Theme.sp-2;
+
+    manage := Button {
+        text: "모드 관리";
+        icon: @image-url("../../assets/icons/package.svg");
+        size: ButtonSize.lg;
+        a11y-label: "이 서버의 모드 관리";
+        a11y-id: "server-menu-mods";
+        enabled: root.live;
+        activated => {
+            ModsActions.server-menu-mods();
+        }
+    }
+
+    Button {
+        text: "폴더 열기";
+        icon: @image-url("../../assets/icons/folder-open.svg");
+        size: ButtonSize.lg;
+        a11y-label: "서버 폴더 열기";
+        a11y-id: "server-menu-open-folder";
+        enabled: root.live;
+        activated => {
+            ModsActions.server-menu-open-folder();
+        }
+    }
+
+    Button {
+        text: "복제";
+        icon: @image-url("../../assets/icons/copy.svg");
+        size: ButtonSize.lg;
+        a11y-label: "서버 복제";
+        a11y-id: "server-menu-duplicate";
+        enabled: root.live;
+        activated => {
+            ModsActions.server-menu-duplicate();
+        }
+    }
+
+    Button {
+        text: "삭제";
+        icon: @image-url("../../assets/icons/trash-2.svg");
+        variant: ButtonVariant.danger;
+        size: ButtonSize.lg;
+        a11y-label: "서버 삭제";
+        a11y-id: "server-menu-delete";
+        enabled: root.live;
+        activated => {
+            ModsActions.server-menu-delete();
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "메뉴 닫기";
+            a11y-id: "server-menu-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+    }
+}
+
+/// `server-duplicate` (§8.5). The new id follows the 새 서버 rules; the host
+/// refuses a name that exists and says so in `duplicate-error`.
+export component ServerDuplicateDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    callback dismissed();
+
+    forward-focus: new-id;
+
+    spacing: Theme.sp-4;
+
+    new-id := TextField {
+        label: "새 서버 ID";
+        a11y-label: "새 서버 ID";
+        a11y-id: "server-duplicate-id";
+        placeholder: "my-server";
+        helper: "폴더 이름은 <ID>-<버전>이 됩니다";
+        error: ModsData.duplicate-error;
+        enabled: root.live;
+        text <=> ModsData.duplicate-id;
+        accepted => {
+            ModsActions.confirm-duplicate();
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "서버 복제 취소";
+            a11y-id: "server-duplicate-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+
+        Button {
+            text: "복제";
+            icon: @image-url("../../assets/icons/copy.svg");
+            variant: ButtonVariant.primary;
+            size: ButtonSize.lg;
+            a11y-label: "서버 복제";
+            a11y-id: "server-duplicate-submit";
+            enabled: root.live;
+            loading: SheetData.busy;
+            activated => {
+                ModsActions.confirm-duplicate();
+            }
+        }
+    }
+}
+
+/// `server-delete` (§8.5). 삭제 unlocks only when the typed id matches the
+/// directory name exactly — the one place in this app where a button is gated
+/// on what the user typed rather than on what the host computed.
+export component ServerDeleteDialogBody inherits VerticalLayout {
+    private property <bool> live: !SheetData.busy;
+    /// Case-sensitive and exact. Slint 1.17 has no `trim`, so the surrounding
+    /// whitespace is the host's to strip before it fills `delete-server-id`.
+    private property <bool> confirmed: ModsData.delete-server-input == ModsData.delete-server-id
+        && ModsData.delete-server-id != "";
+    callback dismissed();
+
+    forward-focus: confirm;
+
+    spacing: Theme.sp-4;
+
+    Text {
+        text: "이 폴더가 영구 삭제됩니다: " + ModsData.delete-server-path;
+        color: Theme.text;
+        font-size: Type.body;
+        wrap: word-wrap;
+        vertical-stretch: 0;
+    }
+
+    Callout {
+        tone: Tone.warning;
+        title: "배포본을 다시 생성하면 이 서버가 사라집니다.";
+    }
+
+    confirm := TextField {
+        label: "삭제하려면 서버 ID를 입력하세요";
+        a11y-label: "삭제 확인용 서버 ID";
+        a11y-id: "server-delete-confirm";
+        placeholder: ModsData.delete-server-id;
+        enabled: root.live;
+        text <=> ModsData.delete-server-input;
+        accepted => {
+            // Enter is the button, and the button is refused until the id
+            // matches: a typo must not be able to delete a server.
+            if (root.confirmed && root.live) {
+                ModsActions.confirm-server-delete();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.sp-2;
+        alignment: end;
+        vertical-stretch: 0;
+
+        Button {
+            text: "취소";
+            variant: ButtonVariant.ghost;
+            a11y-label: "서버 삭제 취소";
+            a11y-id: "server-delete-cancel";
+            enabled: root.live;
+            activated => {
+                root.dismissed();
+            }
+        }
+
+        Button {
+            text: "삭제";
+            icon: @image-url("../../assets/icons/trash-2.svg");
+            variant: ButtonVariant.danger;
+            size: ButtonSize.lg;
+            a11y-label: "서버 삭제";
+            a11y-id: "server-delete-submit";
+            enabled: root.live && root.confirmed;
+            loading: SheetData.busy;
+            activated => {
+                ModsActions.confirm-server-delete();
+            }
+        }
+    }
+}

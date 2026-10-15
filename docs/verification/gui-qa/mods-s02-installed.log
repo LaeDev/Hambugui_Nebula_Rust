@@ -1,0 +1,41 @@
+﻿# s02-installed  2026-09-11 11:14:04
+[PASS] on 모드 -- 모드
+scope: QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+persisted server = the one s01 left selected (last-mods-server)
+--- pill UIA state carriers ---
+  mods-server-0: patterns=[SelectionItemPatternIdentifiers.Pattern] toggle= selected=True
+  mods-server-1: patterns=[SelectionItemPatternIdentifiers.Pattern] toggle= selected=False
+  mods-server: role=ControlType.Group patterns=[SelectionPatternIdentifiers.Pattern]
+--- 2 installed list ---
+  shot -> mods-02-installed.png  (736 x 999)
+  --- every Text on the card ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 2
+    관리 0 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 꺼짐
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+[PASS] the hand-placed jar has a row
+[PASS] notes.txt has a row
+[PASS] the jar is marked 직접 추가
+[PASS] notes.txt is marked 배포 불가
+[PASS] the 배포 불가 helper is on screen
+  header subtitle: 관리 0 · 직접 추가 2 · 확인 전
+  title: 설치된 모드 2
+  subtitles: 15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+  namespace chips: 필수, 선택 꺼짐
+  notes row HelpText=[] FullDescription=[]
+RESULT: all checks passed

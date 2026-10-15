@@ -1,0 +1,85 @@
+﻿# s08-mod-delete  2026-09-11 11:29:26
+--- 8 mod-delete with dependents ---
+[PASS] the Fabric API row is present
+[PASS] mod-delete opened
+  --- dialog texts ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 5
+    관리 3 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    Fabric API
+    0.92.12+1.20.1 · fabric-api-0.92.12+1.20.1.jar · Modrinth
+    필수
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium Extra
+    0.5.9+mc1.20.1 · sodium-extra-0.5.9+mc1.20.1.jar · Modrinth
+    필수
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+    모드 삭제 — fabric-api-0.92.12+1.20.1.jar
+    이 파일이 영구 삭제됩니다: C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\root\servers\QAfab-1.20.1\fabricmods\required\fabric-api-0.92.12+1.20.1.jar
+    이 모드를 필요로 하는 모드가 있습니다. Fabric API를 필요로 하는 모드: Sodium Extra
+    이 모드를 필요로 하는 모드가 있습니다
+    Fabric API를 필요로 하는 모드: Sodium Extra
+    취소
+    삭제
+  ids: mod-delete-dialog|Group|모드 삭제 — fabric-api-0.92.12+1.20.1.jar ; mod-delete-dialog-close|Button|닫기 ; mod-delete-cancel|Button|모드 삭제 취소 ; mod-delete-submit|Button|모드 삭제
+  initial focus: Button / 모드 삭제 취소 / mod-delete-cancel
+[PASS] 취소 has the initial focus -- mod-delete-cancel
+[PASS] the title names the file
+[PASS] the body gives the absolute path -- 이 파일이 영구 삭제됩니다: C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\root\servers\QAfab-1.20.1\fabricmods\required\fabric-api-0.92.12+1.20.1.jar
+  dependents warning: 이 모드를 필요로 하는 모드가 있습니다. Fabric API를 필요로 하는 모드: Sodium Extra | 이 모드를 필요로 하는 모드가 있습니다 | Fabric API를 필요로 하는 모드: Sodium Extra
+[PASS] the dependents warning names Sodium Extra -- 이 모드를 필요로 하는 모드가 있습니다. Fabric API를 필요로 하는 모드: Sodium Extra | 이 모드를 필요로 하는 모드가 있습니다 | Fabric API를 필요로 하는 모드: Sodium Extra
+  buttons: submit='모드 삭제' cancel='모드 삭제 취소'
+  shot -> mods-08-delete-warning.png  (736 x 999)
+  pill seen: False   toast: 모드를 삭제했습니다   0.8s
+[FAIL] the delete pill names the job
+  shot -> mods-08-deleted.png  (736 x 999)
+  --- list after the delete ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 4
+    관리 2 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium Extra
+    0.5.9+mc1.20.1 · sodium-extra-0.5.9+mc1.20.1.jar · Modrinth
+    필수
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+  disk required: notes.txt, sodium-extra-0.5.9+mc1.20.1.jar, sodium-fabric-0.5.13+mc1.20.1.jar
+[PASS] the jar is gone from disk -- notes.txt, sodium-extra-0.5.9+mc1.20.1.jar, sodium-fabric-0.5.13+mc1.20.1.jar
+[PASS] the row is gone from the list
+--- 8 취소 leaves the file alone ---
+  dependents warning for a leaf mod: 
+[PASS] 취소 deleted nothing -- notes.txt, sodium-extra-0.5.9+mc1.20.1.jar, sodium-fabric-0.5.13+mc1.20.1.jar
+RESULT: 1 failed check(s): the delete pill names the job

@@ -1,0 +1,132 @@
+{
+  "Theme": {
+    "preference": "light",
+    "screenshot": true
+  },
+  "AppData": {
+    "page": "build",
+    "dialog": "none",
+    "toasts": []
+  },
+  "SheetData": {
+    "has-root": false,
+    "root-initialised": true,
+    "can-generate": false,
+    "install-local-enabled": false,
+    "loading": false,
+    "servers-error": "",
+    "busy": false,
+    "busy-label": "",
+    "distro-name": "distribution",
+    "verdict-title": "",
+    "verdict-detail": "",
+    "verdict-tone": "success",
+    "summary": "",
+    "artifacts": 0,
+    "sha256-count": 0,
+    "errors": 0,
+    "warnings": 0,
+    "error-text": "",
+    "error-kind": "",
+    "error-hint": "",
+    "install-local": false,
+    "invalidate-cache": false,
+    "discard-output": false,
+    "findings-expanded": false,
+    "readiness": [
+      {
+        "label": "루트",
+        "value": "미설정",
+        "state": "missing"
+      },
+      {
+        "label": "기본 URL",
+        "value": "미설정",
+        "state": "missing"
+      },
+      {
+        "label": "Java",
+        "value": "미설정",
+        "state": "missing"
+      },
+      {
+        "label": "Launcher 폴더",
+        "value": "미설정",
+        "state": "missing"
+      }
+    ],
+    "servers": [],
+    "findings": [],
+    "log": [
+      {
+        "time": "+00:00",
+        "target": "nebula",
+        "message": "루트 미설정 · 서버 0개 · 모드팩 0개",
+        "level": "info"
+      }
+    ]
+  },
+  "PublishData": {
+    "target": "none",
+    "only-changed": true,
+    "can-publish": false,
+    "busy": false,
+    "blocked-reason": "",
+    "result-line": "",
+    "result-error": false,
+    "distribution-url": ""
+  },
+  "NewServerData": {
+    "id": "",
+    "mc-version": "",
+    "loader": "none",
+    "loader-version": "",
+    "id-error": "",
+    "mc-error": "",
+    "loader-version-error": "",
+    "error-text": "",
+    "forge-mod-lists-warning": false,
+    "busy": false,
+    "lookup-busy": false
+  },
+  "ImportData": {
+    "zips": [],
+    "manual-downloads": [],
+    "folder-path": "D:\\TestRoot\\modpacks",
+    "id-error": "",
+    "error-text": "",
+    "busy": false,
+    "result-line": "",
+    "selected-zip": -1,
+    "server-id": ""
+  },
+  "SettingsData": {
+    "root": "",
+    "base-url": "",
+    "java": "",
+    "helios": "",
+    "theme": "light",
+    "reduced-motion": false,
+    "webdav-url": "",
+    "webdav-user": "nebula",
+    "webdav-password": "",
+    "webdav-public-url": "",
+    "gdrive-client-id": "",
+    "gdrive-client-secret": "",
+    "gdrive-folder-id": "",
+    "gdrive-connected": false,
+    "gdrive-busy": false,
+    "gdrive-status": "",
+    "gdrive-status-error": false,
+    "root-error": "",
+    "base-url-error": "",
+    "java-error": "",
+    "helios-error": "",
+    "error-text": "",
+    "focus-field": "",
+    "focus-tick": 0,
+    "root-missing": false,
+    "busy": false,
+    "dirty": false
+  }
+}

@@ -1,0 +1,612 @@
+// The wiring contract: everything `crates/nebula/src/gui/mod.rs` pushes in and
+// everything the screens call back out. Kept in one file so a Rust change and a
+// UI change meet in exactly one place. Component-level enums live with their
+// component; these are the ones the host names.
+import { Tone, ThemePreference } from "theme.slint";
+
+export enum AppPage { build, servers, mods, import, publish, settings }
+
+/// Which modal is open. `none` is the only state in which Esc does nothing.
+/// One at a time: opening a second one replaces the first (DESIGN-v2 §8.1).
+export enum DialogKind {
+    none,
+    new-server,
+    mod-detail,
+    install-confirm,
+    version-picker,
+    update-preview,
+    mod-delete,
+    server-menu,
+    server-delete,
+    server-duplicate,
+}
+
+export enum Loader { none, forge, neoforge, fabric }
+export enum PublishTarget { none, webdav, gdrive }
+
+export struct ServerRowData {
+    id: string,
+    loader: string,
+    counts: string,
+    path: string,
+    /// The fallback avatar: one or two letters from the id.
+    initials: string,
+    /// 0–359, hashed from the id so a server keeps its colour between runs.
+    hue: int,
+}
+
+export struct FindingRowData {
+    severity: string,
+    location: string,
+    message: string,
+    is-error: bool,
+}
+
+export struct LogRowData {
+    /// Elapsed since launch, `+MM:SS`. The app has no local-timezone source.
+    time: string,
+    target: string,
+    message: string,
+    /// `error`, `warn` or anything else; decides the row colour.
+    level: string,
+}
+
+export struct ReadinessRowData {
+    label: string,
+    value: string,
+    /// `ok`, `missing`, `error` (the value is there but could not be read) or
+    /// `loading` (the first scan has not come back yet).
+    state: string,
+}
+
+export struct ManualDownloadData {
+    name: string,
+    file: string,
+    url: string,
+}
+
+export struct ImportRowData {
+    file-name: string,
+    format: string,
+    size-label: string,
+    selectable: bool,
+}
+
+// ── 모드 rows (DESIGN-v2 §8) ────────────────────────────────────────────────
+// None of these carries an `image`: `slint-viewer --load-data` cannot write one
+// into a struct, so every icon travels in a parallel `[image]` model beside the
+// row model (`ModsData.installed-icons`, `ModsData.hit-icons`) — the same rule
+// `SheetData.server-icons` follows.
+
+/// One row of 설치됨 (§8.3). `subtitle` is already formatted by the host:
+/// `0.92.0 · fabric-api-0.92.jar · Modrinth`.
+export struct InstalledModRowData {
+    /// The file inside the namespace folder, and the row's identity: the
+    /// `accessible-id` is `mods-row-<file-name>`.
+    file-name: string,
+    title: string,
+    subtitle: string,
+    /// The fallback avatar when the parallel icon model has nothing.
+    initials: string,
+    /// 0–359, hashed from the project so a mod keeps its colour between runs.
+    hue: int,
+    /// `required`, `optionalon` or `optionaloff` — the namespace folder.
+    namespace: string,
+    /// What that namespace is called: `필수` / `선택 켜짐` / `선택 꺼짐`.
+    namespace-label: string,
+    /// Only ever true after an update check in this session; the one accent
+    /// chip on the page.
+    update-available: bool,
+    /// An index entry whose file is not on disk.
+    missing: bool,
+    /// A file the distribution scanners will reject (not `.jar`, or not a zip).
+    unshippable: bool,
+}
+
+/// One search result (§8.4).
+export struct ModHitRowData {
+    /// `modrinth` or `curseforge`; part of the install button's id.
+    provider: string,
+    project-id: string,
+    title: string,
+    /// `작성자 · 다운로드 120만 · 수정 3일 전`, formatted by the host (§8.8).
+    caption: string,
+    /// One line, elided.
+    description: string,
+    initials: string,
+    hue: int,
+    installed: bool,
+    /// This row's resolve is in flight; its 설치 button shows the loading bar.
+    resolving: bool,
+    /// No version for the server's mc + loader: 설치 is disabled and the
+    /// caption already carries `· {mc} {loader}용 버전 없음`.
+    no-version: bool,
+    /// `mods-install-{provider}-{project id}`. Built by the host because both
+    /// halves are provider-scoped and re-assignable.
+    install-a11y-id: string,
+}
+
+/// One row of the 다른 버전… list (§8.3).
+export struct VersionRowData {
+    version-id: string,
+    name: string,
+    /// `정식` / `베타` / `알파`.
+    release-label: string,
+    /// `1.21.1, 1.21, 1.20.6 외 4개`.
+    game-versions-label: string,
+    date: string,
+    size-label: string,
+    /// The trailing button's label: `설치` / `교체` / `이전 버전으로 교체` /
+    /// `설치됨`.
+    action: string,
+    /// False for the version that is already installed.
+    enabled: bool,
+}
+
+/// One dependency of the mod being installed (§8.4).
+export struct DepRowData {
+    project-id: string,
+    title: string,
+    version: string,
+    size-label: string,
+    checked: bool,
+    /// Already present on the server: the row is disabled with a `설치됨` chip
+    /// and is never omitted.
+    already-installed: bool,
+    /// Required dependencies are pre-checked; optional ones are collapsed.
+    required: bool,
+    /// One quiet line under the row — why it is disabled, or what unchecking a
+    /// required dependency costs.
+    helper: string,
+}
+
+/// One line of the 모두 업데이트 preview (§8.3).
+export struct UpdateRowData {
+    file-name: string,
+    title: string,
+    from: string,
+    to: string,
+    release-label: string,
+}
+
+export struct ToastData {
+    /// Identity, not position: the 4 s dismissal timer fires against this, so a
+    /// toast that appeared meanwhile cannot shift another one out from under it.
+    id: int,
+    tone: Tone,
+    message: string,
+}
+
+/// The shell: which page is on screen, what is floating over it.
+export global AppData {
+    in-out property <AppPage> page: AppPage.build;
+    in-out property <DialogKind> dialog: DialogKind.none;
+    in property <[ToastData]> toasts;
+
+    /// What a page's controls are gated on: no job running, and no dialog over
+    /// them. A control under a modal offers an action the dialog has taken.
+    /// Navigation is deliberately *not* gated on it.
+    out property <bool> page-live: !SheetData.busy && root.dialog == DialogKind.none;
+
+    /// The one way to change page. A no-op when the page is unchanged, so the
+    /// host's `navigate` — which re-reads the disk — does not fire on a click
+    /// that changed nothing.
+    public function go(target: AppPage) {
+        if (root.page != target) {
+            root.page = target;
+            SheetActions.navigate(target);
+        }
+    }
+}
+
+export global SheetData {
+    in property <[ReadinessRowData]> readiness;
+    in property <[ServerRowData]> servers;
+    /// Parallel to `servers`: each row's own `icon.png`/`icon.jpg`, or an empty
+    /// image when the folder has none. It is a separate model rather than a
+    /// field of `ServerRowData` because `slint-viewer --load-data` cannot write
+    /// an empty image into a struct, which would make every state file that
+    /// lists a server unrenderable.
+    in property <[image]> server-icons;
+    in property <[FindingRowData]> findings;
+    in property <[LogRowData]> log;
+
+    /// The whole verdict in one line, and the accessible label of the chip row
+    /// that shows the same four numbers.
+    in property <string> summary;
+    /// The four counts the summary chips carry. Only meaningful once
+    /// `verdict-title` is set.
+    in property <int> artifacts;
+    in property <int> sha256-count;
+    in property <int> errors;
+    in property <int> warnings;
+
+    // ── The verdict banner (replaces the stamp) ─────────────────────────────
+    /// `success` when the strict pass is clean, `warning` when only the strict
+    /// pass failed, `danger` when the displayed report has errors.
+    in property <Tone> verdict-tone: Tone.success;
+    /// Empty until a run has produced a verdict; that is what hides the banner.
+    in property <string> verdict-title;
+    /// `distribution.json · SHA-256 a91f3c02 · 파일 484`.
+    in property <string> verdict-detail;
+
+    in property <bool> busy;
+    in property <string> busy-label;
+    in property <string> error-text;
+    /// Which job failed: `generate`, `validate` or `init-root`. Decides the
+    /// prefix and what `retry-job` re-runs.
+    in property <string> error-kind;
+    /// One extra line under the retry button when the cause has a known fix.
+    in property <string> error-hint;
+    in property <bool> has-root;
+    in property <bool> root-initialised: true;
+    in property <bool> can-generate;
+    in property <bool> install-local-enabled;
+    /// True from launch until the first scan lands. An empty list under it is
+    /// "not read yet", never "there is nothing here".
+    in property <bool> loading;
+    /// Why the server listing could not be read, naming the file that broke it.
+    /// The rows already on screen are the last ones that *did* read, so they
+    /// stay; this says they may be stale.
+    in property <string> servers-error;
+
+    in-out property <string> distro-name: "distribution";
+    in-out property <bool> install-local;
+    in-out property <bool> invalidate-cache;
+    in-out property <bool> discard-output;
+    /// 더 보기 on the findings list. Lives here, not in the screen, so a new
+    /// run resets it: six findings from a different file are a different list.
+    in-out property <bool> findings-expanded;
+}
+
+/// Every callback here reads the values it needs back off the `in-out`
+/// properties above, so a retry runs with what is on screen *now* rather than
+/// replaying the arguments of the click that failed. That is why the four
+/// form-submitting callbacks take nothing.
+export global SheetActions {
+    callback generate();
+    callback validate-existing();
+    callback open-folder(string);
+    callback refresh();
+    callback init-root();
+    callback navigate(AppPage);
+    callback create-server(string, string, Loader, string);
+    callback lookup-loader-version(Loader, string);
+    callback import-modpack();
+    callback save-settings();
+    callback create-root(string);
+    callback clear-log();
+    callback publish(PublishTarget, bool);
+    callback connect-gdrive();
+    /// Re-runs the job named by `SheetData.error-kind` with the current field
+    /// values.
+    callback retry-job();
+    /// A settings field changed; the host debounces this and re-validates.
+    callback settings-edited();
+    /// Theme and reduced motion apply and persist on their own, whether or not
+    /// the root and base URL are valid.
+    callback appearance-changed(ThemePreference, bool);
+    /// The toast with this id was dismissed; the host drops it and cancels its
+    /// timer's effect.
+    callback dismiss-toast(int);
+    callback open-dialog(DialogKind);
+    callback close-dialog();
+}
+
+export global PublishData {
+    in-out property <PublishTarget> target: PublishTarget.none;
+    in-out property <bool> only-changed: true;
+
+    in property <bool> can-publish;
+    /// True only while *this* screen's job runs, so an upload spins the 업로드
+    /// button and a build somewhere else does not.
+    in property <bool> busy;
+    /// Why 업로드 is disabled, for everything the host knows about. The two the
+    /// screen knows without asking — no target chosen, and a target the
+    /// settings have not configured — it says itself.
+    in property <string> blocked-reason;
+    in property <string> result-line;
+    // A failed upload must not read like a finished one.
+    in property <bool> result-error;
+    in property <string> distribution-url;
+}
+
+export global NewServerData {
+    in-out property <string> id;
+    in-out property <string> mc-version;
+    in-out property <Loader> loader: Loader.none;
+    in-out property <string> loader-version;
+
+    in property <string> id-error;
+    in property <string> mc-error;
+    in property <string> loader-version-error;
+    /// Failures that are not about a field: disk, network, a broken archive.
+    in property <string> error-text;
+    in property <bool> forge-mod-lists-warning;
+    in property <bool> busy;
+    in property <bool> lookup-busy;
+}
+
+export global ImportData {
+    in property <[ImportRowData]> zips;
+    in property <[ManualDownloadData]> manual-downloads;
+    in property <string> folder-path;
+    in property <string> id-error;
+    /// Failures that are not about the server id.
+    in property <string> error-text;
+    in property <bool> busy;
+    /// `모드팩 3개를 가져왔습니다` and the like; empty until an import ran.
+    in property <string> result-line;
+
+    in-out property <int> selected-zip: -1;
+    in-out property <string> server-id;
+}
+
+export global SettingsData {
+    in-out property <string> root;
+    in-out property <string> base-url;
+    in-out property <string> java;
+    in-out property <string> helios;
+    in-out property <ThemePreference> theme: ThemePreference.system;
+    in-out property <bool> reduced-motion;
+
+    in-out property <string> webdav-url;
+    in-out property <string> webdav-user;
+    in-out property <string> webdav-password;
+    in-out property <string> webdav-public-url;
+
+    in-out property <string> gdrive-client-id;
+    in-out property <string> gdrive-client-secret;
+    in-out property <string> gdrive-folder-id;
+
+    in property <bool> gdrive-connected;
+    in property <bool> gdrive-busy;
+    /// Result of the last connect attempt; empty falls back to `gdrive-connected`.
+    in property <string> gdrive-status;
+    in property <bool> gdrive-status-error;
+    in property <string> root-error;
+    in property <string> base-url-error;
+    in property <string> java-error;
+    in property <string> helios-error;
+    /// A save that failed for a reason no single field owns: the disk, or the
+    /// settings file itself. Rendered as a danger `Callout` above the fields.
+    in property <string> error-text;
+    /// Which field a refused save wants the caret in: `root` or `base-url`.
+    in property <string> focus-field;
+    /// Bumped on every refusal, so a second refusal on the same field still
+    /// moves the focus — the field name alone would not have changed.
+    in property <int> focus-tick;
+    in property <bool> root-missing;
+    in property <bool> busy;
+    /// True while the form differs from what is on disk; the sticky footer
+    /// caption reads it.
+    in property <bool> dirty;
+
+    /// The CurseForge key (§4, §8.1). Empty is not "off": the environment
+    /// variable NEBULA_CURSEFORGE_API_KEY still counts, which is why
+    /// `ModsData.has-cf-key` is the host's answer and not this field's length.
+    in-out property <string> curseforge-api-key;
+}
+
+/// The 모드 page (DESIGN-v2 §8). Every string here is formatted by the host:
+/// the screen decides layout and tone, never wording that depends on data it
+/// cannot see (a version, a count, a provider name).
+export global ModsData {
+    // ── Server selector and scope (§8.2) ────────────────────────────────────
+    /// The pill strip's labels: the server directory names.
+    in property <[string]> servers;
+    /// Which pill is selected. `in-out` because the strip writes it and the
+    /// host reads it back on `select-server`; `-1` when there are no servers.
+    in-out property <int> server-index: 0;
+    /// `Neo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.72`, in the visible
+    /// card's header. `로더 없음` when the server has none.
+    in property <string> scope-line;
+    /// False shows the EmptyState with 새 서버 / 모드팩 가져오기 instead of the
+    /// strip: an empty strip would be a control that cannot be used.
+    in property <bool> has-servers;
+    /// 0 = 설치됨, 1 = 찾기. Exactly one card is on screen.
+    in-out property <int> view: 0;
+
+    // ── 찾기 controls (§8.4) ────────────────────────────────────────────────
+    /// The settings field or NEBULA_CURSEFORGE_API_KEY resolved: what enables
+    /// the CurseForge provider segment.
+    in property <bool> has-cf-key;
+    in-out property <int> provider-index: 0;
+    in-out property <int> sort-index: 0;
+    /// Per provider: Modrinth 관련도 / 다운로드 / 최신, CurseForge 인기 /
+    /// 다운로드 / 최신. The host swaps the model when the provider changes.
+    in property <[string]> sort-labels;
+    /// Kept across view switches and server changes for the session.
+    in-out property <string> query;
+
+    // ── 설치됨 (§8.3) ───────────────────────────────────────────────────────
+    in property <[InstalledModRowData]> installed;
+    /// Parallel to `installed`, index for index: a cached PNG for Modrinth and
+    /// jar icons, a memory-only image for CurseForge, an empty image for a row
+    /// that has neither.
+    in property <[image]> installed-icons;
+    /// The card's title: `설치된 모드 12`.
+    in property <string> installed-count-line;
+    /// The subtitle: `관리 12 · 직접 추가 3 · 마지막 업데이트 확인 5분 전`,
+    /// `확인 전` before the first check of the session.
+    in property <string> check-caption;
+    /// How many rows carry 업데이트 가능. `> 0` is what shows 모두 업데이트.
+    in property <int> updates-available;
+
+    // ── 찾기 results (§8.4) ─────────────────────────────────────────────────
+    in property <[ModHitRowData]> hits;
+    /// Parallel to `hits`, index for index.
+    in property <[image]> hit-icons;
+    /// `idle` (nothing searched yet), `loading`, `empty`, `error`, `results`.
+    /// A string rather than an enum so the host can add a state without a
+    /// Slint change; the screen matches on the five it knows.
+    in property <string> search-state: "idle";
+    /// The `CatalogError` variant turned into a sentence — never matched on
+    /// message text (§8.4).
+    in property <string> search-error-title;
+    in property <string> search-error-body;
+    /// The last page was full: 더 보기 is offered.
+    in property <bool> has-more;
+    in property <bool> loading-more;
+
+    // ── Quiet jobs (§8.6): none of these takes the global lock ──────────────
+    in property <bool> search-busy;
+    in property <bool> resolving;
+    in property <bool> list-busy;
+    in property <bool> checking;
+
+    // ── The one progress carrier (§8.4, §8.7) ───────────────────────────────
+    in property <bool> progress-visible;
+    /// 0–1 for a job that counts files; **negative for indeterminate**, which
+    /// is the only sentinel there is.
+    in property <float> progress-fraction: -1;
+    /// `다운로드 중 2/5 · fabric-api-0.92.jar · 0:12`, elapsed included.
+    in property <string> progress-text;
+    /// Which card owns the row: `installed` or `search`.
+    in property <string> progress-owner: "search";
+
+    /// The danger Callout under the owning card: 설치 실패 and its cause + fix.
+    in property <string> failure-title;
+    in property <string> failure-body;
+    in property <bool> failure-visible;
+    /// Whether the Callout carries 다시 시도 at all: false when the host has
+    /// no job left to repeat — a plan the server moved under, or a quiet
+    /// failure whose job is not worth offering again. A button that only
+    /// erases the message it sits on is worse than no button.
+    in property <bool> failure-can-retry: true;
+    /// The folder holding the files a rollback could not remove, absolute.
+    /// Non-empty is what puts 폴더 열기 on the failure Callout (§8.4); every
+    /// other failure leaves it empty.
+    in property <string> failure-folder;
+    /// CurseForge files the API refuses to hand over. Not a failure: they were
+    /// dropped from the plan before any download and the rest installed.
+    in property <[ManualDownloadData]> manual;
+    /// Where those files have to land, absolute.
+    in property <string> manual-folder;
+
+    // ── install-confirm (§8.4) ──────────────────────────────────────────────
+    /// `Neo-1.21.1에 설치`.
+    in property <string> confirm-title;
+    /// `fabric-api 0.92.0 · 정식 · 2.1 MB · 2025-03-03`.
+    in property <string> confirm-version-line;
+    /// `정식 버전이 없어 베타를 선택했습니다`, or empty.
+    in property <string> confirm-warning;
+    /// 0 필수 / 1 선택 켜짐 / 2 선택 꺼짐. Staged: the dialog's primary is what
+    /// applies it, never the control (§8.3).
+    in-out property <int> confirm-namespace-index: 0;
+    in property <[DepRowData]> deps;
+    /// `3개 · 4.7 MB` — counts only what will actually be downloaded.
+    in property <string> confirm-footer;
+    /// `3개 설치`.
+    in property <string> confirm-primary-label;
+    /// An incompatible installed mod, or a required dependency that would not
+    /// resolve: named here, and the primary is refused.
+    in property <string> confirm-blocked-title;
+    in property <string> confirm-blocked-body;
+    in property <bool> confirm-can-install: true;
+
+    // ── version-picker (§8.3) ───────────────────────────────────────────────
+    in property <[VersionRowData]> versions;
+    /// `{제목} 버전 — Neo-1.21.1`.
+    in property <string> version-dialog-title;
+    /// `현재 0.92.0 → 0.90.1로 내립니다`; empty until a downgrade is picked.
+    in property <string> downgrade-confirm-line;
+
+    // ── mod-detail (§8.3) ───────────────────────────────────────────────────
+    /// `{제목} — Neo-1.21.1`.
+    in property <string> detail-title;
+    in property <string> detail-description;
+    in property <string> detail-version;
+    in property <string> detail-file;
+    in property <string> detail-provider;
+    /// SHA-1, first 12 characters.
+    in property <string> detail-hash;
+    /// Staged like `confirm-namespace-index`; `이동` applies it.
+    in-out property <int> detail-namespace-index: 0;
+    /// False hides 프로젝트 페이지 열기: a 직접 추가 file has no project.
+    in property <bool> detail-has-provider;
+    /// False hides 다른 버전…: nothing manages a hand-dropped jar.
+    in property <bool> detail-is-managed;
+
+    // ── mod-delete (§8.3) ───────────────────────────────────────────────────
+    /// `모드 삭제 — fabric-api-0.92.jar`.
+    in property <string> delete-title;
+    /// The absolute path that is about to disappear.
+    in property <string> delete-path;
+    /// `fabric-api를 필요로 하는 모드: Sodium, Lithium`, or empty.
+    in property <string> delete-dependents;
+
+    // ── update-preview (§8.3) ───────────────────────────────────────────────
+    in property <[UpdateRowData]> updates;
+    /// How many the primary will apply; also its label's number.
+    in property <int> update-count;
+
+    // ── server-menu / duplicate / delete (§8.5) ─────────────────────────────
+    /// Which server row opened the menu. Every one of the three dialogs below
+    /// is about this id, not about `server-index`.
+    in property <string> server-menu-id;
+    in-out property <string> duplicate-id;
+    in property <string> duplicate-error;
+    in property <string> delete-server-id;
+    in property <string> delete-server-path;
+    /// 삭제 is refused until this equals `delete-server-id` exactly.
+    in-out property <string> delete-server-input;
+}
+
+/// Everything the 모드 page and the server row menu call out. Like
+/// `SheetActions`, the form-submitting callbacks take nothing: the values live
+/// on the `in-out` properties above, so a retry runs with what is on screen
+/// now.
+export global ModsActions {
+    // Scope
+    callback select-server(int);
+    callback set-view(int);
+
+    // 찾기
+    callback search();
+    callback search-more();
+    callback set-provider(int);
+    callback set-sort(int);
+
+    // Install
+    /// The index into `hits`. Resolves quietly, then opens `install-confirm`.
+    callback install-hit(int);
+    /// Applies the staged plan: namespace, dependencies and all.
+    callback confirm-install();
+    callback toggle-dep(int, bool);
+    /// The index into `versions`.
+    callback pick-version(int);
+
+    // 설치됨 rows
+    /// The index into `installed`.
+    callback open-detail(int);
+    /// Applies the staged namespace of the open `mod-detail`.
+    callback apply-namespace();
+    callback open-project-page();
+    callback open-version-picker();
+    callback request-delete();
+    callback confirm-delete();
+
+    // Updates
+    callback check-updates();
+    callback open-update-preview();
+    callback apply-updates();
+    /// Drops the 8-row cap on the installed list for this session.
+    callback show-all-installed();
+
+    // Server row menu (§8.5)
+    callback open-server-menu(string);
+    callback server-menu-mods();
+    callback server-menu-open-folder();
+    callback server-menu-duplicate();
+    callback server-menu-delete();
+    callback confirm-duplicate();
+    callback confirm-server-delete();
+
+    // Recovery
+    callback retry-search();
+    callback retry-install();
+    callback open-manual-folder();
+    /// The rollback's leftovers: opens `failure-folder`.
+    callback open-failure-folder();
+}

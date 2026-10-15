@@ -1,0 +1,32 @@
+﻿# s11-settings-theme  2026-09-11 11:32:18
+--- 11 설정 CurseForge card ---
+  NEBULA_CURSEFORGE_API_KEY in the app's environment: unset
+[PASS] on 설정 -- 설정
+[PASS] settings-curseforge-key exists
+  field: name='CurseForge API 키' value=[]
+  card texts: CurseForge | CurseForge API 키 | console.curseforge.com에서 발급받은 본인 키를 입력하세요. 환경 변수 NEBULA_CURSEFORGE_API_KEY가 있으면 그 값이 우선합니다.
+  shot -> mods-11-settings-curseforge.png  (736 x 999)
+  save: '설정 저장' enabled=True
+  toast: 끝에 / 를 붙여 저장합니다 | 저장 | 설정을 저장했습니다 | 설정을 저장했습니다
+--- 11 the CurseForge provider segment after saving an empty key ---
+  segment: Modrinth enabled=True  CurseForge enabled=True
+[PASS] the helper says where to put the key
+  shot -> mods-11-provider-refused.png  (736 x 999)
+  shot -> mods-11-provider-a.png  (736 x 999)
+  shot -> mods-11-provider-b.png  (736 x 999)
+  segment pixels after clicking CurseForge: 0
+  result ids after the refused switch: mods-install-modrinth-gvQqBUqZ, mods-install-modrinth-GLVp5tfO, mods-install-modrinth-JNRr4jji
+[PASS] the search stayed on Modrinth -- mods-install-modrinth-gvQqBUqZ, mods-install-modrinth-GLVp5tfO, mods-install-modrinth-JNRr4jji
+[FAIL] CurseForge is exposed to UIA as disabled -- IsEnabled=True
+  shot -> mods-11-provider-after-click.png  (736 x 999)
+--- 12 theme toggle ---
+  toggle: '라이트 테마로 전환'
+  shot -> mods-12-theme-before.png  (736 x 999)
+  shot -> mods-12-theme-after.png  (736 x 999)
+  toggle after: '다크 테마로 전환'   whole-window diff: 201.253
+[PASS] the theme toggle repaints the 모드 page -- diff=201.253
+[FAIL] the toggle label flipped -- 다크 테마로 전환 -> 다크 테마로 전환
+--- 13 setup: select the second server ---
+  scope: QAneo-1.21.1 · Minecraft 1.21.1 · NeoForge 21.1.250
+  selected: mods-server-0=False mods-server-1=True
+RESULT: 2 failed check(s): CurseForge is exposed to UIA as disabled | the toggle label flipped

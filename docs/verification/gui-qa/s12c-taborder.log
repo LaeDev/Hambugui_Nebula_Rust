@@ -1,0 +1,51 @@
+﻿# s12c-taborder  2026-09-10 19:20:32
+[PASS] navigate to 빌드
+--- 26 Tab presses: does 설정 화면 열기 ever take focus? ---
+   0: Edit / 배포본 파일 이름
+   1: CheckBox / Forge 설치 캐시 무효화
+   2: CheckBox / 설치 출력 삭제
+   3: Button / 배포본 생성
+   4: Button / 이미 저장된 배포본 파일 검증
+   5: Window / Nebula
+   6: TabItem / 빌드
+   7: TabItem / 서버
+   8: TabItem / 가져오기
+   9: TabItem / 배포
+  10: TabItem / 설정
+  11: Button / 라이트 테마로 전환
+  12: Button / 설정 화면 열기
+  13: Edit / 배포본 파일 이름
+  14: CheckBox / Forge 설치 캐시 무효화
+  15: CheckBox / 설치 출력 삭제
+  16: Button / 배포본 생성
+  17: Button / 이미 저장된 배포본 파일 검증
+  18: Window / Nebula
+  19: TabItem / 빌드
+  20: TabItem / 서버
+  21: TabItem / 가져오기
+  22: TabItem / 배포
+  23: TabItem / 설정
+  24: Button / 라이트 테마로 전환
+  25: Button / 설정 화면 열기
+[FAIL] DEFECT: 설정 열기 (readiness card) never takes keyboard focus -- 2 hit(s) in 26 Tab presses
+
+--- Shift+Tab backwards from the file-name field ---
+  -1: Button / 설정 화면 열기
+  -2: Button / 라이트 테마로 전환
+  -3: TabItem / 설정
+  -4: TabItem / 배포
+  -5: TabItem / 가져오기
+  -6: TabItem / 서버
+  -7: TabItem / 빌드
+  -8: Window / Nebula
+[FAIL] DEFECT confirmed: Shift+Tab does not reach it either -- 1 hit(s)
+
+--- the same button on the 서버 page empty state, for comparison ---
+설정 화면 열기 exists in the tree: enabled=True rect=656,185
+  IsKeyboardFocusable = True
+  keyboard-focusable flag for every Button on this page:
+    라이트 테마로 전환                       focusable=True enabled=True
+    설정 화면 열기                         focusable=True enabled=True
+    배포본 생성                           focusable=True enabled=True
+    이미 저장된 배포본 파일 검증                 focusable=True enabled=True
+RESULT: 2 failed check(s): DEFECT: 설정 열기 (readiness card) never takes keyboard focus | DEFECT confirmed: Shift+Tab does not reach it either

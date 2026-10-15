@@ -1,0 +1,124 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+import { IconButton } from "icon-button.slint";
+import { LogRowData } from "data.slint";
+
+/// The build log (DESIGN-v2 §3): `+MM:SS  target  message`, the level painted
+/// on the message.
+///
+/// A `Flickable` with a `for`, not a `ListView`: `ListView`'s own layout writes
+/// `viewport-y` with `Property::set`, which drops any binding on it, so the
+/// list cannot be told to stay at the end. A `Flickable` only writes it when
+/// the user drags, so the binding below auto-scrolls on every append. Dragging
+/// does replace it — after a manual scroll the view stops following, which is
+/// what a reader who scrolled up wants anyway. 400 rows is the host's cap.
+export component LogView inherits Rectangle {
+    in property <[LogRowData]> rows;
+    in property <length> row-height: 19px;
+    callback cleared();
+
+    background: Theme.surface;
+    border-radius: Theme.r-lg;
+    border-width: 1px;
+    border-color: Theme.border;
+    clip: true;
+
+    accessible-role: list;
+    accessible-label: "빌드 로그";
+
+    VerticalLayout {
+        padding: Theme.sp-2;
+        spacing: Theme.sp-1;
+
+        HorizontalLayout {
+            height: Theme.row-h;
+            padding-left: Theme.sp-2;
+            spacing: Theme.sp-2;
+            vertical-stretch: 0;
+
+            Text {
+                text: "로그";
+                color: Theme.text-2;
+                font-size: Type.secondary;
+                font-weight: Type.medium;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            Text {
+                text: root.rows.length + "줄";
+                color: Theme.text-3;
+                font-family: Theme.mono;
+                font-size: Type.mono;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+
+            IconButton {
+                icon: @image-url("../../assets/icons/trash-2.svg");
+                a11y-label: "로그 지우기";
+                a11y-id: "log-clear";
+                icon-size: 16px;
+                enabled: root.rows.length > 0;
+                horizontal-stretch: 0;
+                activated => {
+                    root.cleared();
+                }
+            }
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+            viewport-height: root.rows.length * root.row-height;
+            // Pinned to the end: the newest line is the one being read.
+            viewport-y: min(0px, self.height - self.viewport-height);
+
+            for row[index] in root.rows : HorizontalLayout {
+                y: index * root.row-height;
+                height: root.row-height;
+                width: parent.width;
+                padding-left: Theme.sp-2;
+                padding-right: Theme.sp-2;
+                spacing: Theme.sp-2;
+
+                // Three sibling Text nodes read as three unrelated fragments;
+                // one labelled row is one log line.
+                accessible-role: list-item;
+                accessible-label: row.time + " " + row.target + " " + row.message;
+
+                Text {
+                    text: row.time;
+                    color: Theme.text-3;
+                    font-family: Theme.mono;
+                    font-size: Type.mono;
+                    vertical-alignment: center;
+                    horizontal-stretch: 0;
+                    width: 48px;
+                }
+
+                Text {
+                    text: row.target;
+                    color: Theme.text-3;
+                    font-family: Theme.mono;
+                    font-size: Type.mono;
+                    vertical-alignment: center;
+                    horizontal-stretch: 0;
+                    width: 56px;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: row.message;
+                    color: row.level == "error"
+                        ? Theme.danger
+                        : row.level == "warn" ? Theme.warning : Theme.text;
+                    font-family: Theme.mono;
+                    font-size: Type.mono;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}

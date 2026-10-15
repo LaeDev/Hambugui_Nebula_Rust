@@ -1,0 +1,37 @@
+﻿# s06-servers  2026-09-10 19:03:38
+[PASS] navigate to 서버
+--- 6a. server rows ---
+rows found = 8
+  ListItem: Ancient-1.7.10, Forge 10.13.4.1614, 모드 1 · 파일 1 · 라이브러리 0
+  ListItem: CfQA-1.20.1, Forge 47.3.0, 모드 0 · 파일 1 · 라이브러리 0
+  ListItem: Fab-1.20.1, Fabric 0.19.5, 모드 1 · 파일 1 · 라이브러리 1
+  ListItem: MrQA-1.20.1, Fabric 0.16.9, 모드 1 · 파일 1 · 라이브러리 0
+  ListItem: Neo-1.21.1, NeoForge 21.1.250, 모드 1 · 파일 1 · 라이브러리 0
+  ListItem: New-1.20.1, Forge 47.4.10, 모드 1 · 파일 1 · 라이브러리 0
+  ListItem: Old-1.12.2, Forge 14.23.5.2860, 모드 1 · 파일 1 · 라이브러리 0
+  ListItem: PrismQA-1.20.1, Fabric 0.16.9, 모드 2 · 파일 1 · 라이브러리 0
+[PASS] at least 3 server rows are listed -- 8
+loader chips seen: Fabric 0.16.9 | Fabric 0.19.5 | Forge 10.13.4.1614 | Forge 14.23.5.2860 | Forge 47.3.0 | Forge 47.4.10 | NeoForge 21.1.250
+[PASS] loader chip 「Forge」 appears at least once -- 4 row(s)
+[PASS] loader chip 「NeoForge」 appears at least once -- 1 row(s)
+[PASS] loader chip 「Fabric」 appears at least once -- 3 row(s)
+  loader chip 「없음」 rows = 0 (none in this root; verified in scenario 7)
+[PASS] every row carries a 모드/파일/라이브러리 count subtitle -- 8 / 8
+card header subtitle = [8개]
+  shot -> 06a-servers.png  (736 x 999)
+--- 6b. 폴더 열기 opens Explorer ---
+폴더 열기 buttons: Ancient-1.7.10 폴더 열기 | CfQA-1.20.1 폴더 열기 | Fab-1.20.1 폴더 열기 | MrQA-1.20.1 폴더 열기 | Neo-1.21.1 폴더 열기 | New-1.20.1 폴더 열기 | Old-1.12.2 폴더 열기 | PrismQA-1.20.1 폴더 열기
+[PASS] every server row exposes a 폴더 열기 button -- 8 / 8
+explorer windows before = 0
+explorer windows after = 1
+  new explorer window: 1706210:Ancient-1.7.10
+[PASS] 「Ancient-1.7.10 폴더 열기」 opens a new Explorer window
+  closed explorer window 1706210
+--- 6c. 새로 고침 picks up a server added on disk ---
+created C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-root\servers\Fake-1.20.1\servermeta.json
+[PASS] 새로 고침 button is enabled
+rows after refresh = 0
+[FAIL] 새로 고침 grows the list when a server appears on disk -- 8 -> 0
+[FAIL] the new Fake-1.20.1 row is listed
+  shot -> 06b-servers-refreshed.png  (736 x 999)
+RESULT: 2 failed check(s): 새로 고침 grows the list when a server appears on disk | the new Fake-1.20.1 row is listed

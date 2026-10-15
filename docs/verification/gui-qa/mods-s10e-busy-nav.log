@@ -1,0 +1,15 @@
+﻿# s10e-busy-nav  2026-09-11 11:45:39
+writing a 2 GB pad file
+  [  0.2s] pill=False '' dialog=True build-generate-enabled=n/a
+  [  0.5s] pill=True '서버 복제 중 · 0:00' dialog=True build-generate-enabled=n/a
+  [  0.8s] pill=True '서버 복제 중 · 0:00' dialog=True build-generate-enabled=n/a
+  >>> Ctrl+1 sent at 0.8s
+  [  1.3s] pill=False '' dialog=False build-generate-enabled=n/a
+  [  1.7s] pill=False '' dialog=False build-generate-enabled=n/a
+  [  2.1s] pill=False '' dialog=False build-generate-enabled=n/a
+  pill last seen at 0.8s
+  ticks that were still busy AFTER Ctrl+1: 0
+[FAIL] the probe caught ticks that were still busy after Ctrl+1
+  shot -> mods-10-busy-nav.png  (736 x 999)
+cleaned up
+RESULT: 1 failed check(s): the probe caught ticks that were still busy after Ctrl+1

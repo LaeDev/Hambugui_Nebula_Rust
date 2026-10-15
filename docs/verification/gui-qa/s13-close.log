@@ -1,0 +1,40 @@
+﻿# s13-close  2026-09-10 19:21:49
+--- loose end: a control scrolled out of the viewport leaves the focus chain ---
+[PASS] navigate to 빌드
+로그 지우기 present in the tree while scrolled to the top = False
+  tab cycle (top of page): 배포본 파일 이름 > Forge 설치 캐시 무효화 > 설치 출력 삭제 > 배포본 생성 > 이미 저장된 배포본 파일 검증 > Nebula > 빌드 > 서버 > 가져오기 > 배포 > 설정 > 라이트 테마로 전환 > 설정 화면 열기 > 배포본 파일 이름
+[PASS] DEFECT: a scrolled-out control is absent from the Tab cycle
+로그 지우기 present after scrolling it into view = True
+  tab cycle (scrolled down): 배포본 파일 이름 > Forge 설치 캐시 무효화 > 설치 출력 삭제 > 배포본 생성 > 이미 저장된 배포본 파일 검증 > 로그 지우기 > Nebula > 빌드 > 서버 > 가져오기 > 배포 > 설정 > 라이트 테마로 전환 > 설정 화면 열기
+[PASS] scrolling it into view puts it back in the Tab cycle
+
+=== Scenario 13: closing the app ===
+settings.json before close:
+{
+  "root": "C:\\Users\\Lae_\\AppData\\Local\\Temp\\nebula-qa\\gui-qa-root",
+  "base-url": "https://cdn.example.invalid/",
+  "java-executable": "C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot/bin/java.exe",
+  "helios-data-folder": "C:\\Nebula\\HeliosQA",
+  "theme": "system",
+  "reduced-motion": true,
+  "webdav-url": "http://127.0.0.1:8099/dist/",
+  "webdav-user": "qauser",
+  "webdav-password": "qapass",
+  "webdav-public-url": "",
+  "gdrive-client-id": "",
+  "gdrive-client-secret": "",
+  "gdrive-folder-id": ""
+}
+  shot -> 13-before-close.png  (736 x 999)
+WM_CLOSE -> exited=True after 0.06 s
+[PASS] the process exits within 5 s of WM_CLOSE -- 0.06 s
+exit code = 
+[FAIL] the exit code is 0
+[PASS] settings.json is unchanged by the close (already persisted)
+[PASS] settings.json keeps the WebDAV values entered in scenario 9
+[PASS] settings.json keeps 모션 줄이기 from scenario 10
+[PASS] settings.json keeps the Helios path from scenario 10
+[PASS] settings.json keeps theme=system from scenario 10
+last log lines: [+25:40] [INFO] [nebula_core::publish]: Uploading distribution.json to webdav / [+27:10] [INFO] [nebula::gui]: ?ㅼ젙????ν뻽?듬땲?? C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-config\settings.json / [+27:13] [ERROR] [nebula::gui]: Google Drive ?대씪?댁뼵??ID??媛) 鍮꾩뼱 ?덉뒿?덈떎 ???ㅼ젙?먯꽌 ?낅젰?섏꽭??[+28:42] [INFO] [nebula::gui]: ?ㅼ젙????ν뻽?듬땲?? C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa-config\settings.json
+[PASS] the app never panicked during the whole session -- 0 panic line(s)
+RESULT: 1 failed check(s): the exit code is 0

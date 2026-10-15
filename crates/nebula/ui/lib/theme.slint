@@ -1,0 +1,150 @@
+// Quiet Studio design tokens (DESIGN-v2 §2). Every colour, radius, gap and
+// duration in the app comes from here; a component that reaches for a hex
+// literal is a bug, because it will be wrong in the other theme.
+import { Palette } from "std-widgets.slint";
+
+export enum ThemePreference { system, light, dark }
+
+/// The semantic register a chip, callout, banner or toast speaks in. `neutral`
+/// is the quiet default; the rest are reserved for status.
+export enum Tone { neutral, accent, success, warning, danger }
+
+export global Theme {
+    in property <ThemePreference> preference: ThemePreference.system;
+    /// Zeroes every duration below. Nothing else changes: motion carries no
+    /// meaning here, so removing it removes nothing.
+    in property <bool> reduced-motion: false;
+    /// Screenshot aid: renders every focus ring at once, because `--load-data`
+    /// cannot move keyboard focus.
+    in property <bool> focus-demo: false;
+    /// Screenshot aid: opens the window at the 720×960 design default instead
+    /// of its 640×800 floor. `slint-viewer --screenshot` sizes a headless
+    /// window to the window's *minimum* — a `Window`'s own `preferred-width`
+    /// never reaches the constraints, and a literal `width` is refused
+    /// alongside `min-width` because it would make the window fixed-size — so
+    /// raising the minimum is the only way to review the default size.
+    in property <bool> screenshot: false;
+    /// 0..1, advanced by the host's 100 ms tick while a job runs and left at 0
+    /// otherwise. Every indeterminate bar reads it, so one clock drives them
+    /// all — and a screenshot can pin the animation to a chosen frame, which a
+    /// Slint `animate` loop cannot.
+    in property <float> progress-phase: 0;
+
+    out property <bool> dark: preference == ThemePreference.dark
+        ? true
+        : preference == ThemePreference.light
+            ? false
+            : Palette.color-scheme == ColorScheme.dark;
+
+    // ── Surfaces ────────────────────────────────────────────────────────────
+    out property <brush> bg: dark ? #131518 : #F4F5F7;
+    out property <brush> surface: dark ? #1C1F24 : #FFFFFF;
+    out property <brush> surface-2: dark ? #24282E : #F0F1F3;
+    out property <brush> surface-3: dark ? #2D3239 : #E6E8EB;
+    out property <brush> border: dark ? #2E333B : #E3E5E8;
+    out property <brush> border-strong: dark ? #3C424B : #C9CDD3;
+
+    // ── Text ────────────────────────────────────────────────────────────────
+    out property <brush> text: dark ? #EDEFF2 : #161B22;
+    out property <brush> text-2: dark ? #A2A9B4 : #5C6470;
+    /// Captions and placeholders only: 3.81:1 in light is below AA for body
+    /// text, so this never carries meaning on its own.
+    out property <brush> text-3: dark ? #6F7782 : #7C8390;
+
+    // ── Accent ──────────────────────────────────────────────────────────────
+    out property <brush> accent: dark ? #3ACBB9 : #0B7578;
+    out property <brush> accent-hover: dark ? #5AD7C8 : #095F62;
+    out property <brush> on-accent: dark ? #0B1F1C : #FFFFFF;
+    out property <brush> accent-soft: dark ? #153634 : #E3F4F4;
+
+    // ── Status ──────────────────────────────────────────────────────────────
+    out property <brush> success: dark ? #4ADE80 : #15753F;
+    out property <brush> success-soft: dark ? #12301F : #E4F5EA;
+    out property <brush> warning: dark ? #F5B453 : #A34A07;
+    out property <brush> warning-soft: dark ? #3A2A12 : #FCEFD9;
+    out property <brush> danger: dark ? #F87171 : #C42B2B;
+    out property <brush> danger-soft: dark ? #3B1717 : #FCE7E7;
+
+    /// Dialog backdrop: 40 % of the darkest text in light, 55 % black in dark.
+    out property <brush> scrim: dark ? #0000008C : #161B2266;
+    /// Only dialogs and toasts float; cards are a border, never a shadow.
+    out property <brush> shadow: dark ? #00000066 : #0000001F;
+
+    // ── Radii ───────────────────────────────────────────────────────────────
+    out property <length> r-sm: 6px;
+    out property <length> r-md: 10px;
+    out property <length> r-lg: 14px;
+    out property <length> r-xl: 20px;
+    out property <length> r-pill: 999px;
+
+    // ── Spacing (4-base) ────────────────────────────────────────────────────
+    /// The one half-step on the grid: a label to its input, a title to its
+    /// subtitle. Named so it stops being retyped as a bare `6px`.
+    out property <length> sp-half: 6px;
+    out property <length> sp-1: 4px;
+    out property <length> sp-2: 8px;
+    out property <length> sp-3: 12px;
+    out property <length> sp-4: 16px;
+    out property <length> sp-5: 20px;
+    out property <length> sp-6: 24px;
+    out property <length> sp-8: 32px;
+    out property <length> page-inset: 24px;
+    out property <length> card-pad: 20px;
+    out property <length> card-gap: 16px;
+    out property <length> row-h: 44px;
+
+    // ── Motion ──────────────────────────────────────────────────────────────
+    out property <duration> fast: reduced-motion ? 0ms : 120ms;
+    out property <duration> base: reduced-motion ? 0ms : 200ms;
+    out property <duration> slow: reduced-motion ? 0ms : 300ms;
+
+    // ── Focus ───────────────────────────────────────────────────────────────
+    /// A 2 px ring drawn 2 px outside the control, in both themes, never
+    /// removed.
+    out property <length> ring-width: 2px;
+    out property <length> ring-offset: 2px;
+    /// What a control insets its visual fill by, so the ring drawn on its
+    /// outer edge lands 2 px clear of the fill.
+    out property <length> ring-gutter: 4px;
+
+    /// Hashes, paths and log lines. Consolas on Windows; macOS falls back to
+    /// Menlo on its own.
+    out property <string> mono: "Consolas";
+
+    // ── Tone → colour ───────────────────────────────────────────────────────
+    // One place decides what a tone looks like, so a chip, a callout and the
+    // verdict banner cannot disagree about what "warning" means.
+    public pure function tone-fg(tone: Tone) -> brush {
+        tone == Tone.success ? root.success
+            : tone == Tone.warning ? root.warning
+            : tone == Tone.danger ? root.danger
+            : tone == Tone.accent ? root.accent
+            : root.text-2
+    }
+
+    public pure function tone-soft(tone: Tone) -> brush {
+        tone == Tone.success ? root.success-soft
+            : tone == Tone.warning ? root.warning-soft
+            : tone == Tone.danger ? root.danger-soft
+            : tone == Tone.accent ? root.accent-soft
+            : root.surface-2
+    }
+
+    /// The Lucide glyph a tone speaks with. Colour is never the only carrier.
+    public pure function tone-icon(tone: Tone) -> image {
+        tone == Tone.success ? @image-url("../../assets/icons/circle-check.svg")
+            : tone == Tone.warning ? @image-url("../../assets/icons/triangle-alert.svg")
+            : tone == Tone.danger ? @image-url("../../assets/icons/circle-x.svg")
+            : @image-url("../../assets/icons/info.svg")
+    }
+}
+
+// ── The focus-ring pattern ──────────────────────────────────────────────────
+//
+// Every control's outermost rectangle *is* the ring: it draws the 2 px accent
+// border at its own bounds and insets its visual fill by `ring-gutter`, so the
+// ring sits 2 px outside the fill without any element having to size itself
+// from its parent (which would make the control's preferred width depend on
+// its own width). The gutter is also what turns a 36 px visual into the 44 px
+// hit target §3 asks for.
+

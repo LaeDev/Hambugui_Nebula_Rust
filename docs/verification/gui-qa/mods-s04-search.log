@@ -1,0 +1,88 @@
+﻿# s04-search  2026-09-11 11:16:10
+scope: QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+--- 4 찾기 ---
+  --- pre-search ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    모드 이름 또는 키워드
+    Modrinth
+    CurseForge
+    설정에서 CurseForge API 키를 입력하세요
+    관련도
+    다운로드
+    최신
+    검색어를 입력하세요. QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5에 맞는 모드만 표시됩니다.
+    검색어를 입력하세요
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5에 맞는 모드만 표시됩니다.
+  ids: mods-server|Group|서버 ; mods-server-0|RadioButton|QAfab-1.20.1 ; mods-server-1|RadioButton|QAneo-1.21.1 ; mods-view|Tab|모드 보기 ; mods-view-0|TabItem|모드 보기 설치됨 ; mods-view-1|TabItem|모드 보기 찾기 ; mods-search|Edit|모드 검색 ; mods-provider|Tab|제공자 ; mods-provider-0|TabItem|제공자 Modrinth ; mods-provider-1|TabItem|제공자 CurseForge ; mods-sort|Tab|정렬 ; mods-sort-0|TabItem|정렬 관련도 ; mods-sort-1|TabItem|정렬 다운로드 ; mods-sort-2|TabItem|정렬 최신
+  shot -> mods-04-presearch.png  (736 x 999)
+  CurseForge segment: name='제공자 CurseForge' enabled=True
+  first results after 0.1s
+  shot -> mods-04-results-noicons.png  (736 x 999)
+  --- result rows ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Modrinth
+    CurseForge
+    설정에서 CurseForge API 키를 입력하세요
+    관련도
+    다운로드
+    최신
+    Sodium
+    jellysquid3 · 다운로드 2.2억 · 수정 8일 전
+    A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter.
+    설치
+    Sodium Extra
+    FlashyReese · 다운로드 9481만 · 수정 62일 전
+    A Sodium addon that adds features that shouldn't be in Sodium.
+    설치
+    Reese's Sodium Options
+    FlashyReese · 다운로드 7943만 · 수정 61일 전
+    Alternative Options Menu for Sodium
+    설치
+    Sodium Shadowy Path Blocks (SSPB)
+    Rynnavinx · 다운로드 2231만 · 수정 108일 전
+    Reintroduces vanilla-like smooth lighting to non-full blocks (e.g. dirt paths and how they have dark shading when directly next to a full block) when using Sodium.
+    설치
+    Sodium Options API
+    Txni · 다운로드 2003만 · 수정 518일 전
+    Config API for adding Sodium options with a better categories menu
+    설치
+    Sodium Dynamic Lights
+    설치
+  install buttons: mods-install-modrinth-AANobbMI='Sodium 설치' enabled=True ; mods-install-modrinth-PtjYWJkn='Sodium Extra 설치' enabled=True ; mods-install-modrinth-Bh37bMuy='Reese's Sodium Options 설치' enabled=True ; mods-install-modrinth-EIa1eiMm='Sodium Shadowy Path Blocks (SSPB) 설치' enabled=True ; mods-install-modrinth-Es5v4eyq='Sodium Options API 설치' enabled=True ; mods-install-modrinth-PxQSWIcD='Sodium Dynamic Lights 설치' enabled=True
+[PASS] search returned rows -- count=6
+[PASS] ids follow mods-install-modrinth-<project id>
+  captions: jellysquid3 · 다운로드 2.2억 · 수정 8일 전 | FlashyReese · 다운로드 9481만 · 수정 62일 전 | FlashyReese · 다운로드 7943만 · 수정 61일 전 | Rynnavinx · 다운로드 2231만 · 수정 108일 전 | Txni · 다운로드 2003만 · 수정 518일 전
+[PASS] captions carry 다운로드 N
+[PASS] captions carry 수정 N
+  shot -> mods-04-results-icons.png  (736 x 999)
+  whole-window diff after 6 s of icon fetching: 0
+[FAIL] the rows changed once the icons arrived -- diff=0
+--- 더 보기 ---
+[FAIL] 더 보기 is present when the page was full -- mods-search-more absent
+--- sort ---
+  sort options: mods-sort-0='정렬 관련도' ; mods-sort-1='정렬 다운로드' ; mods-sort-2='정렬 최신'
+  first row (관련도): mods-install-modrinth-AANobbMI
+  first row (다운로드): mods-install-modrinth-AANobbMI  rows=6
+[PASS] 다운로드 re-searched (offset reset to one page) -- rows=6
+  shot -> mods-04-sort-downloads.png  (736 x 999)
+  first row (최신): mods-install-modrinth-5vV6tCDu
+  --- 최신 captions (date first per §8.4) ---
+    수정 1일 전 · LoongLy · 다운로드 36만
+    수정 4일 전 · pepe_yu · 다운로드 2.4만
+    수정 6일 전 · Mr.Toad · 다운로드 602만
+    수정 7일 전 · CorgiTaco · 다운로드 1.5만
+    수정 8일 전 · jellysquid3 · 다운로드 2.2억
+  shot -> mods-04-sort-newest.png  (736 x 999)
+RESULT: 2 failed check(s): the rows changed once the icons arrived | 더 보기 is present when the page was full

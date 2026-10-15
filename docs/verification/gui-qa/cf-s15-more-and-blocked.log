@@ -1,0 +1,86 @@
+﻿# cf-s15-more-and-blocked  2026-09-12 00:15:25
+--- 12b: 더 보기 (가상화된 목록을 스크롤해서 확인) ---
+[PASS] 검색어 입력
+[FAIL] 더 보기 버튼이 (스크롤 후) 존재 -- absent
+--- 14: 차단된 CurseForge 파일 (Fg-1.20.1) ---
+[PASS] 검색어 입력(2)
+  rows: mods-install-curseforge-1604184 ; mods-install-curseforge-1655590
+[PASS] Flashier Flashlights 행 존재
+  --- install-confirm (newest, Modrinth 미러 경유) ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    Fg-1.20.1 · Minecraft 1.20.1 · Forge 47.4.23
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    Flashier Flashlights
+    keerdm · 다운로드 15만 · 수정 55일 전
+    The first flashlight mod to implement proper shadow mapping with full shader pack support (Oculus/Iris, Embeddium/Sodium).
+    설치
+    Flashier Flashlights Curios Slot
+    iTsDenis76 · 다운로드 3539 · 수정 23일 전
+    Curios slot for Keerdm's Flashier Flashlights mod
+    설치
+    Fg-1.20.1에 설치
+    Flashier Flashlights 1.2.0 · 정식 · 3.4 MB · 2026-07-17
+    다른 버전…
+    네임스페이스
+    필수
+    선택 켜짐
+    선택 꺼짐
+    1개 · 3.4 MB
+    취소
+    1개 설치
+  shot -> cf-14-confirm-newest.png  (736 x 999)
+  --- 버전 목록 ---
+    모드
+    서버
+    Fg-1.20.1
+    Neo-1.21.1
+    설치됨
+    찾기
+    Fg-1.20.1 · Minecraft 1.20.1 · Forge 47.4.23
+    Modrinth
+    CurseForge
+    인기
+    다운로드
+    최신
+    Flashier Flashlights
+    keerdm · 다운로드 15만 · 수정 55일 전
+    The first flashlight mod to implement proper shadow mapping with full shader pack support (Oculus/Iris, Embeddium/Sodium).
+    설치
+    Flashier Flashlights Curios Slot
+    iTsDenis76 · 다운로드 3539 · 수정 23일 전
+    Curios slot for Keerdm's Flashier Flashlights mod
+    설치
+    Flashier Flashlights 버전 — Fg-1.20.1
+    Flashier Flashlights 1.2.0
+    1.20.1 · 2026-07-17 · 3.4 MB
+    정식
+    설치
+    Flashier Flashlights 1.1.2
+    1.20.1 · 2026-07-17 · 3.4 MB
+    정식
+    설치
+    Flashier Flashlights 1.1.1
+    1.20.1 · 2026-07-15 · 3.4 MB
+    정식
+    설치
+    Flashier Flashlights 1.1.0
+    1.20.1 · 2026-07-15 · 3.4 MB
+    정식
+    설치
+    Flashier Flashlights 1.0.1
+    1.20.1 · 2026-07-12 · 3.4 MB
+    정식
+    설치
+    취소
+  shot -> cf-14-version-list.png  (736 x 999)
+[FAIL] 버전 목록에서 1.0 파일을 찾음
+RESULT: 2 failed check(s): 더 보기 버튼이 (스크롤 후) 존재 | 버전 목록에서 1.0 파일을 찾음

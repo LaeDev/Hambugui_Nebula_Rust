@@ -1,0 +1,9 @@
+﻿# cf-s16-more-and-blocked  2026-09-12 00:18:19
+--- 12b: 더 보기 ---
+[PASS] 검색어 입력
+[PASS] 더 보기 버튼 존재 (첫 페이지가 가득 찼을 때) -- name='검색 결과 더 보기'
+  ids before 더 보기: mods-install-curseforge-898746 ; mods-install-curseforge-1230497 ; mods-install-curseforge-1103259 ; mods-install-curseforge-310111 ; mods-install-curseforge-532286 ; mods-install-curseforge-634571 ; mods-install-curseforge-1133580 ; mods-install-curseforge-594387 ; mods-install-curseforge-1194921
+  ids after 더 보기 : mods-install-curseforge-898746 ; mods-install-curseforge-1230497 ; mods-install-curseforge-1103259 ; mods-install-curseforge-310111 ; mods-install-curseforge-532286 ; mods-install-curseforge-634571 ; mods-install-curseforge-1133580 ; mods-install-curseforge-594387 ; mods-install-curseforge-1194921 ; mods-install-curseforge-1495382
+[PASS] 더 보기가 새 행을 덧붙인다 -- new=mods-install-curseforge-1495382
+  shot -> cf-12-search-more.png  (736 x 999)
+--- 14: 차단된 CurseForge 파일 (Fg-1.20.1) ---

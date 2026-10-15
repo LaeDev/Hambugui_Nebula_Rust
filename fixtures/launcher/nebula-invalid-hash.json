@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "version": "1.0.0",
+  "servers": [
+    {
+      "id": "bad-hash",
+      "modules": [
+        {
+          "id": "missing-hash",
+          "type": "File",
+          "artifact": {
+            "size": 1,
+            "url": "https://cdn.example.invalid/file.txt",
+            "path": "file.txt"
+          }
+        }
+      ]
+    }
+  ]
+}

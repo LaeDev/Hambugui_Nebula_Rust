@@ -1,0 +1,172 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// A 56 px row — 72 px with the optional third `description` line: optional
+/// 36 px avatar, title, subtitle, and whatever the caller hangs on the right
+/// (DESIGN-v2 §3).
+///
+/// `selectable` is what makes the row a control. A server row is not one — its
+/// 폴더 열기 button is the single tab stop, as the 2026-09-10 UX fixes decided —
+/// so it stays a plain `list-item` that only names itself.
+export component ListRow inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    /// The optional third line (DESIGN-v2 §8.7): one line, elided, 72 px row.
+    /// A 찾기 result's blurb — an installed mod deliberately has none.
+    in property <string> description;
+    /// The server's own `icon.png` when it has one.
+    in property <image> avatar;
+    /// Shown when there is no avatar: one or two letters on a tinted fill.
+    in property <string> initials;
+    /// 0–359, derived from the id so the same server keeps its colour.
+    in property <int> hue: 0;
+    in property <image> icon;
+    in property <bool> enabled: true;
+    in property <bool> selectable: false;
+    in property <bool> selected: false;
+    in property <string> a11y-label;
+    /// Stable handle for automation, kebab-case. Becomes the UIA AutomationId;
+    /// the Korean label is a caption and may be reworded.
+    in property <string> a11y-id;
+    callback activated();
+
+    private property <bool> live: root.enabled && root.selectable;
+    private property <bool> has-avatar: root.avatar.width > 0 || root.initials != "" || root.icon.width > 0;
+
+    min-height: root.description == "" ? 56px : 72px;
+    vertical-stretch: 0;
+    border-radius: Theme.r-md;
+    border-width: root.selected ? 1px : (fs.has-focus || Theme.focus-demo) && root.selectable ? Theme.ring-width : 1px;
+    border-color: root.selected
+        ? Theme.accent
+        : (fs.has-focus || Theme.focus-demo) && root.selectable ? Theme.accent : Theme.border;
+    background: root.selected
+        ? Theme.accent-soft
+        : touch.has-hover && root.live ? Theme.surface-2 : Theme.surface;
+    opacity: root.enabled ? 1.0 : 0.55;
+    animate background { duration: Theme.fast; }
+
+    // `accessible-role` must be constant, and a selectable row is still a
+    // list item; `accessible-checkable`/`-checked` carry the selection.
+    accessible-role: list-item;
+    accessible-label: root.a11y-label == ""
+        ? root.title + ", " + root.subtitle
+        : root.a11y-label;
+    accessible-id: root.a11y-id;
+    // A row the caller dimmed reports itself disabled, whether or not it is a
+    // control: the eye and the accessibility tree must not disagree about
+    // whether something can be used.
+    accessible-enabled: root.enabled;
+    accessible-checkable: root.selectable;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        if (root.live) {
+            root.activated();
+        }
+    }
+
+    fs := FocusScope {
+        enabled: root.live;
+        key-pressed(event) => {
+            if ((event.text == " " || event.text == "\n") && root.live) {
+                root.activated();
+                accept
+            } else {
+                reject
+            }
+        }
+
+        layout := HorizontalLayout {
+            padding-left: Theme.sp-3;
+            padding-right: Theme.sp-2;
+            padding-top: Theme.sp-2;
+            padding-bottom: Theme.sp-2;
+            spacing: Theme.sp-3;
+
+            // A row of its own to centre in: the layout pads vertically, and
+            // it discards an explicit `y` on a padded axis, so the `y` that
+            // used to sit here left the avatar 4 px above the title.
+            if root.has-avatar : VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 0;
+
+                Rectangle {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: Theme.r-sm + 2px;
+                    clip: true;
+                    background: root.avatar.width > 0
+                        ? transparent
+                        : root.icon.width > 0
+                            ? Theme.surface-2
+                            : hsv(root.hue, Theme.dark ? 0.45 : 0.16, Theme.dark ? 0.30 : 0.95);
+
+                    if root.avatar.width > 0 : Image {
+                        source: root.avatar;
+                        width: 36px;
+                        height: 36px;
+                        image-fit: cover;
+                    }
+
+                    if root.avatar.width == 0 && root.icon.width > 0 : Image {
+                        source: root.icon;
+                        width: 20px;
+                        height: 20px;
+                        image-fit: contain;
+                        colorize: Theme.text-2;
+                    }
+
+                    if root.avatar.width == 0 && root.icon.width == 0 : Text {
+                        text: root.initials;
+                        color: hsv(root.hue, Theme.dark ? 0.50 : 0.78, Theme.dark ? 0.88 : 0.42);
+                        font-size: Type.body;
+                        font-weight: Type.semibold;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+
+                Text {
+                    text: root.title;
+                    color: Theme.text;
+                    font-size: Type.row-title;
+                    font-weight: Type.medium;
+                    overflow: elide;
+                }
+
+                if root.subtitle != "" : Text {
+                    text: root.subtitle;
+                    color: Theme.text-2;
+                    font-size: Type.secondary;
+                    overflow: elide;
+                }
+
+                // One line only, whatever the provider sent: a blurb that
+                // wrapped would make every row a different height and the
+                // fixed-height delegates of §8.3 would tear.
+                if root.description != "" : Text {
+                    text: root.description;
+                    color: Theme.text-3;
+                    font-size: Type.caption;
+                    font-weight: Type.medium;
+                    wrap: no-wrap;
+                    overflow: elide;
+                }
+            }
+
+            @children
+        }
+
+        touch := TouchArea {
+            enabled: root.live;
+            mouse-cursor: root.live ? MouseCursor.pointer : MouseCursor.default;
+            clicked => {
+                root.activated();
+            }
+        }
+    }
+}

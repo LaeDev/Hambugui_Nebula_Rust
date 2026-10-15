@@ -1,0 +1,56 @@
+﻿# s12-keyboard  2026-09-10 19:18:37
+--- settings.json re-check with the real kebab-case keys ---
+{
+  "root": "C:\\Users\\Lae_\\AppData\\Local\\Temp\\nebula-qa\\gui-qa-root",
+  "base-url": "https://cdn.example.invalid/",
+  "java-executable": "C:/Program Files/Eclipse Adoptium/jdk-21.0.10.7-hotspot/bin/java.exe",
+  "helios-data-folder": "C:\\Nebula\\HeliosQA",
+  "theme": "system",
+  "reduced-motion": true,
+  "webdav-url": "http://127.0.0.1:8099/dist/",
+  "webdav-user": "qauser",
+  "webdav-password": "qapass",
+  "webdav-public-url": "",
+  "gdrive-client-id": "",
+  "gdrive-client-secret": "",
+  "gdrive-folder-id": ""
+}
+[PASS] base-url saved correctly -- [https://cdn.example.invalid/]
+[PASS] helios-data-folder saved (10e) -- [C:\Nebula\HeliosQA]
+[PASS] reduced-motion saved (10d) -- [True]
+[PASS] theme saved as system (10c) -- [system]
+[PASS] webdav-url saved (9c)
+[PASS] webdav-user saved (9c)
+
+=== Scenario 12: keyboard ===
+[PASS] navigate to 빌드
+focus anchored on = [Edit / 배포본 파일 이름]
+  shot -> 12-tab-0.png  (736 x 999)
+  stop 0: Edit / 배포본 파일 이름  rect=(136,484,495x40)
+  shot -> 12-tab-1.png  (736 x 999)
+  stop 1: CheckBox / Forge 설치 캐시 무효화  rect=(124,600,560x44)
+  shot -> 12-tab-2.png  (736 x 999)
+  stop 2: CheckBox / 설치 출력 삭제  rect=(124,660,560x44)
+  shot -> 12-tab-3.png  (736 x 999)
+  stop 3: Button / 배포본 생성  rect=(124,720,131x52)
+  shot -> 12-tab-4.png  (736 x 999)
+  stop 4: Button / 이미 저장된 배포본 파일 검증  rect=(263,720,146x52)
+  shot -> 12-tab-5.png  (736 x 999)
+  stop 5: Button / 로그 지우기  rect=(652,816,44x44)
+  shot -> 12-tab-6.png  (736 x 999)
+  stop 6: Window / Nebula  rect=(8,31,720x960)
+distinct focus stops reached = 7
+[PASS] Tab moves focus between controls
+[PASS] every Tab stop is reported to UI Automation -- 7/7
+--- focus ring is actually painted (region diff on the control that lost focus) ---
+  stop 0 [Edit / 배포본 파일 이름] ring diff when focus left = 8.22
+  stop 1 [CheckBox / Forge 설치 캐시 무효화] ring diff when focus left = 8.594
+  stop 2 [CheckBox / 설치 출력 삭제] ring diff when focus left = 8.594
+  stop 3 [Button / 배포본 생성] ring diff when focus left = 8.551
+  stop 4 [Button / 이미 저장된 배포본 파일 검증] ring diff when focus left = 8.433
+  stop 5 [Button / 로그 지우기] ring diff when focus left = 10.778
+[PASS] a visible focus indicator appears on at least 3 Tab stops -- 6 stop(s) changed visibly
+--- Enter activates the focused button ---
+tabbed onto 기존 파일 검증 = True (after 4 Tab presses)
+[PASS] the 기존 파일 검증 button is reachable by Tab
+  shot -> 12-focus-on-button.png  (736 x 999)

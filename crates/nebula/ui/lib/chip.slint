@@ -1,0 +1,62 @@
+import { Theme, Tone } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// A 24 px status pill (DESIGN-v2 §3). A chip always carries its text, so the
+/// tone colour is never the only thing that says what it means.
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <Tone> tone: Tone.neutral;
+    /// Optional 16 px glyph; the tone's own icon when `tone-glyph` is set.
+    in property <image> icon;
+    in property <bool> tone-glyph: false;
+
+    private property <image> glyph: root.tone-glyph ? Theme.tone-icon(root.tone) : root.icon;
+
+    // No `height` on the root: a layout anchors a fixed-height child to the top
+    // of its row, which left the pill 4 px above a `KeyValue` line and 10 px
+    // above a `ListRow` title. The root takes the row's height instead and the
+    // pill centres itself in it. `vertical-stretch` still says the chip never
+    // asks a vertical layout for more than its own 24 px.
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+
+    VerticalLayout {
+        alignment: center;
+
+        Rectangle {
+            height: 24px;
+            border-radius: Theme.r-sm;
+            background: Theme.tone-soft(root.tone);
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 4px;
+                alignment: center;
+
+                if root.glyph.width > 0 : VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 0;
+
+                    Image {
+                        source: root.glyph;
+                        width: 16px;
+                        height: 16px;
+                        image-fit: contain;
+                        colorize: Theme.tone-fg(root.tone);
+                        accessible-role: none;
+                    }
+                }
+
+                Text {
+                    text: root.text;
+                    color: Theme.tone-fg(root.tone);
+                    font-size: Type.caption;
+                    font-weight: Type.medium;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}

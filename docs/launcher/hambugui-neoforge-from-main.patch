@@ -1,0 +1,183 @@
+diff -ruN a/crates/hambugui-distribution/src/lib.rs b/crates/hambugui-distribution/src/lib.rs
+--- a/crates/hambugui-distribution/src/lib.rs	2026-09-10 15:01:39.894149600 +0900
++++ b/crates/hambugui-distribution/src/lib.rs	2026-09-10 15:10:39.357994600 +0900
+@@ -121,13 +121,16 @@
+     let root = match module.module_type {
+         ModuleType::Forge
+         | ModuleType::ForgeHosted
++        | ModuleType::NeoForge
+         | ModuleType::Fabric
+         | ModuleType::LiteLoader
+         | ModuleType::Library
+         | ModuleType::VersionManifest => common_root,
+-        ModuleType::ForgeMod | ModuleType::LiteMod | ModuleType::FabricMod | ModuleType::File => {
+-            instance_root
+-        }
++        ModuleType::ForgeMod
++        | ModuleType::NeoForgeMod
++        | ModuleType::LiteMod
++        | ModuleType::FabricMod
++        | ModuleType::File => instance_root,
+     };
+     validate::contained_join(root, relative)
+ }
+diff -ruN a/crates/hambugui-distribution/src/normalize.rs b/crates/hambugui-distribution/src/normalize.rs
+--- a/crates/hambugui-distribution/src/normalize.rs	2026-09-10 15:01:39.892362800 +0900
++++ b/crates/hambugui-distribution/src/normalize.rs	2026-09-10 15:10:39.358993700 +0900
+@@ -33,10 +33,14 @@
+     match module_type {
+         ModuleType::Forge
+         | ModuleType::ForgeHosted
++        | ModuleType::NeoForge
+         | ModuleType::Fabric
+         | ModuleType::LiteLoader
+         | ModuleType::Library => Some("libraries"),
+-        ModuleType::ForgeMod | ModuleType::LiteMod | ModuleType::FabricMod => Some("mods"),
++        ModuleType::ForgeMod
++        | ModuleType::NeoForgeMod
++        | ModuleType::LiteMod
++        | ModuleType::FabricMod => Some("mods"),
+         ModuleType::VersionManifest => Some("versions"),
+         ModuleType::File => None,
+     }
+diff -ruN a/crates/hambugui-distribution/src/schema.rs b/crates/hambugui-distribution/src/schema.rs
+--- a/crates/hambugui-distribution/src/schema.rs	2026-09-10 15:01:39.893152200 +0900
++++ b/crates/hambugui-distribution/src/schema.rs	2026-09-10 15:10:39.357994600 +0900
+@@ -9,10 +9,12 @@
+ pub enum ModuleType {
+     Forge,
+     ForgeHosted,
++    NeoForge,
+     Fabric,
+     LiteLoader,
+     Library,
+     ForgeMod,
++    NeoForgeMod,
+     LiteMod,
+     FabricMod,
+     File,
+@@ -165,10 +167,12 @@
+     match value {
+         "Forge" => Ok(ModuleType::Forge),
+         "ForgeHosted" => Ok(ModuleType::ForgeHosted),
++        "NeoForge" => Ok(ModuleType::NeoForge),
+         "Fabric" => Ok(ModuleType::Fabric),
+         "LiteLoader" => Ok(ModuleType::LiteLoader),
+         "Library" => Ok(ModuleType::Library),
+         "ForgeMod" => Ok(ModuleType::ForgeMod),
++        "NeoForgeMod" => Ok(ModuleType::NeoForgeMod),
+         "LiteMod" => Ok(ModuleType::LiteMod),
+         "FabricMod" => Ok(ModuleType::FabricMod),
+         "File" | "file" => Ok(ModuleType::File),
+diff -ruN a/crates/hambugui-distribution/tests/module_matrix.rs b/crates/hambugui-distribution/tests/module_matrix.rs
+--- a/crates/hambugui-distribution/tests/module_matrix.rs	2026-09-10 15:01:39.895148200 +0900
++++ b/crates/hambugui-distribution/tests/module_matrix.rs	2026-09-10 15:10:39.354992700 +0900
+@@ -1,4 +1,7 @@
+-use hambugui_distribution::{ArtifactDigest, ModuleType, parse_distribution};
++use hambugui_distribution::{
++    ArtifactDigest, ModuleType, parse_distribution, resolve_artifact_path,
++};
++use std::path::Path;
+ 
+ const SHA: &str = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+ const MD5: &str = "00112233445566778899aabbccddeeff";
+@@ -8,10 +11,18 @@
+     let cases = [
+         ("Forge", ModuleType::Forge, "common", true, true),
+         ("ForgeHosted", ModuleType::ForgeHosted, "common", true, true),
++        ("NeoForge", ModuleType::NeoForge, "common", true, true),
+         ("Fabric", ModuleType::Fabric, "common", true, true),
+         ("LiteLoader", ModuleType::LiteLoader, "common", false, false),
+         ("Library", ModuleType::Library, "common", true, true),
+         ("ForgeMod", ModuleType::ForgeMod, "instance", false, true),
++        (
++            "NeoForgeMod",
++            ModuleType::NeoForgeMod,
++            "instance",
++            false,
++            true,
++        ),
+         ("LiteMod", ModuleType::LiteMod, "instance", false, false),
+         ("FabricMod", ModuleType::FabricMod, "instance", false, true),
+         ("File", ModuleType::File, "instance", true, true),
+@@ -71,5 +82,22 @@
+             module.artifact.as_ref().unwrap().digest,
+             ArtifactDigest::LegacyMd5(_)
+         ));
++
++        let common_root = Path::new("common-root");
++        let instance_root = Path::new("instance-root");
++        let expected_root = if destination == "common" {
++            common_root
++        } else {
++            instance_root
++        };
++        let resolved = resolve_artifact_path(module, common_root, instance_root)
++            .unwrap_or_else(|err| panic!("{module_type_text}: {err:?}"));
++        assert_eq!(
++            resolved,
++            expected_root
++                .join(destination)
++                .join(format!("{module_type_text}.jar")),
++            "{module_type_text}"
++        );
+     }
+ }
+diff -ruN a/crates/hambugui-distribution/tests/nebula_contract.rs b/crates/hambugui-distribution/tests/nebula_contract.rs
+--- a/crates/hambugui-distribution/tests/nebula_contract.rs	2026-09-10 15:01:39.896148000 +0900
++++ b/crates/hambugui-distribution/tests/nebula_contract.rs	2026-09-10 15:10:39.353994500 +0900
+@@ -224,6 +224,19 @@
+         .unwrap(),
+         Path::new("C:/hambugui/common").join("versions/1-20-1-forge/1-20-1-forge.json")
+     );
++
++    let neoforge = r#"{"schemaVersion":1,"version":"1.0.0","servers":[{"id":"s","modules":[{"id":"net.neoforged:neoforge:21.1.250:installer","type":"NeoForge","artifact":{"size":1,"SHA256":"000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f","url":"https://maven.neoforged.net/releases/neoforge-installer.jar"}}]}]}"#;
++    let distro = parse_distribution(neoforge.as_bytes()).expect("NeoForge coordinate derives path");
++    assert_eq!(
++        resolve_artifact_path(
++            &distro.servers[0].modules[0],
++            Path::new("C:/hambugui/common"),
++            Path::new("C:/hambugui/instance")
++        )
++        .unwrap(),
++        Path::new("C:/hambugui/common")
++            .join("libraries/net/neoforged/neoforge/21.1.250/neoforge-21.1.250-installer.jar")
++    );
+ }
+ 
+ #[test]
+diff -ruN a/docs/distribution.md b/docs/distribution.md
+--- a/docs/distribution.md	2026-09-10 15:01:39.914148200 +0900
++++ b/docs/distribution.md	2026-09-10 15:10:39.395995800 +0900
+@@ -50,15 +50,20 @@
+ 
+ - `Forge`
+ - `ForgeHosted`
++- `NeoForge`
+ - `Fabric`
+ - `LiteLoader`
+ - `Library`
+ - `ForgeMod`
++- `NeoForgeMod`
+ - `LiteMod`
+ - `FabricMod`
+ - `File`
+ - `VersionManifest`
+ 
++`NeoForge` is the NeoForge loader root (Minecraft 1.20.2+) and `NeoForgeMod` is an instance mod
++for that loader. Both are produced by the Nebula generator; Helios has no NeoForge equivalent.
++
+ `required` may be a boolean or an object with `value` and `def`/`default`. Required modules cannot be disabled. Optional modules are planned according to their default and user selection.
+ 
+ ## Artifact rules
+@@ -79,8 +84,8 @@
+ 
+ | Module type | Destination root |
+ | --- | --- |
+-| `Forge`, `ForgeHosted`, `Fabric`, `LiteLoader`, `Library`, `VersionManifest` | common libraries/version root |
+-| `ForgeMod`, `LiteMod`, `FabricMod`, `File` | selected server instance root |
++| `Forge`, `ForgeHosted`, `NeoForge`, `Fabric`, `LiteLoader`, `Library`, `VersionManifest` | common libraries/version root |
++| `ForgeMod`, `NeoForgeMod`, `LiteMod`, `FabricMod`, `File` | selected server instance root |
+ 
+ ## Drop-ins and shaderpacks
+ 

@@ -1,0 +1,124 @@
+﻿# s10f-busy-nav  2026-09-11 11:46:48
+writing 15,000 small pad files
+pad files: 15000
+  [  0.2s] pill=False '' dialog=True build-generate-enabled=n/a
+  [  0.6s] pill=True '서버 복제 중 · 0:00' dialog=True build-generate-enabled=n/a
+  >>> Esc sent at 0.6s
+  [  0.9s] pill=True '서버 복제 중 · 0:00' dialog=True build-generate-enabled=n/a
+  [  1.3s] pill=True '서버 복제 중 · 0:01' dialog=True build-generate-enabled=n/a
+  >>> Ctrl+1 sent at 1.3s
+  [  1.5s] pill=True '서버 복제 중 · 0:01' dialog=True build-generate-enabled=False
+  [  1.7s] pill=True '서버 복제 중 · 0:01' dialog=True build-generate-enabled=False
+  [  1.9s] pill=True '서버 복제 중 · 0:01' dialog=True build-generate-enabled=False
+  [  2.1s] pill=True '서버 복제 중 · 0:01' dialog=True build-generate-enabled=False
+  [  2.2s] pill=True '서버 복제 중 · 0:02' dialog=True build-generate-enabled=False
+  [  2.4s] pill=True '서버 복제 중 · 0:02' dialog=True build-generate-enabled=False
+  [  2.6s] pill=True '서버 복제 중 · 0:02' dialog=True build-generate-enabled=False
+  [  2.8s] pill=True '서버 복제 중 · 0:02' dialog=True build-generate-enabled=False
+  [  3.0s] pill=True '서버 복제 중 · 0:02' dialog=True build-generate-enabled=False
+  [  3.2s] pill=True '서버 복제 중 · 0:03' dialog=True build-generate-enabled=False
+  [  3.4s] pill=True '서버 복제 중 · 0:03' dialog=True build-generate-enabled=False
+  [  3.6s] pill=True '서버 복제 중 · 0:03' dialog=True build-generate-enabled=False
+  [  3.7s] pill=True '서버 복제 중 · 0:03' dialog=True build-generate-enabled=False
+  [  3.9s] pill=True '서버 복제 중 · 0:03' dialog=True build-generate-enabled=False
+  [  4.1s] pill=True '서버 복제 중 · 0:03' dialog=True build-generate-enabled=False
+  [  4.3s] pill=True '서버 복제 중 · 0:04' dialog=True build-generate-enabled=False
+  [  4.4s] pill=True '서버 복제 중 · 0:04' dialog=True build-generate-enabled=False
+  [  4.6s] pill=True '서버 복제 중 · 0:04' dialog=True build-generate-enabled=False
+  [  4.8s] pill=True '서버 복제 중 · 0:04' dialog=True build-generate-enabled=False
+  [  5.0s] pill=True '서버 복제 중 · 0:04' dialog=True build-generate-enabled=False
+  [  5.1s] pill=True '서버 복제 중 · 0:05' dialog=True build-generate-enabled=False
+  [  5.3s] pill=True '서버 복제 중 · 0:05' dialog=True build-generate-enabled=False
+  [  5.5s] pill=True '서버 복제 중 · 0:05' dialog=True build-generate-enabled=False
+  [  5.7s] pill=True '서버 복제 중 · 0:05' dialog=True build-generate-enabled=False
+  [  5.9s] pill=True '서버 복제 중 · 0:05' dialog=True build-generate-enabled=False
+  [  6.0s] pill=True '서버 복제 중 · 0:05' dialog=True build-generate-enabled=False
+  [  6.2s] pill=True '서버 복제 중 · 0:06' dialog=True build-generate-enabled=False
+  [  6.4s] pill=True '서버 복제 중 · 0:06' dialog=True build-generate-enabled=False
+  [  6.6s] pill=True '서버 복제 중 · 0:06' dialog=True build-generate-enabled=False
+  [  6.7s] pill=True '서버 복제 중 · 0:06' dialog=True build-generate-enabled=False
+  [  6.9s] pill=True '서버 복제 중 · 0:06' dialog=True build-generate-enabled=False
+  [  7.1s] pill=True '서버 복제 중 · 0:07' dialog=True build-generate-enabled=False
+  [  7.2s] pill=True '서버 복제 중 · 0:07' dialog=True build-generate-enabled=False
+  [  7.4s] pill=True '서버 복제 중 · 0:07' dialog=True build-generate-enabled=False
+  [  7.6s] pill=True '서버 복제 중 · 0:07' dialog=True build-generate-enabled=False
+  [  7.8s] pill=True '서버 복제 중 · 0:07' dialog=True build-generate-enabled=False
+  [  7.9s] pill=True '서버 복제 중 · 0:07' dialog=True build-generate-enabled=False
+  [  8.1s] pill=True '서버 복제 중 · 0:08' dialog=True build-generate-enabled=False
+  [  8.3s] pill=True '서버 복제 중 · 0:08' dialog=True build-generate-enabled=False
+  [  8.4s] pill=True '서버 복제 중 · 0:08' dialog=True build-generate-enabled=False
+  [  8.6s] pill=True '서버 복제 중 · 0:08' dialog=True build-generate-enabled=False
+  [  8.8s] pill=True '서버 복제 중 · 0:08' dialog=True build-generate-enabled=False
+  [  9.0s] pill=True '서버 복제 중 · 0:08' dialog=True build-generate-enabled=False
+  [  9.2s] pill=True '서버 복제 중 · 0:09' dialog=True build-generate-enabled=False
+  [  9.4s] pill=True '서버 복제 중 · 0:09' dialog=True build-generate-enabled=False
+  [  9.6s] pill=True '서버 복제 중 · 0:09' dialog=True build-generate-enabled=False
+  [  9.7s] pill=True '서버 복제 중 · 0:09' dialog=True build-generate-enabled=False
+  [  9.9s] pill=True '서버 복제 중 · 0:09' dialog=True build-generate-enabled=False
+  [ 10.1s] pill=True '서버 복제 중 · 0:10' dialog=True build-generate-enabled=False
+  [ 10.3s] pill=True '서버 복제 중 · 0:10' dialog=True build-generate-enabled=False
+  [ 10.4s] pill=True '서버 복제 중 · 0:10' dialog=True build-generate-enabled=False
+  [ 10.6s] pill=True '서버 복제 중 · 0:10' dialog=True build-generate-enabled=False
+  [ 10.9s] pill=False '' dialog=False build-generate-enabled=True
+  pill live from 0.6s to 10.6s (55 ticks)
+[PASS] Esc is refused while busy -- dialog open on 54/54 busy ticks after Esc
+[PASS] the probe caught busy ticks after Ctrl+1 -- 52 ticks
+    after nav [  1.5s] dialog=True build-generate-enabled=False
+    after nav [  1.7s] dialog=True build-generate-enabled=False
+    after nav [  1.9s] dialog=True build-generate-enabled=False
+    after nav [  2.1s] dialog=True build-generate-enabled=False
+    after nav [  2.2s] dialog=True build-generate-enabled=False
+    after nav [  2.4s] dialog=True build-generate-enabled=False
+    after nav [  2.6s] dialog=True build-generate-enabled=False
+    after nav [  2.8s] dialog=True build-generate-enabled=False
+    after nav [  3.0s] dialog=True build-generate-enabled=False
+    after nav [  3.2s] dialog=True build-generate-enabled=False
+    after nav [  3.4s] dialog=True build-generate-enabled=False
+    after nav [  3.6s] dialog=True build-generate-enabled=False
+    after nav [  3.7s] dialog=True build-generate-enabled=False
+    after nav [  3.9s] dialog=True build-generate-enabled=False
+    after nav [  4.1s] dialog=True build-generate-enabled=False
+    after nav [  4.3s] dialog=True build-generate-enabled=False
+    after nav [  4.4s] dialog=True build-generate-enabled=False
+    after nav [  4.6s] dialog=True build-generate-enabled=False
+    after nav [  4.8s] dialog=True build-generate-enabled=False
+    after nav [  5.0s] dialog=True build-generate-enabled=False
+    after nav [  5.1s] dialog=True build-generate-enabled=False
+    after nav [  5.3s] dialog=True build-generate-enabled=False
+    after nav [  5.5s] dialog=True build-generate-enabled=False
+    after nav [  5.7s] dialog=True build-generate-enabled=False
+    after nav [  5.9s] dialog=True build-generate-enabled=False
+    after nav [  6.0s] dialog=True build-generate-enabled=False
+    after nav [  6.2s] dialog=True build-generate-enabled=False
+    after nav [  6.4s] dialog=True build-generate-enabled=False
+    after nav [  6.6s] dialog=True build-generate-enabled=False
+    after nav [  6.7s] dialog=True build-generate-enabled=False
+    after nav [  6.9s] dialog=True build-generate-enabled=False
+    after nav [  7.1s] dialog=True build-generate-enabled=False
+    after nav [  7.2s] dialog=True build-generate-enabled=False
+    after nav [  7.4s] dialog=True build-generate-enabled=False
+    after nav [  7.6s] dialog=True build-generate-enabled=False
+    after nav [  7.8s] dialog=True build-generate-enabled=False
+    after nav [  7.9s] dialog=True build-generate-enabled=False
+    after nav [  8.1s] dialog=True build-generate-enabled=False
+    after nav [  8.3s] dialog=True build-generate-enabled=False
+    after nav [  8.4s] dialog=True build-generate-enabled=False
+    after nav [  8.6s] dialog=True build-generate-enabled=False
+    after nav [  8.8s] dialog=True build-generate-enabled=False
+    after nav [  9.0s] dialog=True build-generate-enabled=False
+    after nav [  9.2s] dialog=True build-generate-enabled=False
+    after nav [  9.4s] dialog=True build-generate-enabled=False
+    after nav [  9.6s] dialog=True build-generate-enabled=False
+    after nav [  9.7s] dialog=True build-generate-enabled=False
+    after nav [  9.9s] dialog=True build-generate-enabled=False
+    after nav [ 10.1s] dialog=True build-generate-enabled=False
+    after nav [ 10.3s] dialog=True build-generate-enabled=False
+    after nav [ 10.4s] dialog=True build-generate-enabled=False
+    after nav [ 10.6s] dialog=True build-generate-enabled=False
+[PASS] the open dialog survives Ctrl+1 while the job runs (§8.6) -- open on 52/52
+[PASS] navigation reached 빌드 while the job runs -- 52 ticks saw build-generate
+[PASS] the 빌드 primary is disabled while a job runs (§8.6) -- enabled on 0/52
+  shot -> mods-10-busy-nav.png  (736 x 999)
+  toast: 서버를 복제했습니다: QAbusy-1.21.1
+cleaned up
+RESULT: all checks passed

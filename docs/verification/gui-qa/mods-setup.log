@@ -1,0 +1,63 @@
+﻿# setup  2026-09-11 11:11:09
+
+>>> nebula init root
+nebula.exe : [INFO] [nebula_core::meta] Schema for DistroMetaSchema saved to C:\Users\La
+e_\AppData\Local\Temp\nebula-qa\gui-qa\root\schemas\DistroMetaSchema.schema.json
+At C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\setup-fixture.ps1:25 char:12
++     $out = & $exe @ArgList 2>&1 | Out-String
++            ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([INFO] [nebula_...ema.schema.json:String)  
+   [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[INFO] [nebula_core::meta] Schema for ServerMetaSchema saved to C:\Users\Lae_\AppData\Lo
+cal\Temp\nebula-qa\gui-qa\roo
+t\schemas\ServerMetaSchema.schema.json
+[INFO] [nebula_core::distribution] Successfully created new root at C:\Users\Lae_\AppDat
+a\Local\Temp\nebula-qa\gui-qa
+\root
+
+exit=0
+
+>>> nebula generate server QAfab 1.20.1 --fabric latest
+nebula.exe : [INFO] [nebula_core::server] Created server QAfab-1.20.1 at C:\Users\Lae_\A
+ppData\Local\Temp\nebula-qa\g
+ui-qa\root\servers\QAfab-1.20.1
+At C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\setup-fixture.ps1:25 char:12
++     $out = & $exe @ArgList 2>&1 | Out-String
++            ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([INFO] [nebula_...rs\QAfab-1.20.1:String)  
+   [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+exit=0
+
+>>> nebula generate server QAneo 1.21.1 --neoforge latest
+nebula.exe : [INFO] [nebula_core::server] Created server QAneo-1.21.1 at C:\Users\Lae_\A
+ppData\Local\Temp\nebula-qa\g
+ui-qa\root\servers\QAneo-1.21.1
+At C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\setup-fixture.ps1:25 char:12
++     $out = & $exe @ArgList 2>&1 | Out-String
++            ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([INFO] [nebula_...rs\QAneo-1.21.1:String)  
+   [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+exit=0
+
+>>> nebula mods QAneo-1.21.1 install cloth-config --namespace required
+Cloth Config API [NeoForge 1.21] v15.0.140 · 정식 · cloth-config-15.0.140-neoforge.jar
+nebula.exe : 다운로드 중 1/1 · cloth-config-15.0.140-neoforge.jar
+At C:\Users\Lae_\AppData\Local\Temp\nebula-qa\gui-qa\setup-fixture.ps1:25 char:12
++     $out = & $exe @ArgList 2>&1 | Out-String
++            ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (다운로드 중 1/1 · cl...40-neoforge.jar:String)  
+   [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+설치 1 · 건너뜀 0 · 직접 다운로드 0
+
+exit=0
+hand-placed jar: cloth-config-15.0.140-neoforge.jar  meta=[META-INF/neoforge.mods.toml]

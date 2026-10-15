@@ -1,0 +1,17 @@
+﻿# s04c-more  2026-09-11 11:20:40
+--- reach 더 보기 with the wheel ---
+  notch block 0 : visible install buttons=10  more=False
+  notch block 1 : visible install buttons=11  more=False
+  notch block 2 : visible install buttons=11  more=False
+  notch block 3 : visible install buttons=9  more=True
+[PASS] 더 보기 exists at the bottom of a full page
+  button: '검색 결과 더 보기' enabled=True
+  shot -> mods-04-more-before.png  (736 x 999)
+  before: mods-install-modrinth-sTkQBVyo,mods-install-modrinth-jcn9RURP,mods-install-modrinth-6cp26sMV,mods-install-modrinth-8joDCBGc,mods-install-modrinth-DZoJWpsh,mods-install-modrinth-xtym7fz7,mods-install-modrinth-xgdFs8ct,mods-install-modrinth-k8meonyE,mods-install-modrinth-MmVee2KU
+  after : mods-install-modrinth-sTkQBVyo,mods-install-modrinth-jcn9RURP,mods-install-modrinth-6cp26sMV,mods-install-modrinth-8joDCBGc,mods-install-modrinth-DZoJWpsh,mods-install-modrinth-xtym7fz7,mods-install-modrinth-xgdFs8ct,mods-install-modrinth-k8meonyE,mods-install-modrinth-MmVee2KU,mods-install-modrinth-ZLFDmovP
+  kept=9 new=1
+[PASS] 더 보기 appended rows -- new=mods-install-modrinth-ZLFDmovP
+  shot -> mods-04-more-after.png  (736 x 999)
+  focus before/after: Edit / 모드 검색 / mods-search  ->  Window / Nebula / 
+  더 보기 still there: False
+RESULT: all checks passed

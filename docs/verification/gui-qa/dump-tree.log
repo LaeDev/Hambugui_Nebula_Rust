@@ -1,0 +1,49 @@
+﻿# dump-tree  2026-09-10 20:45:05
+exe  : target\release\nebula.exe
+root : C:\Users\Lae_\AppData\Local\Temp\nebula-tree-eab0b8b1bc6448899795ce5df7df017b\root
+  tree -> tree-after.txt  (56 nodes)
+nodes: 56
+AutomationIds: 15
+--- ids ---
+  nav-build
+  nav-servers
+  nav-import
+  nav-publish
+  nav-settings
+  theme-toggle
+  build-open-settings
+  build-init-root
+  build-name
+  build-install-local
+  build-invalidate-cache
+  build-discard-output
+  build-generate
+  build-validate
+  log-clear
+--- tab order ---
+   0: TabItem / 빌드 / nav-build
+   1: TabItem / 서버 / nav-servers
+   2: TabItem / 가져오기 / nav-import
+   3: TabItem / 배포 / nav-publish
+   4: TabItem / 설정 / nav-settings
+   5: Button / 라이트 테마로 전환 / theme-toggle
+   6: Button / 설정 화면 열기 / build-open-settings
+   7: Button / 루트 폴더 초기화 / build-init-root
+   8: Edit / 배포본 파일 이름 / build-name
+   9: CheckBox / Forge 설치 캐시 무효화 / build-invalidate-cache
+  10: CheckBox / 설치 출력 삭제 / build-discard-output
+  11: Button / 배포본 생성 / build-generate
+[PASS] the root FocusScope is not a tab stop
+--- keyboard after a dialog closes ---
+[PASS] reached the 서버 page
+[PASS] the 새 서버 dialog opened
+[PASS] the caret starts in the first field -- new-server-id
+[PASS] Esc closed it
+[PASS] Ctrl+1 still switches pages afterwards -- title=빌드
+--- PageDown reaches the 모양 card, and the theme segment follows ---
+[PASS] reached the 설정 page
+  before: 테마 시스템=On  테마 라이트=Off  테마 다크=Off
+[PASS] PageDown brought the 모양 card into the tree -- was 35 nodes
+  after : 테마 시스템=Off  테마 라이트=On  테마 다크=Off
+[PASS] the top-bar toggle moves the theme segment -- 테마 시스템=On  테마 라이트=Off  테마 다크=Off -> 테마 시스템=Off  테마 라이트=On  테마 다크=Off
+RESULT: all checks passed

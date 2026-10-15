@@ -1,0 +1,100 @@
+﻿# s05-install  2026-09-11 11:22:28
+scope: QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+--- 5 설치 on Sodium ---
+  button: 'Sodium 설치'
+[PASS] install-confirm opened
+  --- dialog texts ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Modrinth
+    CurseForge
+    설정에서 CurseForge API 키를 입력하세요
+    관련도
+    다운로드
+    최신
+    Sodium
+    jellysquid3 · 다운로드 2.2억 · 수정 8일 전
+    A high-performance rendering engine replacement for Minecraft, which greatly improves frame rates and reduces micro-stutter.
+    설치
+    Sodium Extra
+    FlashyReese · 다운로드 9481만 · 수정 62일 전
+    A Sodium addon that adds features that shouldn't be in Sodium.
+    설치
+    Reese's Sodium Options
+    FlashyReese · 다운로드 7943만 · 수정 61일 전
+    Alternative Options Menu for Sodium
+    설치
+    Sodium Shadowy Path Blocks (SSPB)
+    Rynnavinx · 다운로드 2231만 · 수정 108일 전
+    Reintroduces vanilla-like smooth lighting to non-full blocks (e.g. dirt paths and how they have dark shading when directly next to a full block) when using Sodium.
+    설치
+    Sodium Options API
+    Txni · 다운로드 2003만 · 수정 518일 전
+    Config API for adding Sodium options with a better categories menu
+    설치
+    Sodium Dynamic Lights
+    설치
+    QAfab-1.20.1에 설치
+    Sodium Sodium 0.5.13 for Fabric · 정식 · 948.8 KB
+    다른 버전…
+    네임스페이스
+    필수
+    선택 켜짐
+    선택 꺼짐
+    1개 · 948.8 KB
+    취소
+    1개 설치
+  ids: install-confirm-dialog|Group|QAfab-1.20.1에 설치 ; install-confirm-dialog-close|Button|닫기 ; install-confirm-versions|Button|다른 버전 고르기 ; install-confirm-namespace|Tab|네임스페이스 ; install-confirm-namespace-0|TabItem|네임스페이스 필수 ; install-confirm-namespace-1|TabItem|네임스페이스 선택 켜짐 ; install-confirm-namespace-2|TabItem|네임스페이스 선택 꺼짐 ; install-confirm-cancel|Button|설치 취소 ; install-confirm-submit|Button|1개 설치
+  initial focus: Button / 1개 설치 / install-confirm-submit
+  primary: '1개 설치' enabled=True
+[PASS] the primary has the initial focus -- install-confirm-submit
+[PASS] the dialog title names the server
+  dependency rows: 
+[FAIL] fabric-api is listed as a dependency
+  footer: 1개 · 948.8 KB
+  shot -> mods-05-install-confirm.png  (736 x 999)
+--- 10 busy model ---
+  dialog open right after submit: False  (+1.5s)
+  !! the install finished before the first probe; busy state not observable
+  job took 2.6s
+  toast: 
+[FAIL] the success toast names the server
+  shot -> mods-05-installed-toast.png  (736 x 999)
+  Sodium row button: 'Sodium 설치' enabled=False
+[FAIL] the row became a disabled 설치됨 -- name='Sodium 설치' enabled=False
+[PASS] 찾기 stayed on screen (no auto-switch)
+--- 설치됨 after the install ---
+    모드
+    서버
+    QAfab-1.20.1
+    QAneo-1.21.1
+    설치됨
+    찾기
+    설치된 모드 3
+    관리 1 · 직접 추가 2 · 확인 전
+    업데이트 확인
+    QAfab-1.20.1 · Minecraft 1.20.1 · Fabric 0.19.5
+    Cloth Config v15 API
+    15.0.140 · cloth-config-15.0.140-neoforge.jar · 직접 추가
+    선택 켜짐
+    NO
+    notes.txt
+    버전 미상 · notes.txt · 직접 추가
+    필수
+    배포 불가
+    배포본을 만들 수 없는 파일입니다 — 이 파일을 지우거나 올바른 jar로 바꾸세요
+    Sodium
+    0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+    필수
+  shot -> mods-05-installed-list.png  (736 x 999)
+[FAIL] both new mods carry the Modrinth subtitle -- 0.5.13+mc1.20.1 · sodium-fabric-0.5.13+mc1.20.1.jar · Modrinth
+  --- disk ---
+  required : notes.txt, sodium-fabric-0.5.13+mc1.20.1.jar
+  optionalon : cloth-config-15.0.140-neoforge.jar
+  optionaloff : 
+RESULT: 4 failed check(s): fabric-api is listed as a dependency | the success toast names the server | the row became a disabled 설치됨 | both new mods carry the Modrinth subtitle

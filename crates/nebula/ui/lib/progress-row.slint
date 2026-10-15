@@ -1,0 +1,74 @@
+import { Theme } from "theme.slint";
+import { Type } from "typography.slint";
+
+/// The single progress carrier for a catalog job (DESIGN-v2 §8.4, §8.7): a
+/// 4 px bar over one mono line, in the header of the card that owns the job.
+///
+/// The **row** is the announced indicator — `accessible-live-region: polite`
+/// is what makes a reader hear `다운로드 중 3/5 …` as the count moves. The bar
+/// is drawn here rather than reused from `progress.slint` for exactly one
+/// reason: `accessible-role` has to be a constant, so `ProgressBar`'s own
+/// `progress-indicator` role cannot be silenced at a use site, and two nested
+/// indicators would announce the same job twice.
+///
+/// `fraction` is 0–1 while a job counts files and **negative when there is
+/// nothing real to count**, which is the whole indeterminate contract: the
+/// segment then slides on `Theme.progress-phase`, the host-driven clock every
+/// other bar in the app reads.
+export component ProgressRow inherits Rectangle {
+    /// `다운로드 중 2/5 · fabric-api-0.92.jar · 0:12`, formatted by the host.
+    in property <string> text;
+    in property <float> fraction: -1;
+    /// Stable handle for automation, kebab-case.
+    in property <string> a11y-id;
+
+    private property <bool> determinate: root.fraction >= 0;
+
+    vertical-stretch: 0;
+
+    accessible-role: progress-indicator;
+    accessible-label: root.text;
+    accessible-id: root.a11y-id;
+    // Present in 1.17.1; this is what supersedes the "no live-region API"
+    // ceiling the 2026-09-10 UX fixes recorded.
+    accessible-live-region: polite;
+
+    VerticalLayout {
+        spacing: Theme.sp-2;
+
+        Rectangle {
+            height: 4px;
+            vertical-stretch: 0;
+            background: Theme.surface-3;
+            border-radius: 2px;
+            // Keeps the sliding segment inside the rounded track.
+            clip: true;
+            // The row above is the one indicator; an unnamed second one here
+            // would be read as a job of its own.
+            accessible-role: none;
+
+            Rectangle {
+                y: 0;
+                height: 4px;
+                border-radius: 2px;
+                background: Theme.accent;
+                width: root.determinate
+                    ? parent.width * clamp(root.fraction, 0.0, 1.0)
+                    : parent.width * 0.3;
+                // -0.3w at phase 0 to +1.0w at phase 1, the same sweep
+                // `ProgressBar` runs; pinned at 0 for a determinate bar.
+                x: root.determinate ? 0px : parent.width * (1.3 * Theme.progress-phase - 0.3);
+            }
+        }
+
+        Text {
+            text: root.text;
+            color: Theme.text-2;
+            font-family: Theme.mono;
+            font-size: Type.mono;
+            wrap: no-wrap;
+            overflow: elide;
+            vertical-stretch: 0;
+        }
+    }
+}

@@ -1676,11 +1676,15 @@ fn delete_refuses_everything_that_is_not_exactly_one_server_directory() {
     }
     // The trailing-space refusal says what actually went wrong, rather than
     // reusing the containment message about a path that is in the right place.
-    let error = manage::delete_server(&fixture.root, "Test-1.20.1 ").unwrap_err();
-    assert!(
-        error.to_string().contains("앞뒤 공백을 확인하세요"),
-        "{error}"
-    );
+    // Only Windows resolves "Test-1.20.1 " to the real directory; elsewhere it
+    // names a directory that does not exist, which the loop above refuses.
+    if cfg!(windows) {
+        let error = manage::delete_server(&fixture.root, "Test-1.20.1 ").unwrap_err();
+        assert!(
+            error.to_string().contains("앞뒤 공백을 확인하세요"),
+            "{error}"
+        );
+    }
 
     // A symlink pointing outside `servers` is refused by the resolved parent.
     let outside = tempfile::tempdir().unwrap();

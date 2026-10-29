@@ -39,8 +39,17 @@ Get-FileHash .\nebula-gui.exe -Algorithm SHA256
 
 ### 설정이 저장되는 곳
 
-- 기본값: `%APPDATA%\nebula\` — `settings.json`, Google Drive 토큰(`gdrive-token.json`),
-  `nebula keygen`이 만드는 배포본 서명 키(`distribution-signing.key`). 서명 키는 따로 백업하세요.
+- 기본값: `%APPDATA%\nebula\` — `settings.json`, `nebula keygen`이 만드는 배포본 서명 키
+  (`distribution-signing.key`). 서명 키는 따로 백업하세요.
 - `NEBULA_CONFIG_DIR` 환경 변수를 지정하면 그 폴더를 그대로 씁니다(USB 포터블 사용에 유용).
 - `nebula-gui.exe`는 콘솔이 없으므로 로그를 그 폴더의 `nebula-gui.log`에 씁니다.
   이 파일은 실행할 때마다 새로 쓰입니다. 문제를 신고할 때 이 파일을 첨부하세요.
+
+### 변경 사항
+
+- **Google Drive 배포를 제거했습니다.** `publish --target gdrive`, `gdrive-auth` 명령,
+  GUI의 Google Drive 설정과 배포 대상이 없어졌습니다. Hambugui 런처는 배포본 URL의
+  경로 끝에 `.sig`를 붙여 서명을 찾는데, 드라이브 URL(`/download?id=…`)은 그 자리에
+  서명을 둘 수 없어서 드라이브에 올린 배포본은 릴리스 런처가 읽을 수 없기 때문입니다.
+  배포는 WebDAV(Synology 등)로 하세요. 예전 `settings.json`의 드라이브 키는 무시되고
+  다음 저장 때 빠지며, 남은 `gdrive-token.json`은 지워도 됩니다.

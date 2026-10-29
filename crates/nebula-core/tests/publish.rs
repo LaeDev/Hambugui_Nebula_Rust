@@ -1,19 +1,15 @@
-//! Publishing: plan extraction, change tracking, URL rewriting, and a WebDAV
+//! Publishing: plan extraction, change tracking, signing, and a WebDAV
 //! upload driven against an in-process stub server.
 
 mod common;
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use common::{stub_created, summaries};
 use nebula_core::hash::Digests;
 use nebula_core::layout::Root;
 use nebula_core::publish::webdav::WebDavTarget;
-use nebula_core::publish::{
-    PublishOptions, PublishState, Target, gdrive, plan_from_distribution, publish,
-    rewrite_distribution,
-};
+use nebula_core::publish::{PublishOptions, PublishState, Target, plan_from_distribution, publish};
 use nebula_core::{DistributionKey, Result};
 use url::Url;
 
@@ -193,7 +189,6 @@ fn skips_files_whose_hash_is_already_published() {
     let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
     let opts = PublishOptions {
         only_changed: true,
-        rewrite_urls: false,
         signing_key: Some(key()),
     };
 
@@ -218,7 +213,6 @@ fn skips_files_whose_hash_is_already_published() {
         first.signature_url,
         "https://fake.invalid/distribution.json.sig"
     );
-    assert!(first.rewritten_distribution.is_none());
     assert!(PublishState::path(&fixture.root).is_file());
 
     // Nothing changed: only the distribution and its signature are sent again.
@@ -242,7 +236,6 @@ fn uploads_everything_when_change_tracking_is_off() {
     let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
     let opts = PublishOptions {
         only_changed: false,
-        rewrite_urls: false,
         signing_key: Some(key()),
     };
 
@@ -273,150 +266,6 @@ fn keys_the_state_by_target_name() {
     assert!(state["webdav"].is_null());
 }
 
-// --- distribution rewriting -----------------------------------------------
-
-#[test]
-fn rewrites_artifact_urls_in_sub_modules_and_icons() {
-    let mut value: serde_json::Value = serde_json::from_str(
-        r#"{
-            "version": "1.0.0",
-            "rss": "https://cdn.example.invalid/servers/S-1.20.1/files/a.cfg.rss",
-            "servers": [{
-                "icon": "https://cdn.example.invalid/servers/S-1.20.1/icon.png",
-                "address": "localhost:25565",
-                "modules": [{
-                    "id": "generated.forgemod:jei:1.0@jar",
-                    "artifact": { "url": "https://cdn.example.invalid/servers/S-1.20.1/files/a.cfg", "SHA256": "dead" },
-                    "subModules": [
-                        { "artifact": { "url": "https://cdn.example.invalid/repo/lib/x/y.jar" } }
-                    ]
-                }]
-            }]
-        }"#,
-    )
-    .unwrap();
-
-    let map: HashMap<String, String> = [
-        (
-            "https://cdn.example.invalid/servers/S-1.20.1/icon.png",
-            "https://drive.invalid/?id=icon",
-        ),
-        (
-            "https://cdn.example.invalid/servers/S-1.20.1/files/a.cfg",
-            "https://drive.invalid/?id=cfg",
-        ),
-        (
-            "https://cdn.example.invalid/repo/lib/x/y.jar",
-            "https://drive.invalid/?id=jar",
-        ),
-    ]
-    .into_iter()
-    .map(|(from, to)| (from.to_owned(), to.to_owned()))
-    .collect();
-
-    rewrite_distribution(&mut value, &map);
-
-    let server = &value["servers"][0];
-    assert_eq!(server["icon"], "https://drive.invalid/?id=icon");
-    assert_eq!(
-        server["modules"][0]["artifact"]["url"],
-        "https://drive.invalid/?id=cfg"
-    );
-    assert_eq!(
-        server["modules"][0]["subModules"][0]["artifact"]["url"],
-        "https://drive.invalid/?id=jar"
-    );
-    // Everything that is not a published URL is left exactly as it was.
-    assert_eq!(value["version"], "1.0.0");
-    assert_eq!(
-        value["rss"],
-        "https://cdn.example.invalid/servers/S-1.20.1/files/a.cfg.rss"
-    );
-    assert_eq!(server["address"], "localhost:25565");
-    assert_eq!(server["modules"][0]["id"], "generated.forgemod:jei:1.0@jar");
-    assert_eq!(server["modules"][0]["artifact"]["SHA256"], "dead");
-}
-
-#[test]
-fn publishes_a_rewritten_distribution_beside_the_original() {
-    let fixture = Fixture::golden();
-    let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
-
-    let mut target = Recorder::default();
-    let report = publish(
-        &fixture.root,
-        &plan,
-        &mut target,
-        &PublishOptions {
-            only_changed: true,
-            rewrite_urls: true,
-            signing_key: Some(key()),
-        },
-    )
-    .unwrap();
-
-    let rewritten = report.rewritten_distribution.clone().unwrap();
-    assert_eq!(
-        rewritten,
-        fixture.root.path.join("distribution.recorder.json")
-    );
-    assert_eq!(
-        report.distribution_url,
-        "https://fake.invalid/distribution.recorder.json"
-    );
-    // The rewritten copy is what ships, so it is what is signed.
-    let uploaded: Vec<&str> = target
-        .uploads
-        .iter()
-        .map(|(name, _)| name.as_str())
-        .collect();
-    assert_eq!(
-        uploaded[uploaded.len() - 2..],
-        [
-            "distribution.recorder.json",
-            "distribution.recorder.json.sig"
-        ]
-    );
-    let signature =
-        std::fs::read_to_string(fixture.root.path.join("distribution.recorder.json.sig")).unwrap();
-    assert_eq!(
-        signature.trim_end(),
-        key().sign(&std::fs::read(&rewritten).unwrap())
-    );
-
-    let value: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(&rewritten).unwrap()).unwrap();
-    // Rewriting keeps the serial.
-    assert_eq!(value["serial"], 1761730000);
-    assert_eq!(
-        value["servers"][0]["modules"][0]["artifact"]["url"],
-        format!("https://fake.invalid/{GOLDEN_RELATIVE}")
-    );
-    // The generated distribution is untouched.
-    assert_eq!(
-        std::fs::read_to_string(&fixture.distribution).unwrap(),
-        golden_body()
-    );
-}
-
-#[test]
-fn rewriting_never_trusts_the_publish_state_to_supply_a_url() {
-    let fixture = Fixture::golden();
-    let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
-    let opts = PublishOptions {
-        only_changed: true,
-        rewrite_urls: true,
-        signing_key: Some(key()),
-    };
-
-    publish(&fixture.root, &plan, &mut Recorder::default(), &opts).unwrap();
-    let mut target = Recorder::default();
-    let again = publish(&fixture.root, &plan, &mut target, &opts).unwrap();
-
-    assert_eq!(again.skipped, 0);
-    assert_eq!(target.uploads[0].0, GOLDEN_RELATIVE);
-}
-
 // --- WebDAV ---------------------------------------------------------------
 
 #[test]
@@ -439,7 +288,6 @@ fn uploads_over_webdav_creating_every_collection_first() {
         &mut target,
         &PublishOptions {
             only_changed: false,
-            rewrite_urls: false,
             signing_key: Some(key()),
         },
     )
@@ -482,6 +330,56 @@ fn uploads_over_webdav_creating_every_collection_first() {
             ("PUT", "/nebula-dist/distribution.json.sig", 129),
         ]
     );
+    // The signature uploaded is over the document uploaded, as generated.
+    let signature =
+        std::fs::read_to_string(fixture.root.path.join("distribution.json.sig")).unwrap();
+    assert_eq!(signature.trim_end(), key().sign(golden_body().as_bytes()));
+}
+
+#[test]
+fn a_publish_state_left_by_the_google_drive_target_still_loads() {
+    // Written by a Nebula that still had the Drive target: its entries belong
+    // to another target and must neither break the load nor skip a WebDAV file.
+    let fixture = Fixture::golden();
+    let sha = nebula_core::hash::digests_of_bytes(CLIENT_CFG).sha256;
+    std::fs::write(
+        PublishState::path(&fixture.root),
+        format!(
+            r#"{{ "gdrive": {{ "{GOLDEN_RELATIVE}": "{sha}", "distribution.gdrive.json": "00" }} }}"#
+        ),
+    )
+    .unwrap();
+    let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
+    let (addr, calls) = stub_created();
+    let mut target = WebDavTarget::new(
+        Url::parse(&format!("http://{addr}/")).unwrap(),
+        "nebula".into(),
+        "secret".into(),
+        Url::parse(BASE).unwrap(),
+    )
+    .unwrap();
+
+    let report = publish(
+        &fixture.root,
+        &plan,
+        &mut target,
+        &PublishOptions {
+            only_changed: true,
+            signing_key: Some(key()),
+        },
+    )
+    .unwrap();
+
+    assert_eq!((report.uploaded, report.skipped), (3, 0));
+    let puts: Vec<String> = summaries(&calls)
+        .into_iter()
+        .filter(|(method, ..)| method == "PUT")
+        .map(|(_, target, _)| target)
+        .collect();
+    assert_eq!(puts[1..], ["/distribution.json", "/distribution.json.sig"]);
+    let raw = std::fs::read_to_string(PublishState::path(&fixture.root)).unwrap();
+    let state: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(state["webdav"][GOLDEN_RELATIVE], sha.as_str());
 }
 
 // --- signing and the serial -----------------------------------------------
@@ -490,27 +388,24 @@ fn uploads_over_webdav_creating_every_collection_first() {
 fn refuses_to_publish_without_a_signing_key_before_uploading_anything() {
     let fixture = Fixture::golden();
     let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
-    for rewrite_urls in [false, true] {
-        let mut target = Recorder::default();
-        let error = publish(
-            &fixture.root,
-            &plan,
-            &mut target,
-            &PublishOptions {
-                only_changed: false,
-                rewrite_urls,
-                signing_key: None,
-            },
-        )
-        .unwrap_err()
-        .to_string();
-        assert!(error.contains("publish refused"), "{error}");
-        assert!(
-            error.contains(nebula_core::publish::NO_SIGNING_KEY),
-            "{error}"
-        );
-        assert!(target.uploads.is_empty(), "{:?}", target.uploads);
-    }
+    let mut target = Recorder::default();
+    let error = publish(
+        &fixture.root,
+        &plan,
+        &mut target,
+        &PublishOptions {
+            only_changed: false,
+            signing_key: None,
+        },
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("publish refused"), "{error}");
+    assert!(
+        error.contains(nebula_core::publish::NO_SIGNING_KEY),
+        "{error}"
+    );
+    assert!(target.uploads.is_empty(), "{:?}", target.uploads);
     assert!(!PublishState::path(&fixture.root).exists());
     assert!(!fixture.root.path.join("distribution.json.sig").exists());
 }
@@ -534,27 +429,6 @@ fn refuses_to_publish_a_distribution_without_a_serial() {
     .to_string();
     assert!(error.contains("has no serial"), "{error}");
     assert!(target.uploads.is_empty());
-}
-
-#[test]
-fn the_signature_url_is_the_launchers_rule() {
-    assert_eq!(
-        nebula_core::publish::signature_url_for(
-            "https://cdn.example.invalid/dist/distribution.json"
-        )
-        .as_deref(),
-        Some("https://cdn.example.invalid/dist/distribution.json.sig")
-    );
-    // Google Drive serves by id, so the launcher's rule cannot find a
-    // signature uploaded next to it; publish warns about exactly this.
-    assert_eq!(
-        nebula_core::publish::signature_url_for(&gdrive::public_url("abc")).as_deref(),
-        Some("https://drive.usercontent.google.com/download.sig?id=abc&export=download&confirm=t")
-    );
-    assert_ne!(
-        nebula_core::publish::signature_url_for(&gdrive::public_url("abc")),
-        Some(gdrive::public_url("def"))
-    );
 }
 
 #[test]
@@ -586,7 +460,6 @@ fn creates_each_webdav_collection_once_per_run() {
         &mut target,
         &PublishOptions {
             only_changed: false,
-            rewrite_urls: false,
             signing_key: Some(key()),
         },
     )
@@ -615,65 +488,4 @@ fn creates_each_webdav_collection_once_per_run() {
         .map(|(_, target, _)| target.as_str())
         .collect();
     assert_eq!(puts[0], "/servers/S-1.20.1/files/config/a%20b%231.cfg");
-}
-
-// --- Google Drive (pure pieces only; the HTTP flow is manual QA) -----------
-
-#[test]
-fn builds_the_consent_url() {
-    let url = gdrive::consent_url("client-id", "http://127.0.0.1:53421", "s7");
-    assert!(
-        url.starts_with(&format!("{}?", gdrive::AUTH_ENDPOINT)),
-        "{url}"
-    );
-
-    let parsed = Url::parse(&url).unwrap();
-    let pairs: HashMap<String, String> = parsed
-        .query_pairs()
-        .map(|(k, v)| (k.into_owned(), v.into_owned()))
-        .collect();
-    assert_eq!(pairs["client_id"], "client-id");
-    assert_eq!(pairs["redirect_uri"], "http://127.0.0.1:53421");
-    assert_eq!(pairs["response_type"], "code");
-    assert_eq!(pairs["scope"], gdrive::SCOPE);
-    // Without offline access there is no refresh token to store.
-    assert_eq!(pairs["access_type"], "offline");
-    assert_eq!(pairs["prompt"], "consent");
-    assert_eq!(pairs["state"], "s7");
-}
-
-#[test]
-fn escapes_names_in_a_drive_query() {
-    assert_eq!(
-        gdrive::escape_query_value("Tinkers' Construct.jar"),
-        r"Tinkers\' Construct.jar"
-    );
-    // The backslash goes first, or the escape would be escaped again.
-    assert_eq!(gdrive::escape_query_value(r"a\b"), r"a\\b");
-    assert_eq!(gdrive::escape_query_value(r"a\'b"), r"a\\\'b");
-    assert_eq!(gdrive::escape_query_value("plain.jar"), "plain.jar");
-}
-
-#[test]
-fn splits_a_relative_path_into_folders_and_a_name() {
-    assert_eq!(
-        gdrive::folder_chain("servers/S-1.20.1/files/config/a.cfg"),
-        (vec!["servers", "S-1.20.1", "files", "config"], "a.cfg")
-    );
-    assert_eq!(
-        gdrive::folder_chain("distribution.json"),
-        (Vec::new(), "distribution.json")
-    );
-    assert_eq!(
-        gdrive::folder_chain("repo\\lib\\x\\y.jar"),
-        (vec!["repo", "lib", "x"], "y.jar")
-    );
-}
-
-#[test]
-fn uses_the_direct_download_form_for_public_urls() {
-    assert_eq!(
-        gdrive::public_url("1AbC"),
-        "https://drive.usercontent.google.com/download?id=1AbC&export=download&confirm=t"
-    );
 }

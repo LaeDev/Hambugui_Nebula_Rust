@@ -79,7 +79,7 @@ nebula gui                                         # GUI 실행 (인자 없이 n
 **요구 사항**: Windows 10 이상 64비트. Java는 Forge/NeoForge 설치기를 실행할 때만 필요합니다
 (NeoForge는 Java 21 권장). 그 외 런타임 설치는 필요 없습니다.
 
-**설정이 저장되는 곳**: 기본값은 `%APPDATA%\nebula\`이며 `settings.json`과 Google Drive 토큰이
+**설정이 저장되는 곳**: 기본값은 `%APPDATA%\nebula\`이며 `settings.json`과 기본 배포본 서명 키가
 여기 들어갑니다. `NEBULA_CONFIG_DIR`을 지정하면 그 경로를 접미사 없이 그대로 씁니다.
 `nebula-gui.exe`는 콘솔이 없으므로 로그를 같은 폴더의 `nebula-gui.log`에 쓰며, 실행할 때마다
 새로 덮어씁니다.
@@ -119,12 +119,12 @@ pwsh scripts/package-release.ps1 -SkipTests # 테스트를 건너뜀 (CI의 pack
 4. **가져오기** — `modpacks/` 폴더의 CurseForge/Modrinth/Prism 팩 중 하나를 골라 서버
    ID를 지정하고 가져옵니다. 자동으로 받을 수 없는 파일은 수동 다운로드 목록으로
    나타납니다.
-5. **배포** — WebDAV/Google Drive 업로드 대상을 고르고, 변경된 파일만 올릴지 정한 뒤
-   업로드를 실행합니다. 배포본 생성과 업로드는 CLI와 같은 서명 키(환경 변수, 없으면
+5. **배포** — 설정의 WebDAV 대상으로, 변경된 파일만 올릴지 정한 뒤 업로드를
+   실행합니다. 배포본 생성과 업로드는 CLI와 같은 서명 키(환경 변수, 없으면
    설정 디렉터리의 `distribution-signing.key`)로 서명하며, 키가 없으면 업로드가
    거부되고 결과 줄에 `nebula keygen`을 안내합니다. 키 생성과 공개 키 확인은 GUI에
    없고 CLI(`nebula keygen`, `nebula public-key`)로만 합니다.
-6. **설정** — 루트/기본 URL/Java/Launcher 폴더, WebDAV·Google Drive 자격 증명, CurseForge
+6. **설정** — 루트/기본 URL/Java/Launcher 폴더, WebDAV 자격 증명, CurseForge
    API 키, 테마와 모션 줄이기를 편집하고 저장합니다.
 
 빌드 페이지에서 생성/검증이 끝나면 결과 카드에 **검증 배너**가 뜹니다: `런처 검증 통과`
@@ -141,10 +141,10 @@ SHA-256 앞자리를 함께 보여줍니다. strict 검증을 통과하지 못�
 `~/Library/Application Support/nebula/settings.json`, Linux
 `$XDG_CONFIG_HOME/nebula/settings.json`(없으면 `~/.config/nebula/settings.json`)에
 저장됩니다. 환경 변수 `NEBULA_CONFIG_DIR`을 설정하면 위 규칙 대신 그 경로를 그대로
-설정 디렉터리로 씁니다(끝에 `nebula`가 붙지 않습니다). Google Drive 리프레시 토큰도 같은
-디렉터리의 `gdrive-token.json`에 저장되고, `nebula keygen`의 기본 배포본 서명 키도 같은
-디렉터리의 `distribution-signing.key`에 만들어집니다. 설정 파일이 없으면 `.env`/환경 변수로
-시드됩니다. 설정 페이지의 테마(시스템/라이트/다크)와 "모션 줄이기" 토글은 변경 즉시
+설정 디렉터리로 씁니다(끝에 `nebula`가 붙지 않습니다). `nebula keygen`의 기본 배포본
+서명 키도 같은 디렉터리의 `distribution-signing.key`에 만들어집니다. 예전 버전이 저장한
+Google Drive 설정 키(`gdrive-client-id` 등)는 읽을 때 무시되고 다음 저장 때 빠집니다.
+설정 파일이 없으면 `.env`/환경 변수로 시드됩니다. 설정 페이지의 테마(시스템/라이트/다크)와 "모션 줄이기" 토글은 변경 즉시
 적용되고 저장됩니다(라이트가 기본값).
 
 GUI는 Pretendard 글꼴과 Lucide 아이콘을 바이너리에 번들로 포함합니다. 라이선스는
@@ -195,15 +195,14 @@ camelCase 별칭(`--installLocal`, `--discardOutput`, `--invalidateCache`)은 ke
 | `latest-neoforge <VERSION>` | 지정한 마인크래프트 버전의 최신 NeoForge 버전. |
 | `recommended-neoforge <VERSION>` | 권장(non-beta) NeoForge 버전(없으면 최신 버전으로 대체하며 경고). |
 
-### validate / publish / keygen / public-key / gdrive-auth / gui
+### validate / publish / keygen / public-key / gui
 
 | 명령 | 인자/옵션 | 설명 |
 |---|---|---|
 | `validate [NAME]` | `--strict`, `--file <path>` | `<ROOT>/<NAME>.json`(또는 `--file`로 지정한 파일)을 런처 계약에 따라 검증합니다. `--strict`는 `http://` URL과 SHA-256 누락을 오류로 취급합니다. `serial`이 있으면 부호 없는 64비트 정수인지 검사합니다. |
-| `publish [NAME]` | `--target <webdav|gdrive>` (필수), `--all`, `--signing-key-file <PATH>` | 생성된 배포본이 참조하는 파일만 골라 업로드한 뒤, 배포본과 그 서명(`.sig`)을 차례로 올립니다. `--all`은 `publish-state.json`의 변경 추적을 무시합니다. 서명 키나 `serial`이 없으면 아무것도 올리지 않고 거부합니다. |
+| `publish [NAME]` | `--target webdav` (필수), `--all`, `--signing-key-file <PATH>` | 생성된 배포본이 참조하는 파일만 골라 업로드한 뒤, 배포본과 그 서명(`.sig`)을 차례로 올립니다. `--all`은 `publish-state.json`의 변경 추적을 무시합니다. 서명 키나 `serial`이 없으면 아무것도 올리지 않고 거부합니다. |
 | `keygen` | `--out <PATH>` | 새 배포본 서명 키(Ed25519 시드) 파일을 만들고 공개 키만 출력합니다. 기본 경로는 설정 디렉터리의 `distribution-signing.key`이며, 이미 있는 파일은 덮어쓰지 않습니다. |
 | `public-key` | `--key-file <PATH>` | 서명 키의 공개 키(64자리 16진수)를 출력합니다. 런처의 `HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`에 넣을 값입니다. |
-| `gdrive-auth` | | Google 계정에 대해 OAuth 인증을 수행하고 리프레시 토큰을 저장합니다. |
 | `gui` | | GUI를 실행합니다(인자 없이 `nebula`를 실행한 것과 같습니다). |
 
 ### mods
@@ -409,7 +408,7 @@ Hambugui 런처가 배포본을 그대로 받아들이려면 다음을 지켜야
 
 ## 9. 배포 (publish)
 
-`nebula publish --target <webdav|gdrive>`는 생성된 `distribution.json`이 실제로
+`nebula publish --target webdav`는 생성된 `distribution.json`이 실제로
 참조하는 파일만 골라 업로드합니다. 캐시, 설치 프로그램 출력, 스키마는 올라가지
 않습니다. 변경 추적은 `<ROOT>/publish-state.json`에 `대상 이름 → { 상대 경로 → SHA-256 }`
 형태로 남으며, 기본적으로 이전 업로드와 SHA-256이 같은 파일은 건너뜁니다. `--all`을
@@ -477,8 +476,7 @@ nebula public-key --key-file D:\keys\nebula-dist.key
 * `publish`(CLI·GUI 모두): **아무것도 올리지 않고 거부합니다.** 서명 없는 배포본이
   사용자에게 가는 일은 없습니다.
 
-`publish`는 올리기 직전에 올릴 파일의 바이트로 다시 서명합니다. Google Drive처럼 URL을
-다시 쓴 사본(`<name>.gdrive.json`)을 올릴 때는 그 사본에 서명합니다.
+`publish`는 올리기 직전에 올릴 파일의 바이트로 다시 서명합니다.
 
 **5. `serial` (롤백 방지)**
 
@@ -510,43 +508,15 @@ nebula public-key --key-file D:\keys\nebula-dist.key
 | `NEBULA_WEBDAV_PASSWORD` | WebDAV 비밀번호. |
 | `NEBULA_WEBDAV_PUBLIC_URL` | 다운로드용 공개 URL. 비우면 `BASE_URL`을 그대로 씁니다. |
 
-### Google Drive
+### Google Drive는 지원하지 않습니다
 
-드라이브는 CDN이 아니므로 **대안이지 권장 경로가 아닙니다.** 가능하면 WebDAV를
-쓰세요. 사용하려면 먼저 데스크톱 OAuth 클라이언트를 만들어야 합니다.
-
-1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트를 만들거나 선택합니다.
-2. **OAuth 동의 화면**을 설정합니다. 사용자 유형은 **외부**를 선택하고, **테스트 사용자**에
-   자기 Google 계정을 추가합니다.
-3. **사용자 인증 정보** 메뉴로 이동합니다.
-4. **사용자 인증 정보 만들기 → OAuth 클라이언트 ID**를 선택합니다.
-5. 애플리케이션 유형으로 **데스크톱 앱**을 선택하고 이름을 정한 뒤 만듭니다.
-6. 발급된 **클라이언트 ID**와 **클라이언트 시크릿**을 아래 환경 변수에 넣습니다.
-
-| 환경 변수 | 설명 |
-|---|---|
-| `NEBULA_GDRIVE_CLIENT_ID` | 위에서 발급한 OAuth 클라이언트 ID. |
-| `NEBULA_GDRIVE_CLIENT_SECRET` | 클라이언트 시크릿. |
-| `NEBULA_GDRIVE_FOLDER_ID` | 업로드 대상 폴더 ID. 드라이브에서 폴더를 연 뒤, 주소창 URL의 마지막 세그먼트(`https://drive.google.com/drive/folders/<여기>`)입니다. |
-
-그 다음 `nebula gdrive-auth`를 실행하면 브라우저가 열리고, 동의 후 리프레시 토큰이
-설정 디렉터리의 `gdrive-token.json`에 저장됩니다(자세한 위치는
-[4. GUI](#4-gui)의 설정 저장 위치 표 참고). 이후 `nebula publish --target gdrive`는
-저장된 토큰으로 자동 인증합니다.
-
-**주의할 점**: 드라이브는 CDN이 아닙니다. 100MB가 넘는 파일은 바이러스 검사 확인
-페이지를 거치므로 Nebula는 `drive.usercontent.google.com/download?id=<id>&export=download&confirm=t`
-형태의 직접 다운로드 URL을 씁니다. 인기 있는 파일은 파일별 다운로드 할당량 때문에
-403이 날 수 있습니다. 공개 URL은 파일 ID를 기반으로 하므로 같은 파일을 갱신
-업로드해도(파일 ID가 유지되는 한) URL은 그대로 유지됩니다. 업로드 후에는 URL을 다시
-쓴 `<name>.gdrive.json` 사본이 함께 생성·업로드되며, 이 파일의 공개 URL이 런처에
-배포할 배포본 URL입니다.
-
-**서명과 Google Drive**: Nebula는 `<name>.gdrive.json.sig`도 함께 올리지만, Hambugui
-런처는 배포본 URL의 **경로** 끝에 `.sig`를 붙여 서명을 찾습니다. 드라이브 URL은 경로가
-아니라 파일 ID(`/download?id=…`)라서 런처가 그 서명을 찾지 못하고 배포본을 거부합니다.
-`publish`도 이 경우 경고를 남깁니다. 릴리스 런처가 읽을 배포본(`distribution.json`과
-`.sig`)은 경로로 주소가 정해지는 곳(WebDAV/Synology, 일반 웹 서버)에 두세요.
+예전에는 `--target gdrive`가 있었지만 제거했습니다. Hambugui 런처는 배포본 URL의
+**경로** 끝에 `.sig`를 붙여 서명을 찾는데, 드라이브 URL은 경로가 아니라 파일 ID
+(`/download?id=…`)라서 그 자리에 서명을 둘 수 없습니다. 그래서 드라이브에 올린 배포본은
+릴리스 런처가 절대 읽지 못합니다. 배포본은 경로로 주소가 정해지는 곳(WebDAV/Synology,
+일반 웹 서버)에 두세요. 예전 설정 파일의 드라이브 키와 `publish-state.json`의 `gdrive`
+항목은 그대로 두어도 읽는 데 문제가 없으며, 설정 디렉터리에 남은 `gdrive-token.json`은
+지워도 됩니다.
 
 ## 10. 원본과의 의도된 차이
 

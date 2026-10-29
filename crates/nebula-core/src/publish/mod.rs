@@ -3,11 +3,17 @@
 //! A publish never walks `<root>` looking for content: caches, installer output
 //! and schemas are not part of a distribution. The plan is read back out of the
 //! generated JSON, so what ships is what the launcher will ask for.
+//!
+//! The only target is WebDAV, which mirrors `<root>` one to one: the uploaded
+//! distribution is the generated one, and its signature lands at the
+//! distribution's own path plus `.sig`, which is where the Hambugui launcher
+//! looks. A host that serves files by id instead of by path (Google Drive, the
+//! target Nebula once had) cannot serve the signature there, so a release
+//! launcher would never load what it published.
 
-pub mod gdrive;
 pub mod webdav;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -20,10 +26,9 @@ use crate::paths;
 use crate::signing::{self, DistributionKey};
 
 /// Somewhere a published file can go. Implementations are stateful so they can
-/// cache directory ids and connections across a run.
+/// cache created directories and connections across a run.
 pub trait Target {
-    /// Stable, filesystem safe: it keys [`PublishState`] and names the rewritten
-    /// distribution (`distribution.<name>.json`).
+    /// Stable, filesystem safe: it keys [`PublishState`].
     fn name(&self) -> &str;
 
     /// Uploads `local` to `relative` and returns the public URL it can be
@@ -49,9 +54,6 @@ pub struct PublishPlan {
 pub struct PublishOptions {
     /// Skip files whose SHA-256 already matches [`PublishState`].
     pub only_changed: bool,
-    /// Upload `<stem>.<target>.json` with every published URL replaced by the
-    /// one the target handed back, instead of the distribution as generated.
-    pub rewrite_urls: bool,
     /// Signs the uploaded distribution into `<file>.sig`. Required: without a
     /// key [`publish`] refuses before uploading anything, so an unsigned
     /// distribution never reaches a launcher.
@@ -62,7 +64,6 @@ impl Default for PublishOptions {
     fn default() -> Self {
         Self {
             only_changed: true,
-            rewrite_urls: false,
             signing_key: None,
         }
     }
@@ -79,7 +80,6 @@ pub struct PublishReport {
     pub distribution_url: String,
     /// Where the target serves the distribution's signature.
     pub signature_url: String,
-    pub rewritten_distribution: Option<PathBuf>,
 }
 
 /// What [`publish`] says when it has no key. The GUI matches on
@@ -121,11 +121,6 @@ pub fn plan_from_distribution(root: &Root, distribution_path: &Path) -> Result<P
         // that decides what `<root>` path gets opened, so it goes through the
         // same check as a scanned artifact path.
         let relative = paths::clean_relative(&percent_decode(rest))?;
-        if root.url(&relative) != url {
-            log::warn!(
-                "{url} does not round trip through {base}; a target that rewrites URLs will miss it"
-            );
-        }
         if !seen.insert(relative.clone()) {
             continue;
         }
@@ -279,13 +274,7 @@ impl PublishState {
 ///
 /// Refuses, before uploading a byte, without a signing key or when the
 /// distribution has no `serial` (written by hand or by a Nebula without
-/// serials: regenerate it). The bytes uploaded are the bytes signed, so a
-/// rewritten distribution is signed after it is rewritten.
-///
-/// `only_changed` is ignored when `rewrite_urls` is set: a rewritten
-/// distribution needs a public URL for every file, and only the target can
-/// supply it. The target may still skip the transfer itself — Google Drive
-/// compares MD5 before uploading a byte.
+/// serials: regenerate it). The bytes uploaded are the bytes signed.
 pub fn publish(
     root: &Root,
     plan: &PublishPlan,
@@ -298,35 +287,24 @@ pub fn publish(
     let mut state = PublishState::load(root);
     let mut uploaded = 0;
     let mut skipped = 0;
-    let mut rewrites: HashMap<String, String> = HashMap::new();
 
     for file in &plan.files {
         let digests = hash::digests_of_file(&file.local)?;
-        if opts.only_changed
-            && !opts.rewrite_urls
-            && state.matches(&name, &file.relative, &digests.sha256)
-        {
+        if opts.only_changed && state.matches(&name, &file.relative, &digests.sha256) {
             log::debug!("Unchanged, skipping {}", file.relative);
             skipped += 1;
             continue;
         }
 
         log::info!("Uploading {} to {name}", file.relative);
-        let url = target.upload(&file.local, &file.relative, &digests)?;
+        target.upload(&file.local, &file.relative, &digests)?;
         uploaded += 1;
-        if opts.rewrite_urls {
-            rewrites.insert(root.url(&file.relative), url);
-        }
         state.record(&name, &file.relative, &digests.sha256);
         // Written after every file so an interrupted run keeps its progress.
         state.save(root)?;
     }
 
-    let rewritten = opts
-        .rewrite_urls
-        .then(|| write_rewritten(plan, &name, &rewrites))
-        .transpose()?;
-    let local = rewritten.as_deref().unwrap_or(&plan.distribution_path);
+    let local = plan.distribution_path.as_path();
     let relative = distribution_relative(root, local);
 
     // Signed from the bytes on disk right before they are uploaded.
@@ -347,22 +325,11 @@ pub fn publish(
     state.save(root)?;
     log::info!("Signed with public key {}", key.public_key_hex());
 
-    let expected = signature_url_for(&distribution_url);
-    if expected.as_deref() != Some(signature_url.as_str()) {
-        log::warn!(
-            "The launcher looks for the signature at {}, but {name} serves it at \
-             {signature_url}. A launcher pointed at {distribution_url} will refuse it: host \
-             the distribution where its URL is a path (WebDAV, a static web server)",
-            expected.as_deref().unwrap_or("<distribution URL>.sig")
-        );
-    }
-
     Ok(PublishReport {
         uploaded,
         skipped,
         distribution_url,
         signature_url,
-        rewritten_distribution: rewritten,
     })
 }
 
@@ -380,15 +347,6 @@ pub fn require_signing_key(key: Option<&DistributionKey>) -> Result<&Distributio
     })
 }
 
-/// The launcher's rule for finding a signature: the distribution URL with
-/// `.sig` appended to its path, query and fragment kept.
-pub fn signature_url_for(distribution_url: &str) -> Option<String> {
-    let mut url = url::Url::parse(distribution_url).ok()?;
-    let path = format!("{}.sig", url.path());
-    url.set_path(&path);
-    Some(url.into())
-}
-
 /// The distribution's `serial`, which must be there: a launcher compares it to
 /// refuse an older copy, and only a file Nebula generated carries one.
 fn require_serial(path: &Path) -> Result<u64> {
@@ -404,54 +362,6 @@ fn require_serial(path: &Path) -> Result<u64> {
                 path.display()
             ))
         })
-}
-
-fn write_rewritten(
-    plan: &PublishPlan,
-    target_name: &str,
-    rewrites: &HashMap<String, String>,
-) -> Result<PathBuf> {
-    let raw = std::fs::read_to_string(&plan.distribution_path)
-        .map_err(io(format!("reading {}", plan.distribution_path.display())))?;
-    let mut value: serde_json::Value = serde_json::from_str(&raw)?;
-    rewrite_distribution(&mut value, rewrites);
-
-    let stem = plan
-        .distribution_path
-        .file_stem()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .into_owned();
-    let path = plan
-        .distribution_path
-        .with_file_name(format!("{stem}.{target_name}.json"));
-    let body = serde_json::to_string_pretty(&value)?;
-    std::fs::write(&path, body).map_err(io(format!("writing {}", path.display())))?;
-    Ok(path)
-}
-
-/// Replaces every string equal to a published URL, wherever it sits: artifact
-/// URLs at any `subModules` depth and server icons are the ones that matter,
-/// and anything else that quotes the same URL would be just as stale.
-pub fn rewrite_distribution(value: &mut serde_json::Value, map: &HashMap<String, String>) {
-    match value {
-        serde_json::Value::String(text) => {
-            if let Some(replacement) = map.get(text.as_str()) {
-                *text = replacement.clone();
-            }
-        }
-        serde_json::Value::Array(items) => {
-            for item in items {
-                rewrite_distribution(item, map);
-            }
-        }
-        serde_json::Value::Object(fields) => {
-            for (_, field) in fields {
-                rewrite_distribution(field, map);
-            }
-        }
-        _ => {}
-    }
 }
 
 /// Where the distribution lands on the target: its path below `<root>` when it

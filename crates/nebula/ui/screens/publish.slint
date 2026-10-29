@@ -5,62 +5,32 @@ import { Card, CardHeader } from "../lib/card.slint";
 import { Chip } from "../lib/chip.slint";
 import { Callout } from "../lib/callout.slint";
 import { KeyValue } from "../lib/key-value.slint";
-import { SegmentedControl } from "../lib/segmented.slint";
 import { Switch } from "../lib/switch.slint";
 import { TextField } from "../lib/text-field.slint";
-import { AppData, AppPage, PublishData, PublishTarget, SettingsData, SheetActions, SheetData } from "../lib/data.slint";
+import { AppData, AppPage, PublishData, SettingsData, SheetActions, SheetData } from "../lib/data.slint";
 
-/// 배포 (DESIGN-v2 §4).
+/// 배포 (DESIGN-v2 §4). WebDAV is the only target: the launcher finds the
+/// signature at the distribution's path plus `.sig`, which a host that serves
+/// files by id (Google Drive, once a second target here) cannot provide.
 export component PublishScreen inherits VerticalLayout {
     private property <bool> live: AppData.page-live;
-    private property <bool> chosen: PublishData.target != PublishTarget.none;
-    private property <bool> webdav: PublishData.target == PublishTarget.webdav;
-    private property <string> target-value: root.webdav
-        ? SettingsData.webdav-url
-        : SettingsData.gdrive-folder-id;
-    /// The first setting this target needs and does not have, or `""`. The
-    /// host cannot compute it: these values are the UI's own `in-out` form
-    /// state, and it is not told when they change.
-    private property <string> missing-setting: !root.chosen
-        ? ""
-        : root.webdav
-            ? (SettingsData.webdav-url == ""
-                ? "WebDAV 업로드 URL"
-                : SettingsData.webdav-user == "" ? "WebDAV 사용자" : "")
-            : (SettingsData.gdrive-client-id == ""
-                ? "Google Drive 클라이언트 ID"
-                : SettingsData.gdrive-folder-id == "" ? "Google Drive 폴더 ID" : "");
+    /// The first setting WebDAV needs and does not have, or `""`. The host
+    /// cannot compute it: these values are the UI's own `in-out` form state,
+    /// and it is not told when they change.
+    private property <string> missing-setting: SettingsData.webdav-url == ""
+        ? "WebDAV 업로드 URL"
+        : SettingsData.webdav-user == "" ? "WebDAV 사용자" : "";
     private property <bool> target-configured: root.missing-setting == "";
 
     spacing: Theme.card-gap;
 
     Card {
-        CardHeader { title: "대상"; }
+        CardHeader { title: "대상 · WebDAV"; }
 
-        SegmentedControl {
-            options: ["WebDAV", "Google Drive"];
-            a11y-prefix: "배포 대상";
-            a11y-id: "publish-target";
-            enabled: root.live;
-            // -1 until a target is chosen, so neither option reads as selected.
-            selected: root.chosen ? (root.webdav ? 0 : 1) : -1;
-            changed(index) => {
-                PublishData.target = index == 0 ? PublishTarget.webdav : PublishTarget.gdrive;
-            }
-        }
-
-        if !root.chosen : Text {
-            text: "설정에서 대상을 구성한 뒤 여기에서 고르세요.";
-            color: Theme.text-3;
-            font-size: Type.caption;
-            font-weight: Type.medium;
-            wrap: word-wrap;
-        }
-
-        if root.chosen : KeyValue {
-            key: root.webdav ? "업로드 URL" : "폴더 ID";
-            value: root.target-value != "" ? root.target-value : "미설정";
-            dim: root.target-value == "";
+        KeyValue {
+            key: "업로드 URL";
+            value: SettingsData.webdav-url != "" ? SettingsData.webdav-url : "미설정";
+            dim: SettingsData.webdav-url == "";
 
             Chip {
                 text: root.target-configured ? "구성됨" : "미설정";
@@ -69,21 +39,9 @@ export component PublishScreen inherits VerticalLayout {
             }
         }
 
-        if root.chosen && !root.webdav : KeyValue {
-            key: "계정";
-            value: SettingsData.gdrive-connected ? "연결됨 (토큰 저장됨)" : "연결되지 않음";
-            dim: !SettingsData.gdrive-connected;
-
-            Chip {
-                text: SettingsData.gdrive-connected ? "연결됨" : "연결되지 않음";
-                tone: SettingsData.gdrive-connected ? Tone.success : Tone.warning;
-                tone-glyph: true;
-            }
-        }
-
         // In a row of its own: a bare Button in a VerticalLayout centres, and
         // every other action on this page starts at the left margin.
-        if root.chosen && !root.target-configured : HorizontalLayout {
+        if !root.target-configured : HorizontalLayout {
             alignment: start;
             vertical-stretch: 0;
 
@@ -97,12 +55,6 @@ export component PublishScreen inherits VerticalLayout {
                 }
             }
         }
-
-        if PublishData.target == PublishTarget.gdrive : Callout {
-            tone: Tone.accent;
-            title: "Google Drive는 CDN이 아닙니다";
-            body: "100 MB를 넘는 파일과 다운로드 쿼터에 주의하세요. README의 Google Drive 항목을 참고하세요.";
-        }
     }
 
     Card {
@@ -112,7 +64,7 @@ export component PublishScreen inherits VerticalLayout {
             text: "변경된 파일만 업로드";
             a11y-label: "변경된 파일만 업로드";
             a11y-id: "publish-only-changed";
-            enabled: root.live && root.chosen;
+            enabled: root.live;
             checked <=> PublishData.only-changed;
         }
 
@@ -129,24 +81,22 @@ export component PublishScreen inherits VerticalLayout {
                 size: ButtonSize.lg;
                 // A target with no URL is not publishable, however clean the
                 // file is; pressing 업로드 for it is a guaranteed round trip.
-                enabled: root.live && root.chosen && root.target-configured && PublishData.can-publish;
+                enabled: root.live && root.target-configured && PublishData.can-publish;
                 loading: PublishData.busy;
                 activated => {
-                    SheetActions.publish(PublishData.target, PublishData.only-changed);
+                    SheetActions.publish(PublishData.only-changed);
                 }
             }
         }
 
         // `can-publish` is also false while a job runs, which is not a reason
         // worth a line: the host leaves `blocked-reason` empty for that. The
-        // two reasons above it are the screen's own, because only the screen
-        // knows what the settings form currently holds.
-        if !root.chosen || !root.target-configured || PublishData.blocked-reason != "" : Text {
-            text: !root.chosen
-                ? "대상을 선택하세요."
-                : !root.target-configured
-                    ? "설정에서 " + root.missing-setting + "을(를) 입력하세요."
-                    : PublishData.blocked-reason;
+        // reason above it is the screen's own, because only the screen knows
+        // what the settings form currently holds.
+        if !root.target-configured || PublishData.blocked-reason != "" : Text {
+            text: !root.target-configured
+                ? "설정에서 " + root.missing-setting + "을(를) 입력하세요."
+                : PublishData.blocked-reason;
             color: Theme.text-3;
             font-size: Type.caption;
             font-weight: Type.medium;

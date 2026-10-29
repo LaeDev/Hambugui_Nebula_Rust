@@ -22,7 +22,6 @@ export enum DialogKind {
 }
 
 export enum Loader { none, forge, neoforge, fabric }
-export enum PublishTarget { none, webdav, gdrive }
 
 export struct ServerRowData {
     id: string,
@@ -276,8 +275,8 @@ export global SheetActions {
     callback save-settings();
     callback create-root(string);
     callback clear-log();
-    callback publish(PublishTarget, bool);
-    callback connect-gdrive();
+    /// Uploads to WebDAV, the only target; the flag is `only-changed`.
+    callback publish(bool);
     /// Re-runs the job named by `SheetData.error-kind` with the current field
     /// values.
     callback retry-job();
@@ -294,16 +293,15 @@ export global SheetActions {
 }
 
 export global PublishData {
-    in-out property <PublishTarget> target: PublishTarget.none;
     in-out property <bool> only-changed: true;
 
     in property <bool> can-publish;
     /// True only while *this* screen's job runs, so an upload spins the 업로드
     /// button and a build somewhere else does not.
     in property <bool> busy;
-    /// Why 업로드 is disabled, for everything the host knows about. The two the
-    /// screen knows without asking — no target chosen, and a target the
-    /// settings have not configured — it says itself.
+    /// Why 업로드 is disabled, for everything the host knows about. The one the
+    /// screen knows without asking — WebDAV settings not filled in — it says
+    /// itself.
     in property <string> blocked-reason;
     in property <string> result-line;
     // A failed upload must not read like a finished one.
@@ -355,15 +353,6 @@ export global SettingsData {
     in-out property <string> webdav-password;
     in-out property <string> webdav-public-url;
 
-    in-out property <string> gdrive-client-id;
-    in-out property <string> gdrive-client-secret;
-    in-out property <string> gdrive-folder-id;
-
-    in property <bool> gdrive-connected;
-    in property <bool> gdrive-busy;
-    /// Result of the last connect attempt; empty falls back to `gdrive-connected`.
-    in property <string> gdrive-status;
-    in property <bool> gdrive-status-error;
     in property <string> root-error;
     in property <string> base-url-error;
     in property <string> java-error;

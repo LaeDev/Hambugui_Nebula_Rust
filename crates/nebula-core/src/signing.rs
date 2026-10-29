@@ -341,8 +341,8 @@ mod tests {
             Path::new("/r/distribution.json.sig")
         );
         assert_eq!(
-            signature_path(Path::new("dist.gdrive.json")),
-            Path::new("dist.gdrive.json.sig")
+            signature_path(Path::new("dist.v2.json")),
+            Path::new("dist.v2.json.sig")
         );
     }
 }

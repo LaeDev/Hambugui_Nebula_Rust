@@ -15,7 +15,7 @@ use nebula_core::catalog::{
     self, Catalog, Endpoints, InstallChoice, InstallPlan, InstallReport, ManualDownload,
     PlannedFile, ProviderId, SearchQuery, SortKey,
 };
-use nebula_core::publish::{PublishOptions, Target, gdrive, webdav};
+use nebula_core::publish::{PublishOptions, Target, webdav};
 use nebula_core::scan::Namespace;
 use nebula_core::server::FORGE_MOD_LIST_WARNING;
 use nebula_core::{
@@ -25,15 +25,11 @@ use nebula_core::{
 };
 
 /// What the CLI and the GUI say identically, defined once in the GUI module:
-/// `config_dir` is where Nebula keeps per-user state (the Google Drive refresh
-/// token and `settings.json`) — the CLI had its own copy that ignored
-/// `NEBULA_CONFIG_DIR`, so a test run with that variable set still wrote its
-/// token to the real config directory — and `installed_version` /
-/// `release_label` are the two 모드 strings `mods list` and `mods update` print
-/// exactly as §8.3 and §8.8 draw them.
-use crate::gui::{
-    config_dir, installed_version, release_label, resolve_signing_key, signing_key_path,
-};
+/// `signing_key_path` and `resolve_signing_key` find the signing key below the
+/// one per-user config directory (which honours `NEBULA_CONFIG_DIR`), and
+/// `installed_version` / `release_label` are the two 모드 strings `mods list`
+/// and `mods update` print exactly as §8.3 and §8.8 draw them.
+use crate::gui::{installed_version, release_label, resolve_signing_key, signing_key_path};
 
 #[derive(Parser)]
 #[command(
@@ -91,7 +87,9 @@ enum Command {
         /// Distribution index file name.
         #[arg(default_value = "distribution")]
         name: String,
-        /// Where to upload.
+        /// Where to upload. WebDAV is the only target: the launcher finds the
+        /// signature at the distribution's path plus `.sig`, which a host that
+        /// serves files by id cannot provide.
         #[arg(long, value_enum)]
         target: PublishTargetKind,
         /// Upload every file, ignoring the change tracking in publish-state.json.
@@ -113,8 +111,6 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         key_file: Option<PathBuf>,
     },
-    /// Authorise Nebula against a Google account and store the refresh token.
-    GdriveAuth,
     /// Search, install, update, move and remove the mods of one server.
     Mods {
         /// Server directory name below <ROOT>/servers, ex. Test-1.20.1.
@@ -327,7 +323,6 @@ enum GenerateCommand {
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
 enum PublishTargetKind {
     Webdav,
-    Gdrive,
 }
 
 pub fn run() -> Result<()> {
@@ -392,10 +387,6 @@ fn dispatch(command: Command) -> Result<()> {
         } => publish_command(&name, target, all, signing_key_file.as_deref()),
         Command::Keygen { out } => keygen_command(out),
         Command::PublicKey { key_file } => public_key_command(key_file.as_deref()),
-        Command::GdriveAuth => gdrive::authorize(
-            &gdrive::config_from_env(&config_dir())?,
-            &gdrive::default_open_browser,
-        ),
         Command::Mods { server, command } => {
             let (cfg, root) = root_from_env()?;
             mods_command(&cfg, &root, &server, command)
@@ -712,14 +703,9 @@ fn publish_command(
 
     let mut target: Box<dyn Target + Send> = match kind {
         PublishTargetKind::Webdav => Box::new(webdav::WebDavTarget::from_env(&root.base_url)?),
-        PublishTargetKind::Gdrive => Box::new(gdrive::GoogleDriveTarget::new(
-            gdrive::config_from_env(&config_dir())?,
-        )?),
     };
     let opts = PublishOptions {
         only_changed: !all,
-        // Drive hands back its own urls, so the uploaded copy must carry them.
-        rewrite_urls: kind == PublishTargetKind::Gdrive,
         signing_key,
     };
 
@@ -1264,6 +1250,13 @@ mod tests {
         assert!(
             Cli::try_parse_from(["nebula", "publish", "--target", "webdav", "--key", "x"]).is_err()
         );
+    }
+
+    #[test]
+    fn google_drive_is_no_longer_a_publish_target() {
+        assert!(Cli::try_parse_from(["nebula", "publish", "--target", "gdrive"]).is_err());
+        assert!(Cli::try_parse_from(["nebula", "gdrive-auth"]).is_err());
+        assert!(Cli::try_parse_from(["nebula", "publish", "--target", "webdav"]).is_ok());
     }
 
     #[test]

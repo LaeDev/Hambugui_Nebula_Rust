@@ -29,7 +29,7 @@ use std::rc::Rc;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant, SystemTime};
 
-use nebula_core::publish::{PublishOptions, Target, gdrive};
+use nebula_core::publish::PublishOptions;
 use nebula_core::validate::{Report, Severity};
 use nebula_core::version::{MinecraftVersion, Promotion};
 use nebula_core::{
@@ -154,9 +154,6 @@ struct Gates {
 
 /// Which screen's primary shows the spinner. `SheetData.busy` stays the global
 /// job lock in every case: it is what disables the actions that start a job.
-/// Google 계정 연결 is deliberately absent: it waits on a browser rather than on
-/// this machine, so it runs outside the global lock and gates only its own
-/// button (`SettingsData.gdrive-busy`).
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Screen {
     Sheet,
@@ -231,9 +228,6 @@ struct Ui {
     app: slint::Weak<App>,
     settings: RefCell<GuiSettings>,
     busy: Cell<bool>,
-    /// Google 계정 연결's own lock. Separate from `busy` so waiting on a browser
-    /// does not stop a build, and still enough to refuse a second connect.
-    gdrive_busy: Cell<bool>,
     /// Set until the first tick has started the opening scan.
     first_scan: Cell<bool>,
     /// When the process reached [`run`]; the startup lines are measured off it.
@@ -287,7 +281,6 @@ impl Ui {
             app: app.as_weak(),
             settings: RefCell::new(stored),
             busy: Cell::new(false),
-            gdrive_busy: Cell::new(false),
             first_scan: Cell::new(true),
             launched: Instant::now(),
             gates: Cell::new(Gates::default()),
@@ -339,19 +332,9 @@ impl Ui {
             .set_busy(busy && screen == Screen::Import);
         app.global::<PublishData>()
             .set_busy(busy && screen == Screen::Publish);
-        // Not `gdrive-busy`: that flag belongs to a job this lock never held.
         app.global::<SettingsData>()
             .set_busy(busy && screen == Screen::Settings);
         self.apply_gates();
-    }
-
-    /// Google 계정 연결's own lock, raised and lowered on the event-loop thread
-    /// like every other property write.
-    fn set_gdrive_busy(&self, busy: bool) {
-        self.gdrive_busy.set(busy);
-        if let Some(app) = self.app.upgrade() {
-            app.global::<SettingsData>().set_gdrive_busy(busy);
-        }
     }
 
     fn apply_gates(&self) {
@@ -515,8 +498,6 @@ impl Ui {
             sheet.set_install_local(false);
         }
         import_data.set_folder_path(snap.modpacks_dir.into());
-        app.global::<SettingsData>()
-            .set_gdrive_connected(snap.gdrive_connected);
 
         self.gates.set(Gates {
             root_ok: snap.root_ok,
@@ -1118,7 +1099,6 @@ struct Snapshot {
     root_initialised: bool,
     install_local_enabled: bool,
     dist_exists: bool,
-    gdrive_connected: bool,
     checked_name: String,
 }
 
@@ -1182,7 +1162,6 @@ fn snapshot(current: &GuiSettings, distro_name: &str) -> Snapshot {
         install_local_enabled: helios_ok,
         dist_exists: root_ok
             && distribution_path(&current.root, distro_name).is_some_and(|p| p.is_file()),
-        gdrive_connected: settings::gdrive_token_path().is_file(),
         checked_name: distro_name.to_owned(),
     }
 }
@@ -1485,14 +1464,6 @@ fn cache_hint(message: &str) -> &'static str {
     }
 }
 
-fn target_label(target: PublishTarget) -> &'static str {
-    match target {
-        PublishTarget::Webdav => "WebDAV",
-        PublishTarget::Gdrive => "Google Drive",
-        PublishTarget::None => "",
-    }
-}
-
 fn forge_mod_lists_warning(loader: Loader, mc: &str) -> bool {
     loader == Loader::Forge
         && mc
@@ -1512,11 +1483,9 @@ fn publish_hint(error: &Error) -> String {
     } else if message.contains("401") {
         "설정에서 WebDAV 사용자와 비밀번호를 확인하세요"
     } else if message.contains("403") {
-        "계정에 쓰기 권한이 있는지, Google Drive 폴더 ID가 맞는지 확인하세요"
+        "WebDAV 계정에 그 공유 폴더의 쓰기 권한이 있는지 확인하세요"
     } else if message.contains("404") {
         "업로드 URL의 공유 폴더 경로가 맞는지 확인하세요"
-    } else if message.contains("gdrive-token.json") {
-        "설정에서 Google 계정 연결을 먼저 누르세요"
     } else {
         return message;
     };
@@ -1572,9 +1541,6 @@ fn apply_settings_to_ui(app: &App, current: &GuiSettings) {
     data.set_webdav_user(current.webdav_user.as_str().into());
     data.set_webdav_password(current.webdav_password.as_str().into());
     data.set_webdav_public_url(current.webdav_public_url.as_str().into());
-    data.set_gdrive_client_id(current.gdrive_client_id.as_str().into());
-    data.set_gdrive_client_secret(current.gdrive_client_secret.as_str().into());
-    data.set_gdrive_folder_id(current.gdrive_folder_id.as_str().into());
     data.set_curseforge_api_key(current.curseforge_api_key.as_str().into());
 
     let theme = app.global::<Theme>();
@@ -1602,9 +1568,6 @@ fn form_from_ui(app: &App, stored: &GuiSettings) -> GuiSettings {
         webdav_user: data.get_webdav_user().trim().to_owned(),
         webdav_password: data.get_webdav_password().to_owned().to_string(),
         webdav_public_url: data.get_webdav_public_url().trim().to_owned(),
-        gdrive_client_id: data.get_gdrive_client_id().trim().to_owned(),
-        gdrive_client_secret: data.get_gdrive_client_secret().to_owned().to_string(),
-        gdrive_folder_id: data.get_gdrive_folder_id().trim().to_owned(),
         curseforge_api_key: data.get_curseforge_api_key().trim().to_owned(),
         last_mods_server: stored.last_mods_server.clone(),
     }
@@ -1920,10 +1883,7 @@ fn wire(ui: &Rc<Ui>, app: &App) {
 
     actions.on_publish({
         let ui = ui.clone();
-        move |target, only_changed| {
-            if target == PublishTarget::None {
-                return;
-            }
+        move |only_changed| {
             let Some(app) = ui.app.upgrade() else { return };
             ui.publish_result(String::new(), String::new(), false);
 
@@ -1952,32 +1912,19 @@ fn wire(ui: &Rc<Ui>, app: &App) {
                     let root = Root::new(&cfg.root, cfg.base_url.clone());
                     let path = root.path.join(format!("{name}.json"));
                     let plan = publish::plan_from_distribution(&root, &path)?;
-                    let mut sink: Box<dyn Target + Send> = match target {
-                        PublishTarget::Webdav => Box::new(current.webdav_target(&cfg)?),
-                        PublishTarget::Gdrive => {
-                            Box::new(gdrive::GoogleDriveTarget::new(current.gdrive_config()?)?)
-                        }
-                        PublishTarget::None => {
-                            return Err(Error::Invalid("배포 대상을 고르세요".into()));
-                        }
-                    };
+                    let mut sink = current.webdav_target(&cfg)?;
                     let opts = PublishOptions {
                         only_changed,
-                        // Drive hands back its own URLs, so the uploaded copy
-                        // must carry them.
-                        rewrite_urls: target == PublishTarget::Gdrive,
                         signing_key,
                     };
-                    publish::publish(&root, &plan, sink.as_mut(), &opts)
+                    publish::publish(&root, &plan, &mut sink, &opts)
                 },
                 move |ui, outcome| match outcome {
                     Ok(report) => {
                         ui.publish_result(
                             format!(
-                                "{}로 {}개 업로드 · {}개 변경 없음",
-                                target_label(target),
-                                report.uploaded,
-                                report.skipped
+                                "WebDAV로 {}개 업로드 · {}개 변경 없음",
+                                report.uploaded, report.skipped
                             ),
                             report.distribution_url,
                             false,
@@ -1990,60 +1937,6 @@ fn wire(ui: &Rc<Ui>, app: &App) {
                         ui.publish_result(format!("업로드 실패: {hint}"), String::new(), true);
                         ui.toast(Tone::Danger, "업로드 실패");
                     }
-                },
-            );
-        }
-    });
-
-    // The one job that does not take the global lock: it waits on a browser,
-    // not on this machine, and five minutes of a consent screen is five minutes
-    // in which a build, an import and a save all still make sense. Its own flag
-    // is what refuses a second connect.
-    actions.on_connect_gdrive({
-        let ui = ui.clone();
-        move || {
-            let Some(app) = ui.app.upgrade() else { return };
-            let data = app.global::<SettingsData>();
-            if ui.gdrive_busy.get() {
-                return;
-            }
-            data.set_gdrive_status(SharedString::new());
-            data.set_gdrive_status_error(false);
-
-            let cfg = match ui.settings.borrow().gdrive_config() {
-                Ok(cfg) => cfg,
-                Err(error) => {
-                    log::error!("{error}");
-                    data.set_gdrive_status(error.to_string().into());
-                    return data.set_gdrive_status_error(true);
-                }
-            };
-            log::info!(
-                "브라우저에서 승인을 마칠 때까지 기다립니다. 승인을 마치지 않으면 5분 뒤 자동으로 취소됩니다."
-            );
-            ui.set_gdrive_busy(true);
-            spawn_quiet(
-                move || gdrive::authorize(&cfg, &gdrive::default_open_browser),
-                |ui, outcome| {
-                    ui.set_gdrive_busy(false);
-                    let Some(app) = ui.app.upgrade() else { return };
-                    let data = app.global::<SettingsData>();
-                    match &outcome {
-                        Ok(()) => {
-                            log::info!("Google 계정을 연결했습니다.");
-                            data.set_gdrive_status("연결됨 (토큰 저장됨)".into());
-                            data.set_gdrive_status_error(false);
-                        }
-                        Err(error) => {
-                            log::error!("Google 계정 연결 실패: {error}");
-                            data.set_gdrive_status(format!("연결 실패: {error}").into());
-                            data.set_gdrive_status_error(true);
-                        }
-                    }
-                    // A failed retry must not clear a token that still works.
-                    data.set_gdrive_connected(
-                        outcome.is_ok() || settings::gdrive_token_path().is_file(),
-                    );
                 },
             );
         }
@@ -2515,7 +2408,7 @@ mod tests {
         std::fs::write(&path, r#"{"version":"1.0.0","serial":1,"servers":[]}"#).unwrap();
         let plan = publish::plan_from_distribution(&root, &path).unwrap();
         struct Never;
-        impl Target for Never {
+        impl publish::Target for Never {
             fn name(&self) -> &str {
                 "never"
             }

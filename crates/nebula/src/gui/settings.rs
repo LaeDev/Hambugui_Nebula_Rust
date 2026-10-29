@@ -7,13 +7,12 @@
 
 use std::path::{Path, PathBuf};
 
-use nebula_core::publish::gdrive::GoogleDriveConfig;
 use nebula_core::publish::webdav::WebDavTarget;
 use nebula_core::{Config, Error, Result};
 use serde::{Deserialize, Serialize};
 
-/// Where Nebula keeps per-user state: the GUI's `settings.json` and the Google
-/// Drive refresh token, for the CLI as much as for the GUI.
+/// Where Nebula keeps per-user state: the GUI's `settings.json` and the default
+/// distribution signing key, for the CLI as much as for the GUI.
 /// `NEBULA_CONFIG_DIR` overrides it outright (tests, portable installs); it is
 /// used as given, without the `nebula` suffix.
 pub fn config_dir() -> PathBuf {
@@ -34,10 +33,6 @@ pub fn config_dir() -> PathBuf {
 
 pub fn settings_path() -> PathBuf {
     config_dir().join("settings.json")
-}
-
-pub fn gdrive_token_path() -> PathBuf {
-    config_dir().join("gdrive-token.json")
 }
 
 /// Where `nebula keygen` writes the distribution signing key by default, and
@@ -61,6 +56,10 @@ pub fn resolve_signing_key(explicit: Option<&Path>) -> Result<Option<nebula_core
     Ok(resolved)
 }
 
+/// Unknown keys are ignored rather than refused, so a file written by an
+/// older Nebula still loads: the Google Drive keys (`gdrive-client-id`,
+/// `gdrive-client-secret`, `gdrive-folder-id`) are read past, and the next
+/// save drops them.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct GuiSettings {
@@ -76,10 +75,6 @@ pub struct GuiSettings {
     pub webdav_user: String,
     pub webdav_password: String,
     pub webdav_public_url: String,
-
-    pub gdrive_client_id: String,
-    pub gdrive_client_secret: String,
-    pub gdrive_folder_id: String,
 
     /// The user's own CurseForge key (D2). A form field; the environment
     /// variable `NEBULA_CURSEFORGE_API_KEY` still wins over it, which is why
@@ -194,27 +189,10 @@ impl GuiSettings {
             public,
         )
     }
-
-    pub fn gdrive_config(&self) -> Result<GoogleDriveConfig> {
-        Ok(GoogleDriveConfig {
-            client_id: required(&self.gdrive_client_id, "클라이언트 ID")?,
-            client_secret: required(&self.gdrive_client_secret, "클라이언트 시크릿")?,
-            folder_id: required(&self.gdrive_folder_id, "폴더 ID")?,
-            token_path: gdrive_token_path(),
-        })
-    }
 }
 
 fn trimmed(value: &str) -> Option<&str> {
     Some(value.trim()).filter(|v| !v.is_empty())
-}
-
-fn required(value: &str, label: &str) -> Result<String> {
-    trimmed(value).map(str::to_owned).ok_or_else(|| {
-        Error::Config(format!(
-            "Google Drive {label}이(가) 비어 있습니다 — 설정에서 입력하세요"
-        ))
-    })
 }
 
 /// `true` when the path is set and points at something usable.
@@ -269,9 +247,6 @@ mod tests {
             webdav_user: "hambugui".into(),
             webdav_password: "hunter2".into(),
             webdav_public_url: String::new(),
-            gdrive_client_id: "id".into(),
-            gdrive_client_secret: "secret".into(),
-            gdrive_folder_id: "folder".into(),
             curseforge_api_key: "cf-key".into(),
             last_mods_server: "Test-1.20.1".into(),
         }
@@ -384,17 +359,33 @@ mod tests {
     }
 
     #[test]
-    fn gdrive_config_names_the_empty_field() {
-        let dir = crate::gui::TempDir::new("gdrive");
-        with_config_dir(dir.path(), || {
-            let mut settings = sample();
-            settings.gdrive_folder_id = String::new();
-            let message = settings.gdrive_config().unwrap_err().to_string();
-            assert!(message.contains("폴더 ID"), "{message}");
-            assert_eq!(
-                sample().gdrive_config().unwrap().token_path,
-                dir.path().join("gdrive-token.json")
-            );
+    fn a_settings_file_with_the_old_google_drive_keys_still_loads() {
+        let dir = crate::gui::TempDir::new("gdrive-settings");
+        let (settings, raw) = with_config_dir(dir.path(), || {
+            // Exactly what a Nebula with the Drive target saved.
+            std::fs::create_dir_all(dir.path()).unwrap();
+            std::fs::write(
+                settings_path(),
+                r#"{
+                    "root": "D:\\TestRoot",
+                    "base-url": "https://cdn.example.invalid/",
+                    "theme": "dark",
+                    "webdav-url": "https://dav.example.invalid/nebula",
+                    "gdrive-client-id": "id.apps.googleusercontent.com",
+                    "gdrive-client-secret": "secret",
+                    "gdrive-folder-id": "folder"
+                }"#,
+            )
+            .unwrap();
+            let settings = GuiSettings::load();
+            // The next save writes the file without them.
+            settings.save().unwrap();
+            (settings, std::fs::read_to_string(settings_path()).unwrap())
         });
+        // Loaded from the file, not seeded from the environment.
+        assert_eq!(settings.root, "D:\\TestRoot");
+        assert_eq!(settings.theme, "dark");
+        assert_eq!(settings.webdav_url, "https://dav.example.invalid/nebula");
+        assert!(!raw.contains("gdrive"), "{raw}");
     }
 }

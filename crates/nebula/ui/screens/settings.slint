@@ -2,12 +2,11 @@ import { Theme, ThemePreference, Tone } from "../lib/theme.slint";
 import { Type } from "../lib/typography.slint";
 import { Button, ButtonVariant, ButtonSize } from "../lib/button.slint";
 import { Card, CardHeader } from "../lib/card.slint";
-import { Chip } from "../lib/chip.slint";
 import { SegmentedControl } from "../lib/segmented.slint";
 import { Switch } from "../lib/switch.slint";
 import { TextField } from "../lib/text-field.slint";
 import { Callout } from "../lib/callout.slint";
-import { AppData, DialogKind, SettingsData, SheetActions, SheetData } from "../lib/data.slint";
+import { AppData, SettingsData, SheetActions, SheetData } from "../lib/data.slint";
 
 /// Every settings field: Enter saves the form, and a keystroke asks the host to
 /// re-validate (it debounces), so an error clears as soon as the value is good.
@@ -151,68 +150,6 @@ export component SettingsScreen inherits VerticalLayout {
             a11y-id: "settings-webdav-public-url";
             helper: "비우면 기본 URL을 사용합니다";
             text <=> SettingsData.webdav-public-url;
-        }
-    }
-
-    // ── Google Drive ────────────────────────────────────────────────────────
-    Card {
-        CardHeader { title: "Google Drive"; }
-
-        SettingsField {
-            label: "클라이언트 ID";
-            a11y-label: "Google Drive 클라이언트 ID";
-            a11y-id: "settings-gdrive-client-id";
-            text <=> SettingsData.gdrive-client-id;
-        }
-
-        SettingsField {
-            label: "클라이언트 시크릿";
-            a11y-label: "Google Drive 클라이언트 시크릿";
-            a11y-id: "settings-gdrive-client-secret";
-            password: true;
-            text <=> SettingsData.gdrive-client-secret;
-        }
-
-        SettingsField {
-            label: "폴더 ID";
-            a11y-label: "Google Drive 폴더 ID";
-            a11y-id: "settings-gdrive-folder-id";
-            text <=> SettingsData.gdrive-folder-id;
-        }
-
-        HorizontalLayout {
-            spacing: Theme.sp-3;
-            alignment: start;
-            vertical-stretch: 0;
-
-            Button {
-                text: "Google 계정 연결";
-                a11y-label: "Google 계정 연결";
-                a11y-id: "settings-connect-gdrive";
-                icon: @image-url("../../assets/icons/key-round.svg");
-                // Waiting on a browser is not a job the rest of the app has to
-                // stand still for: this button gates on its own flag, so a
-                // build can run while the consent screen is open — and a second
-                // connect still cannot start.
-                enabled: !SettingsData.gdrive-busy && AppData.dialog == DialogKind.none;
-                loading: SettingsData.gdrive-busy;
-                activated => {
-                    SheetActions.connect-gdrive();
-                }
-            }
-
-            Chip {
-                text: SettingsData.gdrive-connected ? "연결됨" : "연결되지 않음";
-                tone: SettingsData.gdrive-connected ? Tone.success : Tone.neutral;
-                tone-glyph: SettingsData.gdrive-connected;
-            }
-        }
-
-        if SettingsData.gdrive-status != "" : Text {
-            text: SettingsData.gdrive-status;
-            color: SettingsData.gdrive-status-error ? Theme.danger : Theme.text-2;
-            font-size: Type.secondary;
-            wrap: word-wrap;
         }
     }
 

@@ -19,7 +19,7 @@ pub(crate) mod settings;
 pub(crate) use mods::{installed_version, release_label};
 /// The CLI's per-user state lives here too: one definition, one directory, one
 /// `NEBULA_CONFIG_DIR` override.
-pub(crate) use settings::config_dir;
+pub(crate) use settings::{config_dir, resolve_signing_key, signing_key_path};
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -820,6 +820,7 @@ fn start_generate(ui: &Rc<Ui>) {
         helios_untracked: false,
         // There is a window on screen, so the installer may open its own.
         gui_fallback: true,
+        signing_key: None,
     };
     ui.clear_result();
     spawn_job(
@@ -827,6 +828,13 @@ fn start_generate(ui: &Rc<Ui>) {
         "배포본 생성",
         Screen::Sheet,
         move || {
+            // The environment, else `nebula keygen`'s default file. Without
+            // either the file is written unsigned and the log says so loudly;
+            // publishing it is what gets refused.
+            let opts = GenerateOptions {
+                signing_key: resolve_signing_key(None)?.map(|resolved| resolved.key),
+                ..opts
+            };
             let result = distribution::generate_distribution(&cfg, &opts)?;
             Ok(Verdict {
                 name,
@@ -1496,7 +1504,12 @@ fn forge_mod_lists_warning(loader: Loader, mc: &str) -> bool {
 /// DESIGN §9: errors state a cause and a fix.
 fn publish_hint(error: &Error) -> String {
     let message = error.to_string();
-    let fix = if message.contains("401") {
+    let fix = if message.contains(publish::NO_SIGNING_KEY) {
+        "터미널에서 `nebula keygen`으로 서명 키를 만들고, 출력된 공개 키를 런처 빌드의 \
+         HAMBUGUI_DISTRIBUTION_PUBLIC_KEY로 설정하세요"
+    } else if message.contains("has no serial") {
+        "빌드 페이지에서 배포본을 다시 생성하세요"
+    } else if message.contains("401") {
         "설정에서 WebDAV 사용자와 비밀번호를 확인하세요"
     } else if message.contains("403") {
         "계정에 쓰기 권한이 있는지, Google Drive 폴더 ID가 맞는지 확인하세요"
@@ -1932,6 +1945,10 @@ fn wire(ui: &Rc<Ui>, app: &App) {
                 "배포본 업로드",
                 Screen::Publish,
                 move || {
+                    // The missing key is the error to show, ahead of any
+                    // upload setting; `publish` refuses without one too.
+                    let signing_key = resolve_signing_key(None)?.map(|resolved| resolved.key);
+                    publish::require_signing_key(signing_key.as_ref())?;
                     let root = Root::new(&cfg.root, cfg.base_url.clone());
                     let path = root.path.join(format!("{name}.json"));
                     let plan = publish::plan_from_distribution(&root, &path)?;
@@ -1949,6 +1966,7 @@ fn wire(ui: &Rc<Ui>, app: &App) {
                         // Drive hands back its own URLs, so the uploaded copy
                         // must carry them.
                         rewrite_urls: target == PublishTarget::Gdrive,
+                        signing_key,
                     };
                     publish::publish(&root, &plan, sink.as_mut(), &opts)
                 },
@@ -2486,6 +2504,30 @@ mod tests {
 
         let plain = publish_hint(&Error::Invalid("무엇인가 잘못되었습니다".into()));
         assert_eq!(plain, "무엇인가 잘못되었습니다");
+    }
+
+    #[test]
+    fn an_unsigned_publish_names_keygen_as_the_fix() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = Config::normalize_base_url("https://cdn.example.invalid/").unwrap();
+        let root = Root::new(dir.path(), base);
+        let path = dir.path().join("distribution.json");
+        std::fs::write(&path, r#"{"version":"1.0.0","serial":1,"servers":[]}"#).unwrap();
+        let plan = publish::plan_from_distribution(&root, &path).unwrap();
+        struct Never;
+        impl Target for Never {
+            fn name(&self) -> &str {
+                "never"
+            }
+            fn upload(&mut self, _: &Path, relative: &str, _: &hash::Digests) -> Result<String> {
+                panic!("uploaded {relative} without a key")
+            }
+        }
+        let error =
+            publish::publish(&root, &plan, &mut Never, &PublishOptions::default()).unwrap_err();
+        let hint = publish_hint(&error);
+        assert!(hint.contains("nebula keygen"), "{hint}");
+        assert!(hint.contains("HAMBUGUI_DISTRIBUTION_PUBLIC_KEY"), "{hint}");
     }
 
     #[test]

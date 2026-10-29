@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use common::{stub_created, summaries};
-use nebula_core::Result;
 use nebula_core::hash::Digests;
 use nebula_core::layout::Root;
 use nebula_core::publish::webdav::WebDavTarget;
@@ -15,6 +14,7 @@ use nebula_core::publish::{
     PublishOptions, PublishState, Target, gdrive, plan_from_distribution, publish,
     rewrite_distribution,
 };
+use nebula_core::{DistributionKey, Result};
 use url::Url;
 
 const BASE: &str = "https://cdn.example.invalid/";
@@ -25,6 +25,23 @@ const GOLDEN: &str = include_str!(concat!(
 const GOLDEN_RELATIVE: &str = "servers/Hambugui-1.20.1/files/config/client.cfg";
 /// Exactly the 15 bytes the golden fixture claims for `client.cfg`.
 const CLIENT_CFG: &[u8] = b"client=true\n#42";
+
+/// The seed the launcher's signature tests use (contract C2).
+fn key() -> DistributionKey {
+    DistributionKey::from_seed_hex(&"42".repeat(32), "test").unwrap()
+}
+
+/// The golden fixture as Nebula writes it now: with a `serial`, which a
+/// publish requires.
+fn golden_body() -> String {
+    let body = GOLDEN.replacen(
+        "\"version\": \"1.0.0\",",
+        "\"version\": \"1.0.0\",\n  \"serial\": 1761730000,",
+        1,
+    );
+    assert_ne!(body, GOLDEN);
+    body
+}
 
 struct Fixture {
     _dir: tempfile::TempDir,
@@ -52,7 +69,7 @@ impl Fixture {
     }
 
     fn golden() -> Self {
-        Self::new(GOLDEN, &[(GOLDEN_RELATIVE, CLIENT_CFG)])
+        Self::new(&golden_body(), &[(GOLDEN_RELATIVE, CLIENT_CFG)])
     }
 }
 
@@ -74,7 +91,7 @@ impl Target for Recorder {
 }
 
 fn server_json(icon: &str, modules: &str) -> String {
-    format!(r#"{{"servers":[{{"id":"S-1.20.1","icon":{icon},"modules":[{modules}]}}]}}"#)
+    format!(r#"{{"serial":1,"servers":[{{"id":"S-1.20.1","icon":{icon},"modules":[{modules}]}}]}}"#)
 }
 
 // --- plan extraction ------------------------------------------------------
@@ -177,38 +194,46 @@ fn skips_files_whose_hash_is_already_published() {
     let opts = PublishOptions {
         only_changed: true,
         rewrite_urls: false,
+        signing_key: Some(key()),
     };
 
     let mut target = Recorder::default();
     let first = publish(&fixture.root, &plan, &mut target, &opts).unwrap();
-    // The artifact plus the distribution, which always goes last.
-    assert_eq!((first.uploaded, first.skipped), (2, 0));
+    // The artifact, then the distribution, then its signature: 128 hex
+    // characters and a newline.
+    assert_eq!((first.uploaded, first.skipped), (3, 0));
     assert_eq!(
         target.uploads,
         [
             (GOLDEN_RELATIVE.to_owned(), CLIENT_CFG.len() as u64),
-            ("distribution.json".to_owned(), GOLDEN.len() as u64),
+            ("distribution.json".to_owned(), golden_body().len() as u64),
+            ("distribution.json.sig".to_owned(), 129),
         ]
     );
     assert_eq!(
         first.distribution_url,
         "https://fake.invalid/distribution.json"
     );
+    assert_eq!(
+        first.signature_url,
+        "https://fake.invalid/distribution.json.sig"
+    );
     assert!(first.rewritten_distribution.is_none());
     assert!(PublishState::path(&fixture.root).is_file());
 
-    // Nothing changed: only the distribution is sent again.
+    // Nothing changed: only the distribution and its signature are sent again.
     let mut target = Recorder::default();
     let second = publish(&fixture.root, &plan, &mut target, &opts).unwrap();
-    assert_eq!((second.uploaded, second.skipped), (1, 1));
-    assert_eq!(target.uploads.len(), 1);
+    assert_eq!((second.uploaded, second.skipped), (2, 1));
+    assert_eq!(target.uploads.len(), 2);
     assert_eq!(target.uploads[0].0, "distribution.json");
+    assert_eq!(target.uploads[1].0, "distribution.json.sig");
 
     // Touching the file brings it back.
     std::fs::write(&plan.files[0].local, b"client=false\n#7").unwrap();
     let mut target = Recorder::default();
     let third = publish(&fixture.root, &plan, &mut target, &opts).unwrap();
-    assert_eq!((third.uploaded, third.skipped), (2, 0));
+    assert_eq!((third.uploaded, third.skipped), (3, 0));
 }
 
 #[test]
@@ -218,11 +243,12 @@ fn uploads_everything_when_change_tracking_is_off() {
     let opts = PublishOptions {
         only_changed: false,
         rewrite_urls: false,
+        signing_key: Some(key()),
     };
 
     publish(&fixture.root, &plan, &mut Recorder::default(), &opts).unwrap();
     let again = publish(&fixture.root, &plan, &mut Recorder::default(), &opts).unwrap();
-    assert_eq!((again.uploaded, again.skipped), (2, 0));
+    assert_eq!((again.uploaded, again.skipped), (3, 0));
 }
 
 #[test]
@@ -233,7 +259,10 @@ fn keys_the_state_by_target_name() {
         &fixture.root,
         &plan,
         &mut Recorder::default(),
-        &PublishOptions::default(),
+        &PublishOptions {
+            signing_key: Some(key()),
+            ..PublishOptions::default()
+        },
     )
     .unwrap();
 
@@ -321,6 +350,7 @@ fn publishes_a_rewritten_distribution_beside_the_original() {
         &PublishOptions {
             only_changed: true,
             rewrite_urls: true,
+            signing_key: Some(key()),
         },
     )
     .unwrap();
@@ -334,13 +364,30 @@ fn publishes_a_rewritten_distribution_beside_the_original() {
         report.distribution_url,
         "https://fake.invalid/distribution.recorder.json"
     );
+    // The rewritten copy is what ships, so it is what is signed.
+    let uploaded: Vec<&str> = target
+        .uploads
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
     assert_eq!(
-        target.uploads.last().unwrap().0,
-        "distribution.recorder.json"
+        uploaded[uploaded.len() - 2..],
+        [
+            "distribution.recorder.json",
+            "distribution.recorder.json.sig"
+        ]
+    );
+    let signature =
+        std::fs::read_to_string(fixture.root.path.join("distribution.recorder.json.sig")).unwrap();
+    assert_eq!(
+        signature.trim_end(),
+        key().sign(&std::fs::read(&rewritten).unwrap())
     );
 
     let value: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&rewritten).unwrap()).unwrap();
+    // Rewriting keeps the serial.
+    assert_eq!(value["serial"], 1761730000);
     assert_eq!(
         value["servers"][0]["modules"][0]["artifact"]["url"],
         format!("https://fake.invalid/{GOLDEN_RELATIVE}")
@@ -348,7 +395,7 @@ fn publishes_a_rewritten_distribution_beside_the_original() {
     // The generated distribution is untouched.
     assert_eq!(
         std::fs::read_to_string(&fixture.distribution).unwrap(),
-        GOLDEN
+        golden_body()
     );
 }
 
@@ -359,6 +406,7 @@ fn rewriting_never_trusts_the_publish_state_to_supply_a_url() {
     let opts = PublishOptions {
         only_changed: true,
         rewrite_urls: true,
+        signing_key: Some(key()),
     };
 
     publish(&fixture.root, &plan, &mut Recorder::default(), &opts).unwrap();
@@ -392,6 +440,7 @@ fn uploads_over_webdav_creating_every_collection_first() {
         &PublishOptions {
             only_changed: false,
             rewrite_urls: false,
+            signing_key: Some(key()),
         },
     )
     .unwrap();
@@ -401,7 +450,12 @@ fn uploads_over_webdav_creating_every_collection_first() {
         report.distribution_url,
         "https://cdn.example.invalid/distribution.json"
     );
-    assert_eq!((report.uploaded, report.skipped), (2, 0));
+    // Exactly where the launcher looks for it: the same path plus `.sig`.
+    assert_eq!(
+        report.signature_url,
+        "https://cdn.example.invalid/distribution.json.sig"
+    );
+    assert_eq!((report.uploaded, report.skipped), (3, 0));
 
     let calls = summaries(&calls);
     let seen: Vec<(&str, &str, usize)> = calls
@@ -424,8 +478,82 @@ fn uploads_over_webdav_creating_every_collection_first() {
                 "/nebula-dist/servers/Hambugui-1.20.1/files/config/client.cfg",
                 CLIENT_CFG.len()
             ),
-            ("PUT", "/nebula-dist/distribution.json", GOLDEN.len()),
+            ("PUT", "/nebula-dist/distribution.json", golden_body().len()),
+            ("PUT", "/nebula-dist/distribution.json.sig", 129),
         ]
+    );
+}
+
+// --- signing and the serial -----------------------------------------------
+
+#[test]
+fn refuses_to_publish_without_a_signing_key_before_uploading_anything() {
+    let fixture = Fixture::golden();
+    let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
+    for rewrite_urls in [false, true] {
+        let mut target = Recorder::default();
+        let error = publish(
+            &fixture.root,
+            &plan,
+            &mut target,
+            &PublishOptions {
+                only_changed: false,
+                rewrite_urls,
+                signing_key: None,
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("publish refused"), "{error}");
+        assert!(
+            error.contains(nebula_core::publish::NO_SIGNING_KEY),
+            "{error}"
+        );
+        assert!(target.uploads.is_empty(), "{:?}", target.uploads);
+    }
+    assert!(!PublishState::path(&fixture.root).exists());
+    assert!(!fixture.root.path.join("distribution.json.sig").exists());
+}
+
+#[test]
+fn refuses_to_publish_a_distribution_without_a_serial() {
+    // The fixture as upstream wrote it: no serial.
+    let fixture = Fixture::new(GOLDEN, &[(GOLDEN_RELATIVE, CLIENT_CFG)]);
+    let plan = plan_from_distribution(&fixture.root, &fixture.distribution).unwrap();
+    let mut target = Recorder::default();
+    let error = publish(
+        &fixture.root,
+        &plan,
+        &mut target,
+        &PublishOptions {
+            signing_key: Some(key()),
+            ..PublishOptions::default()
+        },
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("has no serial"), "{error}");
+    assert!(target.uploads.is_empty());
+}
+
+#[test]
+fn the_signature_url_is_the_launchers_rule() {
+    assert_eq!(
+        nebula_core::publish::signature_url_for(
+            "https://cdn.example.invalid/dist/distribution.json"
+        )
+        .as_deref(),
+        Some("https://cdn.example.invalid/dist/distribution.json.sig")
+    );
+    // Google Drive serves by id, so the launcher's rule cannot find a
+    // signature uploaded next to it; publish warns about exactly this.
+    assert_eq!(
+        nebula_core::publish::signature_url_for(&gdrive::public_url("abc")).as_deref(),
+        Some("https://drive.usercontent.google.com/download.sig?id=abc&export=download&confirm=t")
+    );
+    assert_ne!(
+        nebula_core::publish::signature_url_for(&gdrive::public_url("abc")),
+        Some(gdrive::public_url("def"))
     );
 }
 
@@ -459,6 +587,7 @@ fn creates_each_webdav_collection_once_per_run() {
         &PublishOptions {
             only_changed: false,
             rewrite_urls: false,
+            signing_key: Some(key()),
         },
     )
     .unwrap();

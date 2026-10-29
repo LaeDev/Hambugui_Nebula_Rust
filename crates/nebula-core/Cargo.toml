@@ -28,6 +28,13 @@ tempfile = "3.27.0"
 # CurseForge); never enable `slint/image-default-formats`, which would pull
 # rav1e into the normal graph (D5, R8).
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+# The signature on distribution.json. The same crate and version the Hambugui
+# launcher verifies with (`verify_strict`), so both sides run one algorithm.
+ed25519-dalek = "3.0.0"
+# The OS random source for `nebula keygen`; already in Cargo.lock.
+getrandom = "0.4.3"
+# Wipes the seed's hex text after use; ed25519-dalek already depends on it.
+zeroize = "1.9.0"
 
 [dev-dependencies]
 zip = { version = "8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }

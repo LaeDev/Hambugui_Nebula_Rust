@@ -17,6 +17,7 @@ pub mod remote;
 pub mod resolver;
 pub mod scan;
 pub mod server;
+pub mod signing;
 pub mod spec;
 pub mod validate;
 pub mod version;
@@ -33,6 +34,7 @@ pub use server::{
     CreateServerOptions, CreatedServer, LoaderKind, ServerSummary, build_server_spec,
     create_server, list_servers,
 };
+pub use signing::{DistributionKey, ResolvedKey};
 pub use spec::{Artifact, Distribution, Module, ModuleType, Required, Server};
 pub use validate::{Finding, Report, Severity, validate, validate_json, validate_value};
 pub use version::{MinecraftVersion, Promotion};

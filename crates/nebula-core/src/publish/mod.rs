@@ -17,6 +17,7 @@ use crate::error::{Error, Result, io};
 use crate::hash::{self, Digests};
 use crate::layout::Root;
 use crate::paths;
+use crate::signing::{self, DistributionKey};
 
 /// Somewhere a published file can go. Implementations are stateful so they can
 /// cache directory ids and connections across a run.
@@ -51,6 +52,10 @@ pub struct PublishOptions {
     /// Upload `<stem>.<target>.json` with every published URL replaced by the
     /// one the target handed back, instead of the distribution as generated.
     pub rewrite_urls: bool,
+    /// Signs the uploaded distribution into `<file>.sig`. Required: without a
+    /// key [`publish`] refuses before uploading anything, so an unsigned
+    /// distribution never reaches a launcher.
+    pub signing_key: Option<DistributionKey>,
 }
 
 impl Default for PublishOptions {
@@ -58,20 +63,28 @@ impl Default for PublishOptions {
         Self {
             only_changed: true,
             rewrite_urls: false,
+            signing_key: None,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishReport {
-    /// Files handed to [`Target::upload`], the distribution included.
+    /// Files handed to [`Target::upload`], the distribution and its signature
+    /// included.
     pub uploaded: usize,
     /// Files skipped because [`PublishState`] already had their SHA-256.
     pub skipped: usize,
     /// What the launcher should be pointed at.
     pub distribution_url: String,
+    /// Where the target serves the distribution's signature.
+    pub signature_url: String,
     pub rewritten_distribution: Option<PathBuf>,
 }
+
+/// What [`publish`] says when it has no key. The GUI matches on
+/// [`NO_SIGNING_KEY`] to offer the fix.
+pub const NO_SIGNING_KEY: &str = "no distribution signing key";
 
 /// Every file the distribution references, in the order it references them.
 ///
@@ -258,8 +271,16 @@ impl PublishState {
     }
 }
 
-/// Uploads the plan and then the distribution, which always goes last so a
-/// launcher never sees a manifest pointing at files that are not there yet.
+/// Uploads the plan, then the distribution, then its signature. The
+/// distribution goes after its files so a launcher never sees a manifest
+/// pointing at files that are not there yet; the signature goes right after the
+/// distribution, and a launcher that fetches between the two sees a mismatch
+/// and fetches both once more.
+///
+/// Refuses, before uploading a byte, without a signing key or when the
+/// distribution has no `serial` (written by hand or by a Nebula without
+/// serials: regenerate it). The bytes uploaded are the bytes signed, so a
+/// rewritten distribution is signed after it is rewritten.
 ///
 /// `only_changed` is ignored when `rewrite_urls` is set: a rewritten
 /// distribution needs a public URL for every file, and only the target can
@@ -271,6 +292,8 @@ pub fn publish(
     target: &mut dyn Target,
     opts: &PublishOptions,
 ) -> Result<PublishReport> {
+    let key = require_signing_key(opts.signing_key.as_ref())?;
+    let serial = require_serial(&plan.distribution_path)?;
     let name = target.name().to_owned();
     let mut state = PublishState::load(root);
     let mut uploaded = 0;
@@ -306,19 +329,81 @@ pub fn publish(
     let local = rewritten.as_deref().unwrap_or(&plan.distribution_path);
     let relative = distribution_relative(root, local);
 
-    let digests = hash::digests_of_file(local)?;
-    log::info!("Uploading {relative} to {name}");
+    // Signed from the bytes on disk right before they are uploaded.
+    let (signature, body) = signing::sign_file(key, local)?;
+    let digests = hash::digests_of_bytes(&body);
+    log::info!("Uploading {relative} (serial {serial}) to {name}");
     let distribution_url = target.upload(local, &relative, &digests)?;
     uploaded += 1;
     state.record(&name, &relative, &digests.sha256);
     state.save(root)?;
 
+    let signature_relative = format!("{relative}.sig");
+    let signature_digests = hash::digests_of_file(&signature)?;
+    log::info!("Uploading {signature_relative} to {name}");
+    let signature_url = target.upload(&signature, &signature_relative, &signature_digests)?;
+    uploaded += 1;
+    state.record(&name, &signature_relative, &signature_digests.sha256);
+    state.save(root)?;
+    log::info!("Signed with public key {}", key.public_key_hex());
+
+    let expected = signature_url_for(&distribution_url);
+    if expected.as_deref() != Some(signature_url.as_str()) {
+        log::warn!(
+            "The launcher looks for the signature at {}, but {name} serves it at \
+             {signature_url}. A launcher pointed at {distribution_url} will refuse it: host \
+             the distribution where its URL is a path (WebDAV, a static web server)",
+            expected.as_deref().unwrap_or("<distribution URL>.sig")
+        );
+    }
+
     Ok(PublishReport {
         uploaded,
         skipped,
         distribution_url,
+        signature_url,
         rewritten_distribution: rewritten,
     })
+}
+
+/// The key a publish signs with, or the refusal [`publish`] gives without one.
+/// Callers may run it first, before they set up a target, so the missing key
+/// is the error a user sees rather than a missing upload setting.
+pub fn require_signing_key(key: Option<&DistributionKey>) -> Result<&DistributionKey> {
+    key.ok_or_else(|| {
+        Error::Config(format!(
+            "publish refused: {NO_SIGNING_KEY}, and the Hambugui launcher refuses an unsigned \
+             distribution. Create one with `nebula keygen`, or set {} or {}",
+            signing::KEY_ENV,
+            signing::KEY_FILE_ENV
+        ))
+    })
+}
+
+/// The launcher's rule for finding a signature: the distribution URL with
+/// `.sig` appended to its path, query and fragment kept.
+pub fn signature_url_for(distribution_url: &str) -> Option<String> {
+    let mut url = url::Url::parse(distribution_url).ok()?;
+    let path = format!("{}.sig", url.path());
+    url.set_path(&path);
+    Some(url.into())
+}
+
+/// The distribution's `serial`, which must be there: a launcher compares it to
+/// refuse an older copy, and only a file Nebula generated carries one.
+fn require_serial(path: &Path) -> Result<u64> {
+    let raw = std::fs::read(path).map_err(io(format!("reading {}", path.display())))?;
+    let value: serde_json::Value = serde_json::from_slice(&raw)?;
+    value
+        .get("serial")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| {
+            Error::Invalid(format!(
+                "publish refused: {} has no serial (an unsigned 64-bit integer), so a launcher \
+                 could not tell it from an older copy. Regenerate it with `nebula generate distro`",
+                path.display()
+            ))
+        })
 }
 
 fn write_rewritten(

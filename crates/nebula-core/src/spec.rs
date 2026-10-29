@@ -132,6 +132,12 @@ pub struct Server {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Distribution {
     pub version: String,
+    /// Strictly increases with every distribution Nebula writes, so a launcher
+    /// can refuse an older signed copy (rollback). Covered by the signature
+    /// like every other byte. A Hambugui extension: Helios ignores unknown
+    /// keys, and a hand-written or upstream file has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serial: Option<u64>,
     pub rss: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discord: Option<DistroDiscord>,
@@ -204,6 +210,7 @@ mod tests {
         const PLACEHOLDER: &str = "<FILL IN OR REMOVE DISCORD OBJECT>";
         let distribution = Distribution {
             version: "1.0.0".into(),
+            serial: None,
             rss: "<LINK TO RSS FEED>".into(),
             discord: Some(DistroDiscord {
                 client_id: PLACEHOLDER.into(),

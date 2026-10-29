@@ -3,3 +3,6 @@
 *.log
 /.worktrees/
 /dist
+# Distribution signing keys (`nebula keygen`); the default one lives in the
+# per-user config directory, never here.
+*.key

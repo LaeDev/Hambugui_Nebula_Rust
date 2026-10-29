@@ -147,6 +147,17 @@ impl Validator {
                 "the distribution version must be a non-empty string",
             ),
         }
+        // Nebula's rollback serial. Optional, because Helios-style files have
+        // none and Helios ignores the key; when present, the Hambugui launcher
+        // compares it as an unsigned 64-bit integer, so nothing else will do.
+        if let Some(serial) = value.get("serial")
+            && serial.as_u64().is_none()
+        {
+            self.error(
+                "serial",
+                "serial must be an unsigned integer (0 to 18446744073709551615)",
+            );
+        }
         let Some(servers) = value.get("servers").and_then(Value::as_array) else {
             self.error("servers", "servers must be an array");
             return;

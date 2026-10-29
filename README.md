@@ -42,13 +42,18 @@ HELIOS_DATA_FOLDER=C:\Users\user\AppData\Roaming\Helios Launcher
 
 ```bash
 cargo build --release                            # 결과: target/release/nebula(.exe)
+nebula keygen                                     # 서명 키 생성(한 번만), 공개 키 출력
 nebula init root                                  # schemas/, meta/, servers/, modpacks/ 생성
 nebula g server MyServer 1.20.1 --forge recommended   # 로더는 forge/neoforge/fabric 중 하나
 # servers/MyServer-1.20.1/{files,libraries,forgemods/{required,optionalon,optionaloff}}/에 파일 배치
-nebula g distro                                   # distribution.json 생성
+nebula g distro                                   # distribution.json + distribution.json.sig 생성
 nebula validate --strict                          # 런처 계약(Hambugui/Helios) 검증
 nebula gui                                         # GUI 실행 (인자 없이 nebula만 실행해도 동일)
 ```
+
+`nebula keygen`이 출력한 64자리 공개 키를 Hambugui 런처 빌드의
+`HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`로 설정하세요. 릴리스 런처는 서명 없는 배포본을
+거부합니다. 자세한 내용은 [9절의 배포본 서명](#배포본-서명과-serial)을 보세요.
 
 ## 3.1 배포본 설치/실행 (Windows)
 
@@ -115,7 +120,10 @@ pwsh scripts/package-release.ps1 -SkipTests # 테스트를 건너뜀 (CI의 pack
    ID를 지정하고 가져옵니다. 자동으로 받을 수 없는 파일은 수동 다운로드 목록으로
    나타납니다.
 5. **배포** — WebDAV/Google Drive 업로드 대상을 고르고, 변경된 파일만 올릴지 정한 뒤
-   업로드를 실행합니다.
+   업로드를 실행합니다. 배포본 생성과 업로드는 CLI와 같은 서명 키(환경 변수, 없으면
+   설정 디렉터리의 `distribution-signing.key`)로 서명하며, 키가 없으면 업로드가
+   거부되고 결과 줄에 `nebula keygen`을 안내합니다. 키 생성과 공개 키 확인은 GUI에
+   없고 CLI(`nebula keygen`, `nebula public-key`)로만 합니다.
 6. **설정** — 루트/기본 URL/Java/Launcher 폴더, WebDAV·Google Drive 자격 증명, CurseForge
    API 키, 테마와 모션 줄이기를 편집하고 저장합니다.
 
@@ -134,7 +142,8 @@ SHA-256 앞자리를 함께 보여줍니다. strict 검증을 통과하지 못�
 `$XDG_CONFIG_HOME/nebula/settings.json`(없으면 `~/.config/nebula/settings.json`)에
 저장됩니다. 환경 변수 `NEBULA_CONFIG_DIR`을 설정하면 위 규칙 대신 그 경로를 그대로
 설정 디렉터리로 씁니다(끝에 `nebula`가 붙지 않습니다). Google Drive 리프레시 토큰도 같은
-디렉터리의 `gdrive-token.json`에 저장됩니다. 설정 파일이 없으면 `.env`/환경 변수로
+디렉터리의 `gdrive-token.json`에 저장되고, `nebula keygen`의 기본 배포본 서명 키도 같은
+디렉터리의 `distribution-signing.key`에 만들어집니다. 설정 파일이 없으면 `.env`/환경 변수로
 시드됩니다. 설정 페이지의 테마(시스템/라이트/다크)와 "모션 줄이기" 토글은 변경 즉시
 적용되고 저장됩니다(라이트가 기본값).
 
@@ -169,7 +178,7 @@ GUI는 Pretendard 글꼴과 Lucide 아이콘을 바이너리에 번들로 포함
 | `generate server <ID> <VERSION>` | `--forge <v>` / `--fabric <v>` / `--neoforge <v>` (셋 중 하나만, `v`는 `latest`/`recommended` 가능) | 새 서버 설정을 만듭니다. |
 | `generate server-import <ID> <FILE>` | `FILE`은 `<ROOT>/modpacks` 아래의 이름 또는 절대 경로 | CurseForge/Modrinth/Prism 모드팩 형식을 자동 감지해 서버를 만듭니다. |
 | `generate server-curseforge <ID> <ZIP_NAME>` | | CurseForge 형식만 허용하는 `server-import`의 별칭입니다. |
-| `generate distro [NAME]` | `--install-local`(별칭 `--installLocal`), `--discard-output`(별칭 `--discardOutput`), `--invalidate-cache`(별칭 `--invalidateCache`), `--helios-untracked` | 루트 파일 구조로부터 배포본 인덱스를 생성합니다. `NAME` 기본값은 `distribution`. |
+| `generate distro [NAME]` | `--install-local`(별칭 `--installLocal`), `--discard-output`(별칭 `--discardOutput`), `--invalidate-cache`(별칭 `--invalidateCache`), `--helios-untracked`, `--signing-key-file <PATH>` | 루트 파일 구조로부터 배포본 인덱스를 생성합니다. `NAME` 기본값은 `distribution`. 서명 키가 있으면 `<NAME>.json.sig`도 씁니다(없으면 경고와 함께 서명 없이 씁니다). [배포본 서명](#배포본-서명과-serial) 참고. |
 | `generate schemas` | | `meta/distrometa.json`, `servermeta.json`용 JSON 스키마를 다시 생성합니다. |
 
 camelCase 별칭(`--installLocal`, `--discardOutput`, `--invalidateCache`)은 kebab-case
@@ -186,12 +195,14 @@ camelCase 별칭(`--installLocal`, `--discardOutput`, `--invalidateCache`)은 ke
 | `latest-neoforge <VERSION>` | 지정한 마인크래프트 버전의 최신 NeoForge 버전. |
 | `recommended-neoforge <VERSION>` | 권장(non-beta) NeoForge 버전(없으면 최신 버전으로 대체하며 경고). |
 
-### validate / publish / gdrive-auth / gui
+### validate / publish / keygen / public-key / gdrive-auth / gui
 
 | 명령 | 인자/옵션 | 설명 |
 |---|---|---|
-| `validate [NAME]` | `--strict`, `--file <path>` | `<ROOT>/<NAME>.json`(또는 `--file`로 지정한 파일)을 런처 계약에 따라 검증합니다. `--strict`는 `http://` URL과 SHA-256 누락을 오류로 취급합니다. |
-| `publish [NAME]` | `--target <webdav|gdrive>` (필수), `--all` | 생성된 배포본이 참조하는 파일만 골라 업로드합니다. `--all`은 `publish-state.json`의 변경 추적을 무시합니다. |
+| `validate [NAME]` | `--strict`, `--file <path>` | `<ROOT>/<NAME>.json`(또는 `--file`로 지정한 파일)을 런처 계약에 따라 검증합니다. `--strict`는 `http://` URL과 SHA-256 누락을 오류로 취급합니다. `serial`이 있으면 부호 없는 64비트 정수인지 검사합니다. |
+| `publish [NAME]` | `--target <webdav|gdrive>` (필수), `--all`, `--signing-key-file <PATH>` | 생성된 배포본이 참조하는 파일만 골라 업로드한 뒤, 배포본과 그 서명(`.sig`)을 차례로 올립니다. `--all`은 `publish-state.json`의 변경 추적을 무시합니다. 서명 키나 `serial`이 없으면 아무것도 올리지 않고 거부합니다. |
+| `keygen` | `--out <PATH>` | 새 배포본 서명 키(Ed25519 시드) 파일을 만들고 공개 키만 출력합니다. 기본 경로는 설정 디렉터리의 `distribution-signing.key`이며, 이미 있는 파일은 덮어쓰지 않습니다. |
+| `public-key` | `--key-file <PATH>` | 서명 키의 공개 키(64자리 16진수)를 출력합니다. 런처의 `HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`에 넣을 값입니다. |
 | `gdrive-auth` | | Google 계정에 대해 OAuth 인증을 수행하고 리프레시 토큰을 저장합니다. |
 | `gui` | | GUI를 실행합니다(인자 없이 `nebula`를 실행한 것과 같습니다). |
 
@@ -377,6 +388,9 @@ Hambugui 런처가 배포본을 그대로 받아들이려면 다음을 지켜야
 * **경로는 깨끗한 상대 경로여야 합니다.** 선행 `/`, `..`, 드라이브 문자, UNC 경로,
   역슬래시는 모두 금지되며 `\` → `/`로 정규화됩니다.
 * 배포 전에는 항상 `nebula validate --strict`로 검증하세요.
+* **배포본에는 서명(`distribution.json.sig`)이 있어야 합니다.** 릴리스 Hambugui 런처는
+  서명이 없거나 맞지 않는 배포본을 거부합니다. 최상위 `serial`은 이전 사본으로 되돌리는
+  공격(롤백)을 막습니다. [9절의 배포본 서명](#배포본-서명과-serial)을 보세요.
 * **untracked 파일 결정**: [6절](#6-파일-구조-명세)에서 설명한 대로 항상 다이제스트를
   계산하고 `"untracked": true`를 붙이는 것이 기본 동작입니다. `generate distro
   --helios-untracked`로 업스트림의 다이제스트 없는 Helios 전용 동작으로 되돌릴 수
@@ -400,6 +414,88 @@ Hambugui 런처가 배포본을 그대로 받아들이려면 다음을 지켜야
 않습니다. 변경 추적은 `<ROOT>/publish-state.json`에 `대상 이름 → { 상대 경로 → SHA-256 }`
 형태로 남으며, 기본적으로 이전 업로드와 SHA-256이 같은 파일은 건너뜁니다. `--all`을
 쓰면 이 추적을 무시하고 전부 다시 올립니다.
+
+올리는 순서는 참조 파일 → 배포본 → 서명(`<배포본>.sig`)입니다. 배포본은 자기가 가리키는
+파일이 모두 올라간 뒤에 올라가고, 서명은 배포본 바로 뒤에 올라갑니다. 두 파일 사이에
+런처가 받아 가면 서명이 맞지 않는데, 런처는 이때 두 파일을 한 번 더 받아 확인합니다.
+
+### 배포본 서명과 serial
+
+릴리스 Hambugui 런처는 `distribution.json` 옆의 `distribution.json.sig`가 없거나 맞지
+않으면 배포본을 거부합니다. Nebula는 배포본을 쓰거나 올릴 때마다 이 파일을 런처 규칙
+그대로 만듭니다.
+
+* `.sig` 내용: Ed25519 서명을 소문자 16진수 128자로 쓰고 줄바꿈(`\n`) 하나로 끝냅니다.
+* 서명 대상: `hambugui-distribution-v1\n` 뒤에 배포본 파일의 바이트를 그대로 이어 붙인
+  것입니다. 런처는 `HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`(소문자 16진수 64자)로
+  `verify_strict` 검증합니다.
+* 런처는 배포본 URL의 경로 끝에 `.sig`를 붙인 주소에서 서명을 받습니다
+  (`https://mc.example.com/distribution.json` → `https://mc.example.com/distribution.json.sig`).
+
+**1. 키 만들기 (한 번만)**
+
+```bash
+nebula keygen                       # 설정 디렉터리의 distribution-signing.key에 생성
+nebula keygen --out D:\keys\nebula-dist.key   # 다른 위치에 만들 때
+```
+
+키 파일에는 32바이트 Ed25519 시드가 16진수 64자로 들어 있습니다. macOS/Linux에서는
+소유자만 읽을 수 있게(`600`) 만들어지고, Windows에서는 폴더의 권한을 그대로 물려받습니다
+(기본 위치 `%APPDATA%\nebula\`는 사용자 전용입니다). 이미 있는 파일은 절대 덮어쓰지
+않습니다. 키를 잃으면 새 키로 런처를 다시 빌드해야 하므로 **안전한 곳에 백업하세요.**
+키 파일을 저장소에 커밋하지 마세요(이 저장소의 `.gitignore`는 `*.key`를 제외합니다).
+Nebula는 키를 출력하거나 로그에 남기지 않으며, 로그에는 키의 출처와 공개 키만 나옵니다.
+
+**2. 런처에 공개 키 설정**
+
+`keygen`이 출력한 공개 키(또는 `nebula public-key`의 출력)를 Hambugui 런처를 빌드할 때
+`HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`로 설정합니다. 릴리스 런처는 빌드할 때 넣은 값만
+씁니다.
+
+```bash
+nebula public-key                   # 기본 키의 공개 키
+nebula public-key --key-file D:\keys\nebula-dist.key
+```
+
+**3. 서명 키를 찾는 순서**
+
+1. 명령줄의 `--signing-key-file <PATH>`(`generate distro`, `publish`),
+   `--key-file <PATH>`(`public-key`)
+2. 환경 변수 `NEBULA_DISTRIBUTION_SIGNING_KEY` — 시드 16진수 64자 자체
+3. 환경 변수 `NEBULA_DISTRIBUTION_SIGNING_KEY_FILE` — 키 파일 경로
+4. 설정 디렉터리의 `distribution-signing.key`(있을 때만)
+
+두 환경 변수는 `.env`에 넣어도 됩니다. 둘을 함께 설정하면 오류입니다. 지정한 파일이
+없거나 형식이 틀리면 서명 없이 넘어가지 않고 오류로 멈춥니다. 시드가 전부 0이면
+거부합니다.
+
+**4. 키가 없을 때**
+
+* `generate distro`: 배포본은 그대로 쓰지만 **서명 없이** 쓰고 큰 경고를 남깁니다. 예전에
+  만든 `.sig`가 옆에 있으면 지웁니다(다른 바이트에 대한 서명이기 때문입니다). 로컬
+  테스트나 서명 검사를 건너뛰는 개발용 런처에서만 쓸 수 있습니다.
+* `publish`(CLI·GUI 모두): **아무것도 올리지 않고 거부합니다.** 서명 없는 배포본이
+  사용자에게 가는 일은 없습니다.
+
+`publish`는 올리기 직전에 올릴 파일의 바이트로 다시 서명합니다. Google Drive처럼 URL을
+다시 쓴 사본(`<name>.gdrive.json`)을 올릴 때는 그 사본에 서명합니다.
+
+**5. `serial` (롤백 방지)**
+
+서명만으로는 순서가 없어서, 호스트를 장악한 공격자가 예전에 서명된 사본을 다시 내놓을
+수 있습니다. 그래서 Nebula는 배포본 최상위에 정수 `serial`(부호 없는 64비트)을 쓰고,
+이 값도 서명 대상에 포함됩니다. 런처는 이미 받은 것보다 작은 `serial`을 거부할 수
+있습니다.
+
+* 값: 생성 시각의 UNIX 시간(초)입니다. `<ROOT>/<NAME>.json`에 이전 배포본이 있고 그
+  `serial`이 현재 시각보다 크거나 같으면(같은 초에 두 번 생성, 시계가 뒤로 감) 이전 값
+  + 1을 씁니다. 그래서 생성할 때마다 항상 커집니다.
+* 이전 배포본 파일을 지우면 다시 현재 시각부터 시작합니다. 시계가 뒤로 가 있는 PC에서
+  이전 파일 없이 생성하면 작아질 수 있으니, 배포에 쓰는 `<ROOT>`의 배포본은 지우지 마세요.
+* `publish`는 `serial`이 없는 배포본(손으로 쓴 파일, 이전 Nebula가 만든 파일)을 거부합니다.
+  `nebula generate distro`로 다시 생성하세요.
+* `validate`는 `serial`이 있으면 부호 없는 정수인지 검사합니다. 없는 것은 오류가 아닙니다.
+* Helios 계열 런처는 모르는 키를 무시하므로 `serial`이 있어도 그대로 읽습니다.
 
 ### WebDAV (헤놀로지/Synology)
 
@@ -446,6 +542,12 @@ Hambugui 런처가 배포본을 그대로 받아들이려면 다음을 지켜야
 쓴 `<name>.gdrive.json` 사본이 함께 생성·업로드되며, 이 파일의 공개 URL이 런처에
 배포할 배포본 URL입니다.
 
+**서명과 Google Drive**: Nebula는 `<name>.gdrive.json.sig`도 함께 올리지만, Hambugui
+런처는 배포본 URL의 **경로** 끝에 `.sig`를 붙여 서명을 찾습니다. 드라이브 URL은 경로가
+아니라 파일 ID(`/download?id=…`)라서 런처가 그 서명을 찾지 못하고 배포본을 거부합니다.
+`publish`도 이 경우 경고를 남깁니다. 릴리스 런처가 읽을 배포본(`distribution.json`과
+`.sig`)은 경로로 주소가 정해지는 곳(WebDAV/Synology, 일반 웹 서버)에 두세요.
+
 ## 10. 원본과의 의도된 차이
 
 - **`BASE_URL`은 항상 슬래시로 끝나도록 강제합니다.** 업스트림은 끝에 슬래시가 없으면
@@ -482,6 +584,15 @@ Forge/NeoForge를 빌드하거나 모드를 스캔했을 때 나옵니다. Java 
 `servers[i].modules[j]…` 형태의 JSON 경로입니다. `--strict` 없이는 경고였던 항목이
 `--strict`에서는 오류가 될 수 있습니다(HTTP URL, SHA-256 누락 등). 마지막 줄의
 `N artifacts, M with SHA-256, E errors, W warnings` 요약으로 상태를 확인하세요.
+
+**`publish refused: no distribution signing key`.** 서명 키를 찾지 못했습니다.
+`nebula keygen`으로 키를 만들거나 `NEBULA_DISTRIBUTION_SIGNING_KEY_FILE`을 설정하세요.
+`nebula public-key`로 런처에 설정한 `HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`와 같은 키인지
+확인할 수 있습니다. 런처가 `distribution.signature.invalid`를 내면 키가 다르거나,
+`.sig`가 배포본 URL + `.sig` 자리에 없는 것입니다.
+
+**`publish refused: … has no serial`.** `serial` 없이 만들어진 배포본입니다.
+`nebula generate distro`로 다시 생성한 뒤 올리세요.
 
 **다른 Nebula 작업이 이 서버를 사용 중입니다.** 다른 프로세스(또는 다른 작업)가 같은
 서버의 `.nebula-lock`을 쥐고 있습니다. 대개는 그 작업이 끝날 때까지 기다리면 됩니다. 그

@@ -40,6 +40,27 @@ pub fn gdrive_token_path() -> PathBuf {
     config_dir().join("gdrive-token.json")
 }
 
+/// Where `nebula keygen` writes the distribution signing key by default, and
+/// where the CLI and the GUI look for it when no other key is named.
+pub fn signing_key_path() -> PathBuf {
+    config_dir().join(nebula_core::signing::DEFAULT_KEY_FILE_NAME)
+}
+
+/// The key to sign distributions with: `explicit` (a command-line key file),
+/// then the environment, then [`signing_key_path`] if it exists. Logs where it
+/// came from and the public key, never the key itself.
+pub fn resolve_signing_key(explicit: Option<&Path>) -> Result<Option<nebula_core::ResolvedKey>> {
+    let resolved = nebula_core::signing::resolve_key(explicit, Some(&signing_key_path()))?;
+    if let Some(resolved) = &resolved {
+        log::info!(
+            "Signing with {} (public key {})",
+            resolved.source,
+            resolved.key.public_key_hex()
+        );
+    }
+    Ok(resolved)
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct GuiSettings {

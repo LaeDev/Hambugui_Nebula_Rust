@@ -39,7 +39,8 @@ Get-FileHash .\nebula-gui.exe -Algorithm SHA256
 
 ### 설정이 저장되는 곳
 
-- 기본값: `%APPDATA%\nebula\` — `settings.json`, Google Drive 토큰(`gdrive-token.json`).
+- 기본값: `%APPDATA%\nebula\` — `settings.json`, Google Drive 토큰(`gdrive-token.json`),
+  `nebula keygen`이 만드는 배포본 서명 키(`distribution-signing.key`). 서명 키는 따로 백업하세요.
 - `NEBULA_CONFIG_DIR` 환경 변수를 지정하면 그 폴더를 그대로 씁니다(USB 포터블 사용에 유용).
 - `nebula-gui.exe`는 콘솔이 없으므로 로그를 그 폴더의 `nebula-gui.log`에 씁니다.
   이 파일은 실행할 때마다 새로 쓰입니다. 문제를 신고할 때 이 파일을 첨부하세요.

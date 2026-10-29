@@ -20,7 +20,8 @@ use nebula_core::scan::Namespace;
 use nebula_core::server::FORGE_MOD_LIST_WARNING;
 use nebula_core::{
     Config, CreateServerOptions, Error, GenerateOptions, MinecraftVersion, Promotion, Report,
-    Result, Root, ServerDir, distribution, import, meta, publish, remote, server, validate,
+    Result, Root, ServerDir, distribution, import, meta, publish, remote, server, signing,
+    validate,
 };
 
 /// What the CLI and the GUI say identically, defined once in the GUI module:
@@ -30,7 +31,9 @@ use nebula_core::{
 /// token to the real config directory — and `installed_version` /
 /// `release_label` are the two 모드 strings `mods list` and `mods update` print
 /// exactly as §8.3 and §8.8 draw them.
-use crate::gui::{config_dir, installed_version, release_label};
+use crate::gui::{
+    config_dir, installed_version, release_label, resolve_signing_key, signing_key_path,
+};
 
 #[derive(Parser)]
 #[command(
@@ -94,6 +97,21 @@ enum Command {
         /// Upload every file, ignoring the change tracking in publish-state.json.
         #[arg(long)]
         all: bool,
+        /// Sign with this key file instead of the environment or the default key.
+        #[arg(long, value_name = "PATH")]
+        signing_key_file: Option<PathBuf>,
+    },
+    /// Create a distribution signing key file and print its public key.
+    Keygen {
+        /// Where to write the key [default: <config dir>/distribution-signing.key].
+        #[arg(long, value_name = "PATH")]
+        out: Option<PathBuf>,
+    },
+    /// Print the public key (HAMBUGUI_DISTRIBUTION_PUBLIC_KEY) of the signing key.
+    PublicKey {
+        /// Read this key file instead of the environment or the default key.
+        #[arg(long, value_name = "PATH")]
+        key_file: Option<PathBuf>,
     },
     /// Authorise Nebula against a Google account and store the refresh token.
     GdriveAuth,
@@ -298,6 +316,9 @@ enum GenerateCommand {
         /// Emit untracked files without digests, as upstream Nebula did. Helios only.
         #[arg(long)]
         helios_untracked: bool,
+        /// Sign with this key file instead of the environment or the default key.
+        #[arg(long, value_name = "PATH")]
+        signing_key_file: Option<PathBuf>,
     },
     /// Generate json schemas.
     Schemas,
@@ -363,7 +384,14 @@ fn dispatch(command: Command) -> Result<()> {
         Command::RecommendedNeoforge { version } => {
             neoforge_promotion(&version, Promotion::Recommended)
         }
-        Command::Publish { name, target, all } => publish_command(&name, target, all),
+        Command::Publish {
+            name,
+            target,
+            all,
+            signing_key_file,
+        } => publish_command(&name, target, all, signing_key_file.as_deref()),
+        Command::Keygen { out } => keygen_command(out),
+        Command::PublicKey { key_file } => public_key_command(key_file.as_deref()),
         Command::GdriveAuth => gdrive::authorize(
             &gdrive::config_from_env(&config_dir())?,
             &gdrive::default_open_browser,
@@ -417,14 +445,19 @@ fn generate(command: GenerateCommand) -> Result<()> {
             discard_output,
             invalidate_cache,
             helios_untracked,
-        } => generate_distro(GenerateOptions {
-            name,
-            install_local,
-            discard_output,
-            invalidate_cache,
-            helios_untracked,
-            gui_fallback: installer_gui_fallback(),
-        }),
+            signing_key_file,
+        } => generate_distro(
+            GenerateOptions {
+                name,
+                install_local,
+                discard_output,
+                invalidate_cache,
+                helios_untracked,
+                gui_fallback: installer_gui_fallback(),
+                signing_key: None,
+            },
+            signing_key_file.as_deref(),
+        ),
         GenerateCommand::Schemas => {
             let (_, root) = root_from_env()?;
             log::debug!("Invoked generate schemas.");
@@ -567,8 +600,12 @@ WARNING"
     let _ = writeln!(out, "{rule}");
 }
 
-fn generate_distro(opts: GenerateOptions) -> Result<()> {
+fn generate_distro(mut opts: GenerateOptions, signing_key_file: Option<&Path>) -> Result<()> {
+    // After `root_from_env`, which loads `.env`: the key may be set there.
     let (cfg, _) = root_from_env()?;
+    // Without a key the distribution is still written, unsigned and with a
+    // loud warning; `publish` is where an unsigned file is refused.
+    opts.signing_key = resolve_signing_key(signing_key_file)?.map(|resolved| resolved.key);
     log::debug!("Install option set to {}", opts.install_local);
     log::debug!("Discard Output option set to {}", opts.discard_output);
     log::debug!("Invalidate Cache option set to {}", opts.invalidate_cache);
@@ -659,8 +696,17 @@ fn neoforge_promotion(version: &str, promotion: Promotion) -> Result<()> {
     Ok(())
 }
 
-fn publish_command(name: &str, kind: PublishTargetKind, all: bool) -> Result<()> {
+fn publish_command(
+    name: &str,
+    kind: PublishTargetKind,
+    all: bool,
+    signing_key_file: Option<&Path>,
+) -> Result<()> {
     let (_, root) = root_from_env()?;
+    // Refused here first, before the target's own settings are read;
+    // `publish::publish` refuses again without one, before uploading anything.
+    let signing_key = resolve_signing_key(signing_key_file)?.map(|resolved| resolved.key);
+    publish::require_signing_key(signing_key.as_ref())?;
     let path = root.path.join(format!("{name}.json"));
     let plan = publish::plan_from_distribution(&root, &path)?;
 
@@ -674,13 +720,44 @@ fn publish_command(name: &str, kind: PublishTargetKind, all: bool) -> Result<()>
         only_changed: !all,
         // Drive hands back its own urls, so the uploaded copy must carry them.
         rewrite_urls: kind == PublishTargetKind::Gdrive,
+        signing_key,
     };
 
     let report = publish::publish(&root, &plan, target.as_mut(), &opts)?;
     println!(
-        "uploaded {}, skipped {}, distribution URL: {}",
-        report.uploaded, report.skipped, report.distribution_url
+        "uploaded {}, skipped {}, distribution URL: {}, signature URL: {}",
+        report.uploaded, report.skipped, report.distribution_url, report.signature_url
     );
+    Ok(())
+}
+
+/// Writes a new seed file and prints only its public key on stdout, so
+/// `nebula keygen > pub.txt` captures exactly what the launcher needs.
+fn keygen_command(out: Option<PathBuf>) -> Result<()> {
+    // Loads `.env`, whose NEBULA_CONFIG_DIR decides the default path.
+    let _ = Config::from_env();
+    let path = out.unwrap_or_else(signing_key_path);
+    let key = signing::write_new_key_file(&path)?;
+    log::info!("Wrote a new distribution signing key to {}", path.display());
+    log::info!(
+        "Keep it private and backed up. Build the launcher with \
+         HAMBUGUI_DISTRIBUTION_PUBLIC_KEY set to the public key below."
+    );
+    println!("{}", key.public_key_hex());
+    Ok(())
+}
+
+fn public_key_command(key_file: Option<&Path>) -> Result<()> {
+    // Loads `.env`, which may name the key; ROOT is not needed here.
+    let _ = Config::from_env();
+    let resolved = resolve_signing_key(key_file)?.ok_or_else(|| {
+        Error::Config(format!(
+            "no distribution signing key: run `nebula keygen`, pass --key-file, or set {} or {}",
+            signing::KEY_ENV,
+            signing::KEY_FILE_ENV
+        ))
+    })?;
+    println!("{}", resolved.key.public_key_hex());
     Ok(())
 }
 
@@ -1162,6 +1239,42 @@ mod tests {
             "recommended",
         ]);
         assert!(one.is_ok());
+    }
+
+    #[test]
+    fn the_signing_commands_and_flags_parse() {
+        for args in [
+            vec!["nebula", "keygen"],
+            vec!["nebula", "keygen", "--out", "k.key"],
+            vec!["nebula", "public-key"],
+            vec!["nebula", "public-key", "--key-file", "k.key"],
+            vec!["nebula", "g", "distro", "--signing-key-file", "k.key"],
+            vec![
+                "nebula",
+                "publish",
+                "--target",
+                "webdav",
+                "--signing-key-file",
+                "k.key",
+            ],
+        ] {
+            assert!(Cli::try_parse_from(&args).is_ok(), "{args:?}");
+        }
+        // The key itself is never a command-line value, only a file.
+        assert!(
+            Cli::try_parse_from(["nebula", "publish", "--target", "webdav", "--key", "x"]).is_err()
+        );
+    }
+
+    #[test]
+    fn keygen_writes_a_key_that_public_key_reads_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("distribution-signing.key");
+        keygen_command(Some(path.clone())).unwrap();
+        let resolved = resolve_signing_key(Some(&path)).unwrap().unwrap();
+        assert_eq!(resolved.key.public_key_hex().len(), 64);
+        // A second keygen to the same path is refused.
+        assert!(keygen_command(Some(path)).is_err());
     }
 
     #[test]

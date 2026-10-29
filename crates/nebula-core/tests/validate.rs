@@ -131,6 +131,7 @@ fn warns_once_per_server_about_neoforge_modules() {
 
     let distribution = Distribution {
         version: "1.0.0".into(),
+        serial: Some(1),
         rss: "https://example.invalid/rss".into(),
         discord: None,
         servers: vec![Server {

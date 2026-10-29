@@ -38,6 +38,20 @@ fn blank_digests(json: &str) -> String {
         .join("\n")
 }
 
+/// Drops the top-level `"serial"` line, the one value that is the clock's and
+/// not the fixture's. The fixture predates serials, and a launcher that does
+/// not know the key ignores it, so the rest must still match byte for byte.
+fn without_serial(json: &str) -> String {
+    let lines: Vec<&str> = json.lines().collect();
+    let kept: Vec<&str> = lines
+        .iter()
+        .copied()
+        .filter(|line| !line.starts_with("  \"serial\": "))
+        .collect();
+    assert_eq!(kept.len() + 1, lines.len(), "exactly one serial line");
+    kept.join("\n")
+}
+
 fn workspace_target() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target")
 }
@@ -108,9 +122,18 @@ fn reproduces_the_golden_distribution() {
     std::fs::write(target.join("golden-output.json"), &generated).unwrap();
 
     assert_eq!(
-        blank_digests(&generated),
+        blank_digests(&without_serial(&generated)),
         blank_digests(GOLDEN.replace("\r\n", "\n").trim_end())
     );
+    // The serial sits right after the version, as an integer.
+    assert!(
+        generated.starts_with("{\n  \"version\": \"1.0.0\",\n  \"serial\": "),
+        "{generated}"
+    );
+    assert!(result.distribution.serial.is_some());
+    // No key was given: the file is unsigned and has no signature beside it.
+    assert_eq!(result.signature, None);
+    assert!(!dir.path().join("distribution.json.sig").exists());
 
     // The digests we blanked are still real ones.
     let artifact = &result.distribution.servers[0].modules[0].artifact;
@@ -131,9 +154,9 @@ fn the_catalogs_own_files_do_not_change_the_distribution() {
     let before = generate(plain.path(), false);
     let after = generate(with_catalog.path(), true);
 
+    // The two runs may straddle a second, so the clock's serial is left out.
     assert_eq!(
-        std::fs::read_to_string(&before.path).unwrap(),
-        std::fs::read_to_string(&after.path).unwrap()
+        without_serial(&std::fs::read_to_string(&before.path).unwrap()),
+        without_serial(&std::fs::read_to_string(&after.path).unwrap())
     );
-    assert_eq!(before.sha256, after.sha256);
 }

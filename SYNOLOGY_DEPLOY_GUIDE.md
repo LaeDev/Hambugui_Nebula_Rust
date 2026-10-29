@@ -16,6 +16,10 @@ ROOT=Z:\nebula-dist
 BASE_URL=https://mc.example.com/
 ```
 
+이 방식에서는 `generate distro`가 쓰는 파일이 곧 배포본이므로, **생성할 때 서명 키가
+있어야 합니다.** 키가 없으면 서명 없는 배포본이 그대로 서빙되고 릴리스 런처는 이를
+거부합니다(아래 [서명 키](#서명-키) 참고).
+
 **B. WebDAV 업로드 방식**
 작업 PC가 NAS와 떨어져 있거나 마운트를 상시 유지할 수 없을 때 씁니다.
 `nebula publish --target webdav`가 `distribution.json`이 참조하는 파일만 골라
@@ -59,19 +63,46 @@ NEBULA_WEBDAV_PUBLIC_URL=https://mc.example.com/
 `BASE_URL`은 항상 슬래시로 끝나야 합니다. `https://mc.example.com/dist`처럼 쓰면
 Nebula가 `/dist/`로 고쳐 주지만, 명시하는 편이 헷갈리지 않습니다.
 
+서명 키를 기본 위치(설정 디렉터리의 `distribution-signing.key`)가 아닌 곳에 두었다면
+`.env`에 경로를 적습니다. 키 자체를 적는 `NEBULA_DISTRIBUTION_SIGNING_KEY`도 있지만,
+`.env`가 다른 사람과 공유될 수 있다면 파일 경로를 쓰세요.
+
+```properties
+NEBULA_DISTRIBUTION_SIGNING_KEY_FILE=D:\keys\nebula-dist.key
+```
+
 `NEBULA_WEBDAV_URL`은 **업로드용**, `BASE_URL`/`NEBULA_WEBDAV_PUBLIC_URL`은
 **다운로드용** 주소입니다. 둘이 같은 파일 트리를 가리키지 않으면 런처가 404를
 받습니다. 위 예시에서 5006 포트는 `nebula-dist` 공유 폴더를,
 443 포트는 그 폴더를 문서 루트로 삼은 가상 호스트를 가리키므로 서로 맞습니다.
 
+## 서명 키
+
+릴리스 Hambugui 런처는 `distribution.json` 옆에 `distribution.json.sig`가 있어야
+배포본을 받아들입니다. 처음 한 번 키를 만들고, 출력된 공개 키를 런처 빌드의
+`HAMBUGUI_DISTRIBUTION_PUBLIC_KEY`로 넘기세요.
+
+```bash
+nebula keygen        # 키 파일 생성, 공개 키(16진수 64자)만 출력
+nebula public-key    # 나중에 공개 키를 다시 확인할 때
+```
+
+키 파일은 NAS의 공유 폴더(`nebula-dist`)에 **두지 마세요.** 그 폴더는 Web Station이
+그대로 공개합니다. 작업 PC의 설정 디렉터리(기본 위치)에 두고 따로 백업하세요.
+자세한 규칙(키를 찾는 순서, 키가 없을 때 동작, `serial`)은 README 9절의
+"배포본 서명과 serial"을 보세요.
+
 ## 배포 실행
 
 ```bash
-nebula generate distro          # <ROOT>/distribution.json 생성
+nebula generate distro          # <ROOT>/distribution.json과 .sig 생성 (serial 갱신)
 nebula validate --strict        # 런처 계약 검증 (HTTP URL을 오류로 취급)
-nebula publish --target webdav  # 방법 B: 바뀐 파일만 업로드
+nebula publish --target webdav  # 방법 B: 바뀐 파일, 배포본, 서명 순서로 업로드
 nebula publish --target webdav --all   # 변경 추적 무시하고 전부 업로드
 ```
+
+`publish`는 서명 키가 없으면 아무것도 올리지 않고 거부합니다. 배포본과 서명은 매번
+올라갑니다.
 
 변경 추적은 `<ROOT>/publish-state.json`에 `대상 이름 → { 상대 경로 → SHA-256 }`으로
 남습니다. 지우면 다음 배포 때 전부 다시 올라갑니다. 배포본을 통째로 옮겼거나
@@ -84,11 +115,13 @@ NAS 쪽 파일을 손으로 건드렸다면 지우고 다시 올리세요.
 curl -I "https://mc.example.com/servers/Hambugui-1.20.1/files/config/client.cfg"
 # 배포본 자체
 curl -I "https://mc.example.com/distribution.json"
+# 서명: 배포본 URL 뒤에 .sig를 붙인 주소에서 129바이트(16진수 128자 + 줄바꿈)
+curl -I "https://mc.example.com/distribution.json.sig"
 ```
 
 `200 OK`와 함께 `content-length`가 실제 파일 크기와 같아야 합니다. `401`이면 Web
 Station 쪽에 인증이 걸린 것이고, `404`면 문서 루트와 `BASE_URL`이 어긋난 것입니다.
-`nebula validate --strict`가 통과하고 위 두 요청이 200이면 런처에 URL을 넘겨도
+`nebula validate --strict`가 통과하고 위 세 요청이 200이면 런처에 URL을 넘겨도
 됩니다.
 
 ## 주의할 점
@@ -113,5 +146,7 @@ Station 쪽에 인증이 걸린 것이고, `404`면 문서 루트와 `BASE_URL`�
 드라이브는 CDN이 아니라서 100MB가 넘는 파일은 바이러스 검사 페이지를 거치고,
 인기 있는 팩은 파일별 다운로드 할당량 때문에 403이 날 수 있습니다. 또 공개 URL이
 파일 ID라서 `distribution.<대상>.json`으로 URL을 다시 쓴 사본을 만들어 올립니다.
+런처는 배포본 URL의 경로에 `.sig`를 붙여 서명을 찾으므로, 파일 ID로 주소가 정해지는
+드라이브에 둔 배포본은 서명을 찾지 못해 릴리스 런처가 거부합니다.
 OAuth 설정 절차와 제약은 README의 배포(publish) 절을 보세요. 가능하면 이 문서의
 방법 A나 B를 쓰세요.
